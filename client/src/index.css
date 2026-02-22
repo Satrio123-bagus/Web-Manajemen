@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-neon-cyan: #00f3ff;
+  --color-neon-purple: #bc13fe;
+  --color-dark-bg: #050505;
+  --color-card-bg: rgba(255, 255, 255, 0.03);
+
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Outfit", sans-serif;
+
+  --animate-glitch: glitch 1s infinite linear alternate-reverse;
+  --animate-flicker: flicker 2s infinite;
+
+  @keyframes glitch {
+    0% {
+      transform: translate(0)
+    }
+
+    20% {
+      transform: translate(-2px, 2px)
+    }
+
+    40% {
+      transform: translate(-2px, -2px)
+    }
+
+    60% {
+      transform: translate(2px, 2px)
+    }
+
+    80% {
+      transform: translate(2px, -2px)
+    }
+
+    100% {
+      transform: translate(0)
+    }
+  }
+
+  @keyframes flicker {
+
+    0%,
+    19%,
+    21%,
+    23%,
+    25%,
+    54%,
+    56%,
+    100% {
+      opacity: 1;
+    }
+
+    20%,
+    24%,
+    55% {
+      opacity: 0.5;
+    }
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-neon-cyan);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neon-purple);
+}
+
+::selection {
+  background: var(--color-neon-cyan);
+  color: #000;
+}
+
+body {
+  background: linear-gradient(to bottom, #050505, #0a0a0a);
+  color: #e0e0e0;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  margin: 0;
+}
+
+.holographic-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.holographic-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(45deg, transparent, var(--color-neon-cyan), transparent, var(--color-neon-purple));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) padding-box;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) padding-box;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.holographic-border:hover::before {
+  opacity: 1;
+  filter: drop-shadow(0 0 5px var(--color-neon-cyan));
+}
