@@ -78,22 +78,36 @@ function CyberTooltip({ active, payload, label }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FAKE TERMINAL LOGS
+   TERMINAL LOG HELPERS
    ═══════════════════════════════════════════════════════════ */
-const FAKE_LOGS = [
-    { ts: '03:41:02', msg: '[AUTH] Operator ADMIN_LV9 authenticated', type: 'info' },
-    { ts: '03:41:05', msg: '[SCAN] Network sweep initiated...', type: 'info' },
-    { ts: '03:41:07', msg: '[SCAN] 4/5 nodes responding', type: 'info' },
-    { ts: '03:41:12', msg: '[WARN] Neural Link v4.2 — stock critical (1)', type: 'warn' },
-    { ts: '03:41:15', msg: '[CRUD] POST /api/items — 201 Created', type: 'info' },
-    { ts: '03:41:18', msg: '[ALERT] Optic Nerve Enhancement — stock at 2', type: 'warn' },
-    { ts: '03:41:22', msg: '[SYS] Rate-limiter active: 0 blocked', type: 'info' },
-    { ts: '03:41:25', msg: '[SYNC] data.json persisted (10 records)', type: 'info' },
-    { ts: '03:41:30', msg: '[NET] Heartbeat: backend → frontend OK', type: 'info' },
-    { ts: '03:41:33', msg: '[SEC] Helmet headers applied', type: 'info' },
-    { ts: '03:41:38', msg: '[WARN] RTX 5090 Ti — high-value asset (Rp4.500)', type: 'warn' },
-    { ts: '03:41:42', msg: '[SYS] Garbage collection cycle complete', type: 'info' },
-];
+function formatLogTime(isoString) {
+    if (!isoString) return '--:--:--';
+    return new Date(isoString).toLocaleTimeString('en-GB', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+}
+
+function formatLogMsg(tx) {
+    switch (tx.type) {
+        case 'SALE': return `[SALE] Sold ${tx.quantity}x "${tx.item_name}" — Revenue: Rp${Number(tx.total).toLocaleString('id-ID')}`;
+        case 'RESTOCK': return `[RESTOCK] Received ${tx.quantity}x "${tx.item_name}"`;
+        case 'CREATE': return `[CREATE] New item registered: "${tx.item_name}"`;
+        case 'UPDATE': return `[UPDATE] Data for "${tx.item_name}" was modified.`;
+        case 'DELETE': return `[DELETE] Item "${tx.item_name}" deconstructed.`;
+        default: return `[${tx.type || 'EVENT'}] "${tx.item_name}"`;
+    }
+}
+
+function logColor(type) {
+    switch (type) {
+        case 'SALE': return 'text-[var(--color-neon-cyan)]';
+        case 'RESTOCK': return 'text-violet-400';
+        case 'CREATE': return 'text-emerald-400';
+        case 'DELETE': return 'text-red-400';
+        case 'UPDATE': return 'text-amber-400';
+        default: return 'text-gray-400';
+    }
+}
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD HOME
@@ -101,20 +115,35 @@ const FAKE_LOGS = [
 export default function DashboardHome() {
     const [analytics, setAnalytics] = useState(null);
     const [items, setItems] = useState([]);
+    const [terminalLogs, setTerminalLogs] = useState([]);
     const logRef = useRef(null);
 
+    // Fetch analytics, items, dan transaksi
     useEffect(() => {
-        Promise.all([
-            fetch('/api/analytics').then(r => r.json()),
-            fetch('/api/items').then(r => r.json()),
-        ]).then(([a, i]) => { setAnalytics(a); setItems(i); })
-            .catch(console.error);
+        const fetchAll = () => {
+            Promise.all([
+                fetch('/api/analytics').then(r => r.json()),
+                fetch('/api/items').then(r => r.json()),
+                fetch('/api/transactions').then(r => r.json()),
+            ]).then(([a, i, t]) => {
+                setAnalytics(a);
+                setItems(i);
+                setTerminalLogs(t);
+            }).catch(console.error);
+        };
+
+        fetchAll();
+        const interval = setInterval(() => {
+            fetch('/api/transactions').then(r => r.json()).then(setTerminalLogs).catch(console.error);
+        }, 5000); // Poll transaksi setiap 5 detik
+
+        return () => clearInterval(interval);
     }, []);
 
     // Auto-scroll terminal log
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-    }, []);
+    }, [terminalLogs]);
 
     const lowStockItems = useMemo(() => items.filter(i => i.stock < 5), [items]);
     const totalValue = analytics?.totalStockValue || 0;
@@ -320,20 +349,22 @@ export default function DashboardHome() {
                         ref={logRef}
                         className="bg-black/60 rounded-xl border border-white/5 p-4 font-mono text-xs max-h-52 overflow-y-auto space-y-1"
                     >
-                        {FAKE_LOGS.map((log, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0, x: -8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.4 + i * 0.06 }}
-                                className="flex gap-3"
-                            >
-                                <span className="text-gray-600 shrink-0">{log.ts}</span>
-                                <span className={log.type === 'warn' ? 'text-amber-400' : 'text-gray-400'}>
-                                    {log.msg}
-                                </span>
-                            </motion.div>
-                        ))}
+                        {terminalLogs.length === 0 ? (
+                            <p className="text-gray-600 text-center py-4">LOG_STREAM: <span className="text-[var(--color-neon-cyan)]">AWAITING_DATA</span></p>
+                        ) : (
+                            [...terminalLogs].reverse().map((tx, i) => (
+                                <motion.div
+                                    key={tx.transaction_id || i}
+                                    initial={{ opacity: 0, x: -8 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i < 5 ? i * 0.06 : 0 }}
+                                    className="flex gap-3"
+                                >
+                                    <span className="text-gray-600 shrink-0">{formatLogTime(tx.timestamp)}</span>
+                                    <span className={logColor(tx.type)}>{formatLogMsg(tx)}</span>
+                                </motion.div>
+                            ))
+                        )}
                         <div className="flex items-center gap-1 mt-2 text-[var(--color-neon-cyan)]">
                             <span>&gt;</span>
                             <span className="animate-[flicker_1s_infinite]">█</span>
