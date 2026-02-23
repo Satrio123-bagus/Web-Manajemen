@@ -5,6 +5,7 @@ import {
     Coins, Package, AlertTriangle, TrendingUp, Trash2,
     Edit3, Plus, X, Save, Search, ChevronDown, DollarSign
 } from 'lucide-react';
+import ActivityLog from '../components/ActivityLog';
 
 /* ═══════════════════════════════════════════════════════════
    RARITY CONFIG
@@ -127,209 +128,224 @@ export default function Dashboard({ items, onDelete, onEdit, onAdd, onSell, isDe
                 />
             </div>
 
-            {/* ═══ TABLE SECTION ═══ */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="relative"
-            >
-                {/* Table header bar */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
-                    <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-[var(--color-neon-cyan)]" />
-                            Inventory Registry
-                        </h3>
-                        <p className="text-xs font-mono text-gray-600 mt-1">
-                            {filtered.length} of {items.length} records displayed
-                        </p>
-                    </div>
-                    <div className="flex gap-3 items-center">
-                        {/* Search */}
-                        <div className="relative flex items-center bg-white/5 border border-white/10 rounded-lg h-9 px-3 hover:border-[var(--color-neon-cyan)]/30 transition-colors group">
-                            <Search className="w-4 h-4 text-gray-600 group-hover:text-[var(--color-neon-cyan)] transition-colors mr-2" />
-                            <input
-                                type="text" value={search} onChange={e => setSearch(e.target.value)}
-                                placeholder="Filter items..."
-                                className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-600 w-40 font-mono"
-                            />
+            {/* ═══ MAIN CONTENT GRID ═══ */}
+            <div className="space-y-8">
+                {/* ═══ TABLE SECTION (Full Width) ═══ */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    className="relative"
+                >
+                    {/* Table header bar */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+                        <div>
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-[var(--color-neon-cyan)]" />
+                                Inventory Registry
+                            </h3>
+                            <p className="text-xs font-mono text-gray-600 mt-1">
+                                {filtered.length} of {items.length} records displayed
+                            </p>
                         </div>
-                        {/* Add button */}
-                        <motion.button
-                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                            onClick={onAdd}
-                            className="h-9 px-5 rounded-lg bg-[var(--color-neon-purple)] text-white text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(188,19,254,0.3)] hover:shadow-[0_0_25px_rgba(188,19,254,0.5)] transition-all border border-white/10"
-                        >
-                            <Plus className="w-4 h-4" /> NEW_ENTRY
-                        </motion.button>
+                        <div className="flex gap-3 items-center">
+                            {/* Search */}
+                            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-lg h-9 px-3 hover:border-[var(--color-neon-cyan)]/30 transition-colors group">
+                                <Search className="w-4 h-4 text-gray-600 group-hover:text-[var(--color-neon-cyan)] transition-colors mr-2" />
+                                <input
+                                    type="text" value={search} onChange={e => setSearch(e.target.value)}
+                                    placeholder="Filter items..."
+                                    className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-600 w-40 font-mono"
+                                />
+                            </div>
+                            {/* Add button */}
+                            <motion.button
+                                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                                onClick={onAdd}
+                                className="h-9 px-5 rounded-lg bg-[var(--color-neon-purple)] text-white text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(188,19,254,0.3)] hover:shadow-[0_0_25px_rgba(188,19,254,0.5)] transition-all border border-white/10"
+                            >
+                                <Plus className="w-4 h-4" /> NEW_ENTRY
+                            </motion.button>
+                        </div>
                     </div>
-                </div>
 
-                {/* Table */}
-                <div className="rounded-2xl border border-white/5 overflow-hidden bg-[rgba(8,8,12,0.6)] backdrop-blur-xl">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-white/5">
-                                    {[
-                                        { key: 'id', label: 'ID' },
-                                        { key: 'name', label: 'ITEM NAME' },
-                                        { key: 'category', label: 'CATEGORY' },
-                                        { key: 'rarity', label: 'RARITY' },
-                                        { key: 'stock', label: 'STOCK LEVEL' },
-                                        { key: null, label: 'STATUS' },
-                                        { key: null, label: 'ACTIONS' },
-                                    ].map(({ key, label }, i) => (
-                                        <th
-                                            key={i}
-                                            onClick={key ? () => toggleSort(key) : undefined}
-                                            className={`px-5 py-4 text-left text-[10px] font-mono tracking-[0.15em] text-gray-500 uppercase whitespace-nowrap ${key ? 'cursor-pointer hover:text-[var(--color-neon-cyan)] transition-colors select-none' : ''}`}
-                                        >
-                                            <span className="flex items-center gap-1">
-                                                {label}
-                                                {key && sortKey === key && (
-                                                    <ChevronDown className={`w-3 h-3 transition-transform ${sortDir === 'desc' ? 'rotate-180' : ''}`} />
-                                                )}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <AnimatePresence mode="popLayout">
-                                    {filtered.map((item, idx) => {
-                                        const status = stockStatus(item.stock);
-                                        const rarity = RARITY_STYLE[item.rarity] || RARITY_STYLE.COMMON;
-                                        const deleting = isDeleting === item.id;
+                    {/* Table */}
+                    <div className="rounded-2xl border border-white/5 overflow-hidden bg-[rgba(8,8,12,0.6)] backdrop-blur-xl">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-white/5">
+                                        {[
+                                            { key: 'id', label: 'ID' },
+                                            { key: 'name', label: 'ITEM NAME' },
+                                            { key: 'category', label: 'CATEGORY' },
+                                            { key: 'rarity', label: 'RARITY' },
+                                            { key: 'price', label: 'UNIT PRICE' },
+                                            { key: 'stock', label: 'STOCK LEVEL' },
+                                            { key: null, label: 'STATUS' },
+                                            { key: null, label: 'ACTIONS' },
+                                        ].map(({ key, label }, i) => (
+                                            <th
+                                                key={i}
+                                                onClick={key ? () => toggleSort(key) : undefined}
+                                                className={`px-5 py-4 text-left text-[10px] font-mono tracking-[0.15em] text-gray-500 uppercase whitespace-nowrap ${key ? 'cursor-pointer hover:text-[var(--color-neon-cyan)] transition-colors select-none' : ''}`}
+                                            >
+                                                <span className="flex items-center gap-1">
+                                                    {label}
+                                                    {key && sortKey === key && (
+                                                        <ChevronDown className={`w-3 h-3 transition-transform ${sortDir === 'desc' ? 'rotate-180' : ''}`} />
+                                                    )}
+                                                </span>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <AnimatePresence mode="popLayout">
+                                        {filtered.map((item, idx) => {
+                                            const status = stockStatus(item.stock);
+                                            const rarity = RARITY_STYLE[item.rarity] || RARITY_STYLE.COMMON;
+                                            const deleting = isDeleting === item.id;
 
-                                        return (
-                                            <motion.tr
-                                                key={item.id}
-                                                layout
-                                                initial={{ opacity: 0, x: -20 }}
-                                                animate={{ opacity: deleting ? 0.3 : 1, x: 0 }}
-                                                exit={{ opacity: 0, x: 20, transition: { duration: 0.3 } }}
-                                                transition={{ duration: 0.3, delay: idx * 0.02 }}
-                                                className={`border-b border-white/[0.03] transition-all duration-200 group/row
+                                            return (
+                                                <motion.tr
+                                                    key={item.id}
+                                                    layout
+                                                    initial={{ opacity: 0, x: -20 }}
+                                                    animate={{ opacity: deleting ? 0.3 : 1, x: 0 }}
+                                                    exit={{ opacity: 0, x: 20, transition: { duration: 0.3 } }}
+                                                    transition={{ duration: 0.3, delay: idx * 0.02 }}
+                                                    className={`border-b border-white/[0.03] transition-all duration-200 group/row
                           ${idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.015]'}
                           hover:bg-[var(--color-neon-cyan)]/[0.06] hover:shadow-[inset_0_0_30px_rgba(0,243,255,0.04)]`}
-                                            >
-                                                {/* ID */}
-                                                <td className="px-5 py-4 font-mono text-xs text-gray-600">
-                                                    {item.id}
-                                                </td>
+                                                >
+                                                    {/* ID */}
+                                                    <td className="px-5 py-4 font-mono text-xs text-gray-600">
+                                                        {item.id}
+                                                    </td>
 
-                                                {/* NAME */}
-                                                <td className="px-5 py-4">
-                                                    <span className="font-bold text-white group-hover/row:text-[var(--color-neon-cyan)] transition-colors">
-                                                        {item.name}
-                                                    </span>
-                                                </td>
-
-                                                {/* CATEGORY */}
-                                                <td className="px-5 py-4">
-                                                    <span className="px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest text-[var(--color-neon-purple)] bg-[var(--color-neon-purple)]/10 border border-[var(--color-neon-purple)]/20 uppercase">
-                                                        {item.category}
-                                                    </span>
-                                                </td>
-
-                                                {/* RARITY */}
-                                                <td className="px-5 py-4">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest uppercase border ${rarity.text} ${rarity.bg} ${rarity.border}`}>
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${rarity.dot}`} />
-                                                        {item.rarity || 'COMMON'}
-                                                    </span>
-                                                </td>
-
-                                                {/* STOCK */}
-                                                <td className="px-5 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className={`font-mono font-bold tabular-nums ${item.stock < 5 ? 'text-amber-400' : 'text-white'}`}>
-                                                            {item.stock}
+                                                    {/* NAME */}
+                                                    <td className="px-5 py-4">
+                                                        <span className="font-bold text-white group-hover/row:text-[var(--color-neon-cyan)] transition-colors">
+                                                            {item.name}
                                                         </span>
-                                                        {/* Mini bar */}
-                                                        <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full transition-all duration-500 ${item.stock < 5 ? 'bg-amber-400' : 'bg-[var(--color-neon-cyan)]'}`}
-                                                                style={{ width: `${Math.min(100, (item.stock / 50) * 100)}%` }}
-                                                            />
+                                                    </td>
+
+                                                    {/* CATEGORY */}
+                                                    <td className="px-5 py-4">
+                                                        <span className="px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest text-[var(--color-neon-purple)] bg-[var(--color-neon-purple)]/10 border border-[var(--color-neon-purple)]/20 uppercase">
+                                                            {item.category}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* RARITY */}
+                                                    <td className="px-5 py-4">
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest uppercase border ${rarity.text} ${rarity.bg} ${rarity.border}`}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${rarity.dot}`} />
+                                                            {item.rarity || 'COMMON'}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* PRICE */}
+                                                    <td className="px-5 py-4">
+                                                        <span className="font-mono text-white group-hover/row:text-[var(--color-neon-cyan)] transition-colors">
+                                                            {Number(item.price).toLocaleString('id-ID')}
+                                                            <span className="text-[10px] text-gray-400 ml-1 font-normal uppercase tracking-tighter">Rp</span>
+                                                        </span>
+                                                    </td>
+
+                                                    {/* STOCK */}
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className={`font-mono font-bold tabular-nums ${item.stock < 5 ? 'text-amber-400' : 'text-white'}`}>
+                                                                {item.stock}
+                                                            </span>
+                                                            {/* Mini bar */}
+                                                            <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-500 ${item.stock < 5 ? 'bg-amber-400' : 'bg-[var(--color-neon-cyan)]'}`}
+                                                                    style={{ width: `${Math.min(100, (item.stock / 50) * 100)}%` }}
+                                                                />
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </td>
+                                                    </td>
 
-                                                {/* STATUS */}
-                                                <td className="px-5 py-4">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest border ${status.color} ${status.bg} ${status.border}`}>
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot} ${item.stock < 5 ? 'animate-pulse' : ''}`} />
-                                                        {status.label}
-                                                    </span>
-                                                </td>
+                                                    {/* STATUS */}
+                                                    <td className="px-5 py-4">
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest border ${status.color} ${status.bg} ${status.border}`}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot} ${item.stock < 5 ? 'animate-pulse' : ''}`} />
+                                                            {status.label}
+                                                        </span>
+                                                    </td>
 
-                                                {/* ACTIONS */}
-                                                <td className="px-5 py-4">
-                                                    <div className="flex gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
-                                                        {/* Quick Sell */}
-                                                        <motion.button
-                                                            whileHover={item.stock > 0 ? { scale: 1.1 } : {}} whileTap={item.stock > 0 ? { scale: 0.9 } : {}}
-                                                            onClick={() => item.stock > 0 && onSell(item.id)}
-                                                            disabled={item.stock <= 0}
-                                                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border ${item.stock > 0
-                                                                ? 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(251,191,36,0.2)]'
-                                                                : 'text-gray-600 border-gray-700/30 bg-gray-800/30 cursor-not-allowed'
-                                                                }`}
-                                                            title={item.stock > 0 ? `Sell 1x ${item.name}` : 'Out of stock'}
-                                                        >
-                                                            <DollarSign className="w-3 h-3" />
-                                                            {item.stock > 0 ? 'SELL' : 'EMPTY'}
-                                                        </motion.button>
-                                                        {/* Edit */}
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                                                            onClick={() => onEdit(item)}
-                                                            className="p-2 rounded-lg text-gray-500 hover:text-[var(--color-neon-cyan)] hover:bg-[var(--color-neon-cyan)]/10 transition-all"
-                                                            title="Edit"
-                                                        >
-                                                            <Edit3 className="w-4 h-4" />
-                                                        </motion.button>
-                                                        {/* Delete */}
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                                                            onClick={() => onDelete(item.id)}
-                                                            className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                                            title="Delete"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </motion.button>
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        );
-                                    })}
-                                </AnimatePresence>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Empty state */}
-                    {filtered.length === 0 && (
-                        <div className="py-16 text-center font-mono text-gray-600">
-                            <p className="text-lg mb-1">System.Query.Result: <span className="text-[var(--color-neon-cyan)]">NULL</span></p>
-                            <p className="text-xs">No records match the current filter criteria</p>
+                                                    {/* ACTIONS */}
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                                            {/* Quick Sell */}
+                                                            <motion.button
+                                                                whileHover={item.stock > 0 ? { scale: 1.1 } : {}} whileTap={item.stock > 0 ? { scale: 0.9 } : {}}
+                                                                onClick={() => item.stock > 0 && onSell(item.id)}
+                                                                disabled={item.stock <= 0}
+                                                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border ${item.stock > 0
+                                                                    ? 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(251,191,36,0.2)]'
+                                                                    : 'text-gray-600 border-gray-700/30 bg-gray-800/30 cursor-not-allowed'
+                                                                    }`}
+                                                                title={item.stock > 0 ? `Sell 1x ${item.name}` : 'Out of stock'}
+                                                            >
+                                                                <DollarSign className="w-3 h-3" />
+                                                                {item.stock > 0 ? 'SELL' : 'EMPTY'}
+                                                            </motion.button>
+                                                            {/* Edit */}
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                                                onClick={() => onEdit(item)}
+                                                                className="p-2 rounded-lg text-gray-500 hover:text-[var(--color-neon-cyan)] hover:bg-[var(--color-neon-cyan)]/10 transition-all"
+                                                                title="Edit"
+                                                            >
+                                                                <Edit3 className="w-4 h-4" />
+                                                            </motion.button>
+                                                            {/* Delete */}
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                                                onClick={() => onDelete(item.id)}
+                                                                className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </motion.button>
+                                                        </div>
+                                                    </td>
+                                                </motion.tr>
+                                            );
+                                        })}
+                                    </AnimatePresence>
+                                </tbody>
+                            </table>
                         </div>
-                    )}
 
-                    {/* Table footer */}
-                    <div className="px-5 py-3 border-t border-white/5 flex justify-between items-center">
-                        <p className="text-[10px] font-mono text-gray-600">
-                            TOTAL_ASSETS: <span className="text-[var(--color-neon-cyan)]">{stats.totalAssets.toLocaleString()} Rp</span>
-                        </p>
-                        <p className="text-[10px] font-mono text-gray-600">
-                            RECORDS: {filtered.length}/{items.length}
-                        </p>
+                        {/* Empty state */}
+                        {filtered.length === 0 && (
+                            <div className="py-16 text-center font-mono text-gray-600">
+                                <p className="text-lg mb-1">System.Query.Result: <span className="text-[var(--color-neon-cyan)]">NULL</span></p>
+                                <p className="text-xs">No records match the current filter criteria</p>
+                            </div>
+                        )}
+
+                        {/* Table footer */}
+                        <div className="px-5 py-3 border-t border-white/5 flex justify-between items-center">
+                            <p className="text-[10px] font-mono text-gray-600">
+                                TOTAL_ASSETS: <span className="text-[var(--color-neon-cyan)]">{stats.totalAssets.toLocaleString()} Rp</span>
+                            </p>
+                            <p className="text-[10px] font-mono text-gray-600">
+                                RECORDS: {filtered.length}/{items.length}
+                            </p>
+                        </div>
                     </div>
-                </div>
-            </motion.div>
+                </motion.div>
+
+                {/* ═══ ACTIVITY LOG ═══ */}
+                <ActivityLog />
+            </div>
         </div>
     );
 }
@@ -354,7 +370,18 @@ export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
         e.preventDefault();
         if (!form.name || !form.category) return;
         const { _synced, ...data } = form;
-        onSave({ ...data, price: Number(data.price), stock: Number(data.stock) });
+
+        // Clean price formatting (Indonesian dots are thousands, not decimals)
+        // 1. Remove "Rp" and any non-numeric characters EXCEPT dots and commas
+        let cleanPrice = String(data.price).replace(/[^0-9.,]/g, '');
+        // 2. If it has both dot and comma (e.g. 1.250,50), or just dots (1.250.000)
+        // We assume dot is thousands if it appears multiple times or is followed by 3 digits.
+        // For simplicity and matching user scenario (123.000), we remove all dots.
+        cleanPrice = cleanPrice.replace(/\./g, '');
+        // 3. Replace comma with dot for JS Number parsing
+        cleanPrice = cleanPrice.replace(/,/g, '.');
+
+        onSave({ ...data, price: Number(cleanPrice) || 0, stock: Number(data.stock) || 0 });
     };
 
     return (
@@ -383,7 +410,7 @@ export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
                             <FieldInput label="ITEM_NAME" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Item designation..." />
                             <FieldInput label="CATEGORY_TAG" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="GPU / Implant / Hardware..." />
                             <div className="grid grid-cols-2 gap-4">
-                                <FieldInput label="UNIT_COST" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="0" />
+                                <FieldInput label="UNIT_COST" type="text" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="0" />
                                 <FieldInput label="STOCK_LEVEL" type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} placeholder="0" />
                             </div>
                             <div className="relative">

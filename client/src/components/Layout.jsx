@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
-import { Search, Bell, User, Zap } from 'lucide-react';
+import { Search, Bell, User, Zap, Menu } from 'lucide-react';
 
 export default function Layout({ children, activePage }) {
     const [sidebarCollapsed] = useState(false);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     return (
         <div className="min-h-screen bg-[var(--color-dark-bg)] text-gray-200 font-sans relative overflow-hidden">
@@ -16,15 +17,21 @@ export default function Layout({ children, activePage }) {
             </div>
 
             {/* ── Sidebar ── */}
-            <Sidebar />
+            <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
 
             {/* ── Main Wrapper (shifts right for sidebar) ── */}
-            <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
+            <div className={`transition-all duration-300 ml-0 md:ml-64`}>
 
                 {/* ── Header ── */}
-                <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-8 bg-black/50 backdrop-blur-xl border-b border-white/5">
+                <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-8 bg-black/50 backdrop-blur-xl border-b border-white/5">
                     {/* Left — Page title */}
                     <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setMobileSidebarOpen(true)} 
+                            className="md:hidden p-2 -ml-2 rounded-lg text-gray-400 hover:text-[var(--color-neon-cyan)]"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
                         <div className="w-2 h-2 rounded-full bg-[var(--color-neon-cyan)] shadow-[0_0_8px_var(--color-neon-cyan)] animate-pulse" />
                         <h2 className="text-sm font-mono tracking-[0.15em] text-gray-400 uppercase">
                             {activePage || 'dashboard'}
@@ -33,7 +40,7 @@ export default function Layout({ children, activePage }) {
                     </div>
 
                     {/* Right — Search + Notifications + Avatar */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 md:gap-4">
                         {/* Search */}
                         <div className="relative hidden md:flex items-center bg-white/5 border border-white/10 rounded-full h-9 px-4 w-56 hover:border-[var(--color-neon-cyan)]/30 transition-colors group">
                             <Search className="w-4 h-4 text-gray-600 group-hover:text-[var(--color-neon-cyan)] transition-colors mr-2" />
@@ -51,7 +58,7 @@ export default function Layout({ children, activePage }) {
                         </button>
 
                         {/* Separator */}
-                        <div className="w-px h-8 bg-white/10" />
+                        <div className="hidden md:block w-px h-8 bg-white/10" />
 
                         {/* Profile */}
                         <button className="flex items-center gap-3 group">
@@ -72,7 +79,7 @@ export default function Layout({ children, activePage }) {
                 </header>
 
                 {/* ── Content Area ── */}
-                <main className="p-8 relative z-10 min-h-[calc(100vh-4rem)] overflow-y-auto">
+                <main className="p-4 md:p-8 relative z-10 min-h-[calc(100vh-4rem)] overflow-y-auto">
                     {children}
                 </main>
             </div>

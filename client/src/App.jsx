@@ -36,7 +36,7 @@ function AppContent() {
       if (!res.ok) throw new Error('Server error');
       setItems(await res.json());
     } catch {
-      setError('CONNECTION_REFUSED // Is the backend running on :5000?');
+      setError('CONNECTION_REFUSED // Is the backend running on :8080?');
     } finally {
       setLoading(false);
     }
