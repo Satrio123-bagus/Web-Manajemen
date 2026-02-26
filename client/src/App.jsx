@@ -36,7 +36,7 @@ function AppContent() {
       if (!res.ok) throw new Error('Server error');
       setItems(await res.json());
     } catch {
-      setError('CONNECTION_REFUSED // Is the backend running on :8080?');
+      setError('CONNECTION_REFUSED // Gagal terhubung ke Server API');
     } finally {
       setLoading(false);
     }
