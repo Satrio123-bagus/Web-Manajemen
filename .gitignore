@@ -3,3 +3,6 @@ node_modules/
 build/
 dist/
 .DS_Store
+server/*.db
+server/*.db-shm
+server/*.db-wal
