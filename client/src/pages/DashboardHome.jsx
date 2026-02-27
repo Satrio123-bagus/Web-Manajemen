@@ -120,22 +120,35 @@ export default function DashboardHome() {
 
     // Fetch analytics, items, dan transaksi
     useEffect(() => {
+        const safeFetch = async (url) => {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`${r.status}`);
+            return r.json();
+        };
+
         const fetchAll = () => {
             Promise.all([
-                fetch('/api/analytics').then(r => r.json()),
-                fetch('/api/items').then(r => r.json()),
-                fetch('/api/transactions').then(r => r.json()),
+                safeFetch('/api/analytics'),
+                safeFetch('/api/items'),
+                safeFetch('/api/transactions'),
             ]).then(([a, i, t]) => {
                 setAnalytics(a);
                 setItems(i);
                 setTerminalLogs(t);
-            }).catch(console.error);
+            }).catch(() => {
+                // Set empty defaults so the dashboard still renders
+                setAnalytics(prev => prev || {
+                    totalStockValue: 0, totalItems: 0, totalStock: 0,
+                    lowStockCount: 0, categoryDistribution: [],
+                    rarityDistribution: [], stockTrends: [],
+                });
+            });
         };
 
         fetchAll();
         const interval = setInterval(() => {
-            fetch('/api/transactions').then(r => r.json()).then(setTerminalLogs).catch(console.error);
-        }, 5000); // Poll transaksi setiap 5 detik
+            safeFetch('/api/transactions').then(setTerminalLogs).catch(() => { });
+        }, 10000); // Poll setiap 10 detik (lebih hemat)
 
         return () => clearInterval(interval);
     }, []);
