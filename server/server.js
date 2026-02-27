@@ -211,12 +211,17 @@ app.use(cors({
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 300,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'RATE_LIMIT_EXCEEDED // Too many requests, try again later.' },
 });
 app.use('/api/', limiter);
+
+// ─── HEALTH CHECK ENDPOINT (excluded from rate limit) ───
+app.get('/api/status', (req, res) => {
+    res.json({ status: 'ONLINE', timestamp: new Date().toISOString() });
+});
 
 app.use(express.json({ limit: '10kb' }));
 

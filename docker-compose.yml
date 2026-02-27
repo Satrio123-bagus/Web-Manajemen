@@ -1,8 +1,9 @@
 services:
   backend:
     build: ./server
-    ports:
-      - "8080:8080"
+    restart: always
+    env_file:
+      - ./server/.env
     environment:
       - PORT=8080
     networks:
@@ -10,12 +11,11 @@ services:
 
   frontend:
     build: ./client
+    restart: always
     ports:
-      - "3000:3000"
+      - "80:80"
     depends_on:
       - backend
-    environment:
-      - VITE_API_TARGET=http://backend:8080
     networks:
       - insert3coins-net
 
