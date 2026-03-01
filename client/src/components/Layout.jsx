@@ -1,10 +1,21 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { Search, Bell, User, Zap, Menu } from 'lucide-react';
 
-export default function Layout({ children, activePage }) {
+export default function Layout({ children, activePage, onSearch }) {
     const [sidebarCollapsed] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [headerSearch, setHeaderSearch] = useState('');
+    const navigate = useNavigate();
+
+    // Handle search: navigate to inventory and trigger search
+    const handleHeaderSearch = (e) => {
+        if (e.key === 'Enter' && onSearch) {
+            onSearch(headerSearch);
+            navigate('/inventory');
+        }
+    };
 
     return (
         <div className="min-h-screen bg-[var(--color-dark-bg)] text-gray-200 font-sans relative overflow-hidden">
@@ -26,8 +37,8 @@ export default function Layout({ children, activePage }) {
                 <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-8 bg-black/50 backdrop-blur-xl border-b border-white/5">
                     {/* Left — Page title */}
                     <div className="flex items-center gap-3">
-                        <button 
-                            onClick={() => setMobileSidebarOpen(true)} 
+                        <button
+                            onClick={() => setMobileSidebarOpen(true)}
                             className="md:hidden p-2 -ml-2 rounded-lg text-gray-400 hover:text-[var(--color-neon-cyan)]"
                         >
                             <Menu className="w-6 h-6" />
@@ -41,12 +52,15 @@ export default function Layout({ children, activePage }) {
 
                     {/* Right — Search + Notifications + Avatar */}
                     <div className="flex items-center gap-2 md:gap-4">
-                        {/* Search */}
-                        <div className="relative hidden md:flex items-center bg-white/5 border border-white/10 rounded-full h-9 px-4 w-56 hover:border-[var(--color-neon-cyan)]/30 transition-colors group">
+                        {/* Search — navigates to inventory and filters items on Enter */}
+                        <div className="relative hidden md:flex items-center bg-white/5 border border-white/10 rounded-full h-9 px-4 w-56 hover:border-[var(--color-neon-cyan)]/30 focus-within:border-[var(--color-neon-cyan)]/50 transition-colors group">
                             <Search className="w-4 h-4 text-gray-600 group-hover:text-[var(--color-neon-cyan)] transition-colors mr-2" />
                             <input
                                 type="text"
-                                placeholder="Search systems..."
+                                value={headerSearch}
+                                onChange={e => setHeaderSearch(e.target.value)}
+                                onKeyDown={handleHeaderSearch}
+                                placeholder="Search items... (Enter)"
                                 className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-600 w-full font-mono"
                             />
                         </div>

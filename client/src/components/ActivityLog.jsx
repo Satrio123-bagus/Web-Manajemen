@@ -13,11 +13,16 @@ const LOG_TYPE_STYLES = {
 
 function formatTimestamp(isoString) {
     if (!isoString) return '';
-    return new Date(isoString).toLocaleTimeString('en-GB', {
+    const date = new Date(isoString);
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = String(date.getFullYear()).slice(-2);
+    const time = date.toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
     });
+    return `[${d}/${m}/${y} ${time}]`;
 }
 
 export default function ActivityLog() {
@@ -71,10 +76,10 @@ export default function ActivityLog() {
                 message = `[SELL] Sold ${log.quantity}x "${log.item_name}" for ${log.total.toLocaleString()} Rp`;
                 break;
             case 'RESTOCK':
-                 message = `[RESTOCK] Received ${log.quantity}x "${log.item_name}"`;
+                message = `[RESTOCK] Received ${log.quantity}x "${log.item_name}"`;
                 break;
             default:
-                 message = `[${log.type || 'SYSTEM'}] Event for "${log.item_name}"`;
+                message = `[${log.type || 'SYSTEM'}] Event for "${log.item_name}"`;
         }
 
         return (
@@ -97,7 +102,7 @@ export default function ActivityLog() {
             <div className="h-full flex flex-col rounded-2xl border border-white/5 bg-[rgba(8,8,12,0.6)] backdrop-blur-xl overflow-hidden">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-white/5">
-                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Database className="w-5 h-5 text-[var(--color-neon-purple)]" />
                         Transaction Log
                     </h3>
@@ -109,7 +114,7 @@ export default function ActivityLog() {
                 {/* Log container */}
                 <div ref={logContainerRef} className="flex-1 p-5 space-y-3 overflow-y-auto">
                     {error && (
-                         <p className="font-mono text-xs text-red-500">
+                        <p className="font-mono text-xs text-red-500">
                             [ERROR] Failed to connect to log stream: {error}
                         </p>
                     )}
@@ -131,7 +136,7 @@ export default function ActivityLog() {
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
                         LIVE_FEED
                     </p>
-                     <p className="text-[10px] font-mono text-gray-600">
+                    <p className="text-[10px] font-mono text-gray-600">
                         {logs.length} RECORDS
                     </p>
                 </div>

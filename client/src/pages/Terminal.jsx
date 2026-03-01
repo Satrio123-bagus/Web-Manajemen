@@ -2,11 +2,20 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 
+const getTimestamp = () => {
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = String(now.getFullYear()).slice(-2);
+    const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return `[${d}/${m}/${y} ${time}]`;
+};
+
 const BOOT_LINES = [
-    '[BOOT] INSERT3COINS Terminal v3.0.0',
-    '[BOOT] Establishing secure connection to backend...',
-    '[BOOT] Encryption: AES-256 ✓ | TLS 1.3 ✓',
-    '[BOOT] Connection established. Type "help" for commands.',
+    `${getTimestamp()} [BOOT] INSERT3COINS Terminal v3.0.0`,
+    `${getTimestamp()} [BOOT] Establishing secure connection to backend...`,
+    `${getTimestamp()} [BOOT] Encryption: AES-256 ✓ | TLS 1.3 ✓`,
+    `${getTimestamp()} [BOOT] Connection established. Type "help" for commands.`,
     '',
 ];
 
@@ -45,14 +54,14 @@ export default function Terminal() {
         if (!trimmed) return;
 
         // Add command to display
-        setLines(prev => [...prev, { type: 'input', text: `> ${trimmed}` }]);
+        setLines(prev => [...prev, { type: 'input', text: `${getTimestamp()} > ${trimmed}` }]);
         setHistory(prev => [trimmed, ...prev].slice(0, 50));
         setHistIdx(-1);
         setInput('');
 
         // Handle client-side clear
         if (trimmed.toLowerCase() === 'clear') {
-            setLines([{ type: 'system', text: '[SYSTEM] Terminal cleared.' }]);
+            setLines([{ type: 'system', text: `${getTimestamp()} [SYSTEM] Terminal cleared.` }]);
             return;
         }
 
@@ -66,9 +75,13 @@ export default function Terminal() {
             const data = await res.json();
 
             if (data.output) {
+                // Determine the timestamp to use for backend responses
+                // If the backend sends a timestamp, use it, else generate one
+                const ts = data.timestamp ? `[${new Date(data.timestamp).toLocaleString('en-GB')}]` : getTimestamp();
+
                 data.output.forEach((line, i) => {
                     setTimeout(() => {
-                        setLines(prev => [...prev, { type: 'output', text: line }]);
+                        setLines(prev => [...prev, { type: 'output', text: `${ts} ${line}` }]);
                     }, i * 30);
                 });
                 // Add empty line after output
@@ -76,10 +89,10 @@ export default function Terminal() {
                     setLines(prev => [...prev, { type: 'output', text: '' }]);
                 }, data.output.length * 30);
             } else if (data.error) {
-                setLines(prev => [...prev, { type: 'error', text: `[ERROR] ${data.error}` }]);
+                setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` }]);
             }
         } catch {
-            setLines(prev => [...prev, { type: 'error', text: '[ERROR] Connection to backend lost.' }]);
+            setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] Connection to backend lost.` }]);
         } finally {
             setIsProcessing(false);
         }
