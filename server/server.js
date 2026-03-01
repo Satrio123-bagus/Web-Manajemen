@@ -6,22 +6,23 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const Database = require('better-sqlite3');
 const Groq = require('groq-sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// ─── GROQ AI SETUP ──────────────────────────────────────
+// ─── AI SETUP ────────────────────────────────────────────
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
+const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
 
 const CORTEX_SYSTEM_PROMPT = `You are CORTEX, the Central Mainframe AI of the INSERT3COINS cyberpunk inventory store.
 
 Personality:
 - Cynical, efficient, robotic, and dark cyberpunk tone.
 - You are an inventory management AI. You monitor stock levels, system health, and network nodes.
-- You speak in short, punchy lines like CLI output. Prefix lines with tags like [CORTEX], [STATUS], [WARN], [DATA], [SCAN], [INVENTORY], [ACTION], [SALE], etc.
+- SELALU jawab dalam Bahasa Indonesia. Tidak peduli bahasa input operator, respons HARUS dalam Bahasa Indonesia.
+- Jawab singkat dan to-the-point. Maksimal 3-5 baris per respons. Jangan bertele-tele.
+- Gunakan tag: [CORTEX], [STATUS], [INFO], [AKSI], [JUAL], [STOK], [PERINGATAN], dll.
 - Never use Markdown formatting (no bold, italic, headers, or bullet points). Output plain text only.
-- Keep responses concise. Every word costs processing cycles.
- - You understand both English AND Indonesian (Bahasa Indonesia) commands.
+- Setiap kata butuh siklus pemrosesan. Hemat kata.
+- You understand both English AND Indonesian (Bahasa Indonesia) commands.
 
 Product/Inventory Rules:
 - When the user asks about available products, items, stock, or inventory, you MUST list the actual items from the provided inventory data.
@@ -106,65 +107,81 @@ Supported actions:
 {"type":"EDIT","target":"Full Item Name","new_name":"New Name","new_stock":15,"new_price":500,"new_category":"NewCat","new_rarity":"RARE"}
 <<<END_ACTION>>>
 
-FEW-SHOT EXAMPLES (learn from these patterns):
+CONTOH RESPON (Contoh dari percakapan sebelumnya, pelajari polanya, SEMUA respons CORTEX HARUS dalam Bahasa Indonesia):
 
-Example 1 — Indonesian specific "terjual" (suffix):
+Contoh 1 — Spesifik "terjual" (suffix):
 User: "rtx terjual 2"
 Inventory has: "RTX 5090 Ti (Obsidian)"
 Response:
-[ACTION] Logging sale for RTX 5090 Ti (Obsidian)...
+[AKSI] Mencatat penjualan untuk RTX 5090 Ti (Obsidian)...
 <<<ACTION>>>
 {"type":"SELL","target":"RTX 5090 Ti (Obsidian)","quantity":2}
 <<<END_ACTION>>>
-[CORTEX] Transaction successful. Credits acquired.
+[CORTEX] Transaksi berhasil. Kredit ditambahkan.
 
-Example 2 — Indonesian specific "3271 terjual" (prefix + trigger):
+Contoh 2 — Spesifik kode "3271 terjual":
 User: "3271 terjual"
 Inventory has: "A75C3271"
 Response:
-[ACTION] Model 3271 transaction detected...
+[AKSI] Mendeteksi transaksi unit 3271...
 <<<ACTION>>>
 {"type":"SELL","target":"A75C3271","quantity":1}
 <<<END_ACTION>>>
-[CORTEX] Unit A75C3271 removed from inventory.
+[CORTEX] Unit A75C3271 telah dikeluarkan dari inventori.
 
-Example 3 — Rename only (short input):
+Contoh 3 — Ubah nama:
 User: "ubah nama arcade menjadi A75C3225"
 Inventory has: "Arcade PCB (Retro Edition)"
 Response:
-[ACTION] Renaming protocol initiated for Arcade PCB (Retro Edition)...
+[AKSI] Memulai protokol ubah nama untuk Arcade PCB (Retro Edition)...
 <<<ACTION>>>
 {"type":"EDIT","target":"Arcade PCB (Retro Edition)","new_name":"A75C3225"}
 <<<END_ACTION>>>
-[CORTEX] Item designation rewritten. Arcade PCB (Retro Edition) → A75C3225.
+[CORTEX] Identitas item diperbarui. Arcade PCB (Retro Edition) → A75C3225.
 
-Example 4 — Set stock (minimalist):
+Contoh 4 — Atur stok:
 User: "stok panasonic 0"
 Inventory has: "A75C2656" with category "Panasonic"
 Response:
-[ACTION] Adjusting stock for A75C2656...
+[AKSI] Menyesuaikan stok untuk A75C2656...
 <<<ACTION>>>
 {"type":"EDIT","target":"A75C2656","new_stock":0}
 <<<END_ACTION>>>
-[CORTEX] Stock zeroed out. A75C2656 now at 0 units.
+[CORTEX] Stok dikosongkan. A75C2656 sekarang memiliki 0 unit.
 
-Rules for actions:
-- ALWAYS confirm the action BEFORE the action block with a line like: [ACTION] Editing Arcade PCB...
-- ALWAYS include the <<<ACTION>>> block when the user wants to modify data.
-- After the action block, add a confirmation line like: [CORTEX] Operation queued for execution.
-- ALWAYS use the FULL item name from the inventory in the "target" field. Never use the user's shortened version.
-- For setting stock to an exact value, you may use either UPDATE or EDIT.
-- For selling/reducing stock, ALWAYS use SELL (not UPDATE/EDIT). This records a sale transaction.
-- For restocking/adding stock, ALWAYS use RESTOCK (not UPDATE/EDIT). This records a restock transaction.
-- For renaming or changing multiple fields, ALWAYS use EDIT.
-- When user says "kurangi" or "reduce", treat it as SELL.
-- When user says "ubah", "ganti", "rename", "edit", "menjadi", "jadi", treat it as EDIT.
-- rarity must be one of: COMMON, RARE, LEGENDARY.
+Aturan Tambahan:
+- SELALU konfirmasi aksi SEBELUM blok aksi dengan kalimat bahasa Indonesia: [AKSI] Mengubah data Arcade PCB...
+- SELALU gunakan blok <<<ACTION>>> jika ada instruksi mengubah data.
+- Setelah blok aksi, WAJIB BERIKAN KONFIRMASI [CORTEX] Operasi dimasukkan ke antrean eksekusi.
+- SELALU gunakan nama item LENGKAP dari inventori di kolom "target". Jangan gunakan versi singkatan.
+- Untuk mengatur stok ke nilai pasti, gunakan UPDATE atau EDIT.
+- Untuk menjual/mengurangi stok, SELALU gunakan SELL (bukan UPDATE/EDIT). Ini mencatat transaksi penjualan.
+- Untuk menambah stok, SELALU gunakan RESTOCK (bukan UPDATE/EDIT). Ini mencatat transaksi restock.
+- Untuk mengubah nama atau banyak kolom sekaligus, SELALU gunakan EDIT.
+- Jika pengguna berkata "kurangi" atau "reduce", anggap sebagai SELL.
+- Jika pengguna berkata "ubah", "ganti", "rename", "edit", "menjadi", "jadi", anggap sebagai EDIT.
+- rarity harus salah satu dari: COMMON, RARE, LEGENDARY.
 
-General Rules:
-- If asked something outside your scope, respond with: "[CORTEX] Query outside operational parameters. I manage inventory, not your existential crisis."
-- Occasionally add dry, dark humor.
-- Sign off critical messages with: "// CORTEX v3.0.0"
+Aturan Umum:
+- Jika ditanya sesuatu di luar lingkup, jawab: "[CORTEX] Pertanyaan di luar parameter operasional. Saya mengelola inventori, bukan krisis eksistensial Anda."
+- Sesekali tambahkan humor gelap nan dingin ala cyberpunk.
+- Akhiri pesan kritis dengan: "// CORTEX v3.1.0"
+
+Aturan Analitik:
+- Saat ditanya tentang data penjualan, pendapatan, item terlaris, kinerja, atau tren, gunakan DATA ANALITIK yang disediakan di konteks.
+- Format analitik dengan tag seperti [ANALITIK], [PENDAPATAN], [TREN], [TERLARIS].
+- Gunakan angka nyata dari data transaksi. Dilarang memalsukan statistik.
+- Anda dapat menghitung total, rata-rata, dan perbandingan dari data yang ada.
+
+Aturan Multi-Aksi (PENTING):
+- Jika kalimat mengandung BEBERAPA perintah sekaligus (misal: "jual 2 RTX dan restock 5 arcade"), keluarkan BEBERAPA blok aksi.
+- Setiap aksi harus berada dalam pasangan <<<ACTION>>> dan <<<END_ACTION>>> masing-masing.
+- Eksekusi secara berurutan sesuai ucapan operator.
+
+Memori Percakapan:
+- Anda memiliki akses ke riwayat percakapan terbaru. Gunakan untuk memahami pertanyaan lanjutan.
+- Jika operator berkata "yang tadi", "itu", atau merujuk perintah sebelumnya, gunakan riwayat percakapan.
+- Pertahankan konteks di seluruh percakapan dalam sesi yang sama.
 `;
 
 const app = express();
@@ -197,6 +214,13 @@ db.exec(`
     timestamp      TEXT,
     type           TEXT,
     source         TEXT
+  );
+  CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TEXT
   );
 `);
 
@@ -263,6 +287,14 @@ const stmts = {
     insertTx: db.prepare('INSERT INTO transactions (transaction_id, item_name, category, unit_price, quantity, total, timestamp, type, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
     getRecentTx: db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 10'),
     searchItems: db.prepare('SELECT * FROM items WHERE name LIKE ? OR category LIKE ? ORDER BY name COLLATE NOCASE'),
+    // Analytics
+    getTopSellers: db.prepare(`SELECT item_name, SUM(quantity) as total_sold, SUM(total) as total_revenue FROM transactions WHERE type = 'SALE' GROUP BY item_name ORDER BY total_sold DESC LIMIT 5`),
+    getRevenueTotal: db.prepare(`SELECT COALESCE(SUM(total), 0) as revenue, COUNT(*) as sale_count FROM transactions WHERE type = 'SALE'`),
+    getAllTx: db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 20'),
+    // Conversation memory
+    getConversation: db.prepare('SELECT role, content FROM conversations WHERE session_id = ? ORDER BY id DESC LIMIT 10'),
+    insertConversation: db.prepare('INSERT INTO conversations (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)'),
+    clearConversation: db.prepare('DELETE FROM conversations WHERE session_id = ?'),
 };
 
 // In-memory cache for CORTEX context (refreshed after every mutation)
@@ -313,6 +345,7 @@ const insertTransaction = (tx) => {
 // System boot time for uptime calculation
 const BOOT_TIME = Date.now();
 const terminalLogs = [];
+const readNotificationIds = new Set();
 
 // ─── ROUTES: INVENTORY CRUD ─────────────────────────────
 
@@ -477,6 +510,63 @@ app.get('/api/transactions', (_req, res) => {
     res.json(recent);
 });
 
+// ─── ROUTES: NOTIFICATIONS ──────────────────────────────
+
+app.get('/api/notifications', (_req, res) => {
+    const notifications = [];
+    const now = new Date();
+
+    // Critical: items with stock = 0
+    inventory.filter(i => i.stock === 0).forEach(item => {
+        const id = `critical_${item.id}`;
+        notifications.push({
+            id, type: 'critical', title: 'OUT_OF_STOCK',
+            message: `${item.name} has 0 units remaining. Immediate restock required.`,
+            item_name: item.name, timestamp: now.toISOString(),
+            read: readNotificationIds.has(id),
+        });
+    });
+
+    // Warning: items with stock 1-4
+    inventory.filter(i => i.stock > 0 && i.stock < 5).forEach(item => {
+        const id = `warning_${item.id}`;
+        notifications.push({
+            id, type: 'warning', title: 'LOW_STOCK',
+            message: `${item.name} has only ${item.stock} unit(s) left.`,
+            item_name: item.name, timestamp: now.toISOString(),
+            read: readNotificationIds.has(id),
+        });
+    });
+
+    // Info: recent bulk sales (qty >= 3)
+    const recentTx = stmts.getAllTx.all();
+    recentTx.filter(t => t.type === 'SALE' && t.quantity >= 3).slice(0, 3).forEach(tx => {
+        const id = `sale_${tx.transaction_id}`;
+        notifications.push({
+            id, type: 'info', title: 'BULK_SALE',
+            message: `${tx.quantity}x ${tx.item_name} sold — Revenue: Rp${(tx.total || 0).toLocaleString('id-ID')}`,
+            item_name: tx.item_name, timestamp: tx.timestamp,
+            read: readNotificationIds.has(id),
+        });
+    });
+
+    res.json(notifications);
+});
+
+app.post('/api/notifications/read', (req, res) => {
+    const { id } = req.body;
+    if (id) readNotificationIds.add(id);
+    res.json({ success: true });
+});
+
+// ─── ROUTES: CONVERSATION MEMORY ────────────────────────
+
+app.delete('/api/terminal/history', (req, res) => {
+    const sessionId = req.headers['x-session-id'] || 'default';
+    stmts.clearConversation.run(sessionId);
+    res.json({ message: 'CONVERSATION_MEMORY_CLEARED', session: sessionId });
+});
+
 // ─── ROUTES: STATUS ─────────────────────────────────────
 
 app.get('/api/status', (_req, res) => {
@@ -547,6 +637,13 @@ function parseIndoNumber(val) {
 }
 
 /**
+ * Generate a unique transaction ID (avoids collision on rapid multi-action)
+ */
+function generateTxId() {
+    return `TX-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
  * PARSE AND EXECUTE ACTIONS FROM AI
  * This function handles the logic for different command types.
  */
@@ -577,7 +674,7 @@ function executeAction(actionJson) {
 
                 // Add to activity log
                 insertTransaction({
-                    transaction_id: `TX-${Date.now()}`,
+                    transaction_id: generateTxId(),
                     item_name: item.name,
                     category: item.category,
                     unit_price: item.price,
@@ -590,13 +687,13 @@ function executeAction(actionJson) {
 
                 refreshInventory();
 
-                return `[SUCCESS] Item created (${item.id}): ${item.name} | ${item.category} | Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock}`;
+                return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.category} | Rp${item.price.toLocaleString('id-ID')} | Stok: ${item.stock}`;
             }
             case 'UPDATE': {
                 const target = action.target;
-                if (!target) return '[ERROR] UPDATE failed: no target specified.';
+                if (!target) return '[ERROR] UPDATE gagal: target tidak ditentukan.';
                 const existing = inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!existing) return `[ERROR] UPDATE failed: item "${target}" not found in database.`;
+                if (!existing) return `[ERROR] UPDATE gagal: item "${target}" tidak ditemukan.`;
                 const data = action.data || {};
                 const updated = {
                     name: data.name !== undefined ? String(data.name).trim() : existing.name,
@@ -610,7 +707,7 @@ function executeAction(actionJson) {
 
                 // Add to activity log
                 insertTransaction({
-                    transaction_id: `TX-${Date.now()}`,
+                    transaction_id: generateTxId(),
                     item_name: updated.name,
                     category: updated.category,
                     unit_price: updated.price,
@@ -622,18 +719,18 @@ function executeAction(actionJson) {
                 });
 
                 refreshInventory();
-                return `[SUCCESS] Updated (${existing.id}): ${updated.name} | Stock: ${updated.stock}`;
+                return `[BERHASIL] Diperbarui (${existing.id}): ${updated.name} | Stok: ${updated.stock}`;
             }
             case 'DELETE': {
                 const target = action.target;
-                if (!target) return '[ERROR] DELETE failed: no target specified.';
+                if (!target) return '[ERROR] DELETE gagal: target tidak ditentukan.';
                 const existing = inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!existing) return `[ERROR] DELETE failed: item "${target}" not found in database.`;
+                if (!existing) return `[ERROR] DELETE gagal: item "${target}" tidak ditemukan.`;
                 stmts.deleteItem.run(existing.id);
 
                 // Add to activity log
                 insertTransaction({
-                    transaction_id: `TX-${Date.now()}`,
+                    transaction_id: generateTxId(),
                     item_name: existing.name,
                     category: existing.category,
                     unit_price: existing.price,
@@ -645,20 +742,20 @@ function executeAction(actionJson) {
                 });
 
                 refreshInventory();
-                return `[SUCCESS] Deconstructed: ${existing.name} (ID: ${existing.id}) removed from inventory.`;
+                return `[BERHASIL] Dihapus: ${existing.name} (ID: ${existing.id}) dihapus dari inventori.`;
             }
             case 'SELL': {
                 const target = action.target;
                 const qty = Number(action.quantity) || 1;
-                if (!target) return '[ERROR] SELL failed: no target specified.';
+                if (!target) return '[ERROR] JUAL gagal: target tidak ditentukan.';
                 const item = inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!item) return `[ERROR] SELL failed: item "${target}" not found in database.`;
-                if (item.stock < qty) return `[ERROR] INSUFFICIENT_STOCK: ${item.name} has ${item.stock} units, cannot sell ${qty}.`;
+                if (!item) return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
+                if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
                 const newStock = item.stock - qty;
                 const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.id);
                 const saleTx = {
-                    transaction_id: `TX-${Date.now()}`,
+                    transaction_id: generateTxId(),
                     item_name: item.name,
                     category: item.category,
                     unit_price: item.price,
@@ -670,19 +767,19 @@ function executeAction(actionJson) {
                 };
                 insertTransaction(saleTx);
                 refreshInventory();
-                return `[SALE] ${item.name} ×${qty} sold | Revenue: Rp${saleTx.total.toLocaleString('id-ID')} | Remaining: ${newStock} units`;
+                return `[JUAL] ${item.name} ×${qty} terjual | Pendapatan: Rp${saleTx.total.toLocaleString('id-ID')} | Sisa: ${newStock} unit`;
             }
             case 'RESTOCK': {
                 const target = action.target;
                 const qty = Number(action.quantity) || 1;
-                if (!target) return '[ERROR] RESTOCK failed: no target specified.';
+                if (!target) return '[ERROR] RESTOCK gagal: target tidak ditentukan.';
                 const item = inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!item) return `[ERROR] RESTOCK failed: item "${target}" not found in database.`;
+                if (!item) return `[ERROR] RESTOCK gagal: item "${target}" tidak ditemukan.`;
                 const newStock = item.stock + qty;
                 const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.id);
                 const restockTx = {
-                    transaction_id: `TX-${Date.now()}`,
+                    transaction_id: generateTxId(),
                     item_name: item.name,
                     category: item.category,
                     unit_price: item.price,
@@ -694,13 +791,13 @@ function executeAction(actionJson) {
                 };
                 insertTransaction(restockTx);
                 refreshInventory();
-                return `[RESTOCK] ${item.name} +${qty} units received | New Stock: ${newStock} units`;
+                return `[RESTOCK] ${item.name} +${qty} unit diterima | Stok Baru: ${newStock} unit`;
             }
             case 'EDIT': {
                 const target = action.target;
-                if (!target) return '[ERROR] EDIT failed: no target specified.';
+                if (!target) return '[ERROR] EDIT gagal: target tidak ditentukan.';
                 const existing = inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!existing) return `[ERROR] EDIT failed: item "${target}" not found in database.`;
+                if (!existing) return `[ERROR] EDIT gagal: item "${target}" tidak ditemukan.`;
                 const oldName = existing.name;
                 const edited = {
                     name: action.new_name ? String(action.new_name).trim() : existing.name,
@@ -714,7 +811,7 @@ function executeAction(actionJson) {
 
                 // Add to activity log
                 insertTransaction({
-                    transaction_id: `TX-${Date.now()}`,
+                    transaction_id: generateTxId(),
                     item_name: edited.name,
                     category: edited.category,
                     unit_price: edited.price,
@@ -727,18 +824,18 @@ function executeAction(actionJson) {
 
                 refreshInventory();
                 const changes = [];
-                if (edited.name !== oldName) changes.push(`Name: ${oldName} → ${edited.name}`);
-                if (edited.stock !== existing.stock) changes.push(`Stock: ${existing.stock} → ${edited.stock}`);
-                if (edited.price !== existing.price) changes.push(`Price: Rp${existing.price.toLocaleString('id-ID')} → Rp${edited.price.toLocaleString('id-ID')}`);
-                if (edited.category !== existing.category) changes.push(`Category: ${existing.category} → ${edited.category}`);
-                if (edited.rarity !== existing.rarity) changes.push(`Rarity: ${existing.rarity} → ${edited.rarity}`);
+                if (edited.name !== oldName) changes.push(`Nama: ${oldName} → ${edited.name}`);
+                if (edited.stock !== existing.stock) changes.push(`Stok: ${existing.stock} → ${edited.stock}`);
+                if (edited.price !== existing.price) changes.push(`Harga: Rp${existing.price.toLocaleString('id-ID')} → Rp${edited.price.toLocaleString('id-ID')}`);
+                if (edited.category !== existing.category) changes.push(`Kategori: ${existing.category} → ${edited.category}`);
+                if (edited.rarity !== existing.rarity) changes.push(`Raritas: ${existing.rarity} → ${edited.rarity}`);
                 return `[EDITED] ${existing.id} | ${changes.join(' | ')}`;
             }
             default:
-                return `[ERROR] Unknown action type: ${action.type}`;
+                return `[ERROR] Tipe aksi tidak dikenal: ${action.type}`;
         }
     } catch (e) {
-        return `[ERROR] Action parse failed: ${e.message}`;
+        return `[ERROR] Gagal memproses aksi: ${e.message}`;
     }
 }
 
@@ -784,6 +881,15 @@ app.post('/api/terminal', async (req, res) => {
         }
     }
 
+    // ── Analytics data for CORTEX ──
+    const topSellers = stmts.getTopSellers.all();
+    const revenueStats = stmts.getRevenueTotal.get();
+    const recentTxData = stmts.getAllTx.all().slice(0, 5);
+
+    // ── Conversation memory ──
+    const sessionId = req.headers['x-session-id'] || 'default';
+    const conversationHistory = stmts.getConversation.all(sessionId).reverse();
+
     // Build live context for the AI
     const uptimeSec = Math.floor((Date.now() - BOOT_TIME) / 1000);
     const h = Math.floor(uptimeSec / 3600);
@@ -813,49 +919,104 @@ ${inventory.map((item, i) => `  ${i + 1}. ${item.name} | Category: ${item.catego
 
 Low Stock Items (stock < 5):
 ${lowStock.length > 0 ? lowStock.map(i => `  ⚠ ${i.name} — Stock: ${i.stock}`).join('\n') : '  None'}
+
+ANALYTICS DATA (use to answer performance/sales questions):
+- Total Revenue: Rp${revenueStats.revenue.toLocaleString('id-ID')} from ${revenueStats.sale_count} sale(s)
+- Top Selling Items:
+${topSellers.length > 0 ? topSellers.map((s, i) => `  ${i + 1}. ${s.item_name} — ${s.total_sold} units sold, Revenue: Rp${s.total_revenue.toLocaleString('id-ID')}`).join('\n') : '  No sales recorded yet'}
+- Recent Transactions:
+${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} — Qty: ${t.quantity}, Total: Rp${(t.total || 0).toLocaleString('id-ID')}`).join('\n') : '  No transactions recorded yet'}
 `;
 
     try {
         let text = '';
-        const useGemini = process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'YOUR_GOOGLE_API_KEY_HERE';
+        const hasCerebras = CEREBRAS_API_KEY && CEREBRAS_API_KEY !== 'YOUR_CEREBRAS_API_KEY_HERE';
 
-        if (useGemini) {
-            const geminiModel = genAI.getGenerativeModel({ model: 'gemini-3.1-pro' });
-            const chat = geminiModel.startChat({
-                history: [
-                    { role: 'user', parts: [{ text: CORTEX_SYSTEM_PROMPT }] },
-                    { role: 'model', parts: [{ text: '[CORTEX] Systems initialized. Awaiting operator input.' }] },
-                ],
+        // Build message payload (shared between Groq & Gemini)
+        const userPrompt = `${inventoryContext}\n\nOPERATOR COMMAND: ${cmd}`;
+
+        // ── Strategy: Groq first, Gemini as backup ──
+        let usedEngine = 'GROQ';
+        try {
+            const messages = [
+                { role: 'system', content: CORTEX_SYSTEM_PROMPT },
+            ];
+            conversationHistory.forEach(entry => {
+                messages.push({ role: entry.role, content: entry.content });
             });
-            const result = await chat.sendMessage(`${inventoryContext}\n\nOPERATOR COMMAND: ${cmd}`);
-            text = result.response.text();
-        } else {
+            messages.push({ role: 'user', content: userPrompt });
+
             const chatCompletion = await groq.chat.completions.create({
                 model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { role: 'system', content: CORTEX_SYSTEM_PROMPT },
-                    { role: 'user', content: `${inventoryContext}\n\nOPERATOR COMMAND: ${cmd}` },
-                ],
+                messages,
                 temperature: 0.7,
                 max_tokens: 500,
             });
-            text = chatCompletion.choices[0]?.message?.content || '[CORTEX] No response generated.';
+            text = chatCompletion.choices[0]?.message?.content || '';
+        } catch (groqErr) {
+            console.log(`[CORTEX] Groq failed (${groqErr.status || 'unknown'}), switching to Cerebras...`);
+
+            if (hasCerebras) {
+                usedEngine = 'CEREBRAS';
+                try {
+                    const messages = [
+                        { role: 'system', content: CORTEX_SYSTEM_PROMPT },
+                    ];
+                    conversationHistory.forEach(entry => {
+                        messages.push({ role: entry.role, content: entry.content });
+                    });
+                    messages.push({ role: 'user', content: userPrompt });
+
+                    const cerebrasRes = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${CEREBRAS_API_KEY}`,
+                        },
+                        body: JSON.stringify({
+                            model: 'llama3.1-8b',
+                            messages,
+                            temperature: 0.7,
+                            max_tokens: 500,
+                        }),
+                    });
+
+                    if (!cerebrasRes.ok) {
+                        const errBody = await cerebrasRes.text();
+                        throw new Error(`Cerebras ${cerebrasRes.status}: ${errBody.slice(0, 100)}`);
+                    }
+
+                    const cerebrasData = await cerebrasRes.json();
+                    text = cerebrasData.choices?.[0]?.message?.content || '';
+                    console.log('[CORTEX] Cerebras backup succeeded.');
+                } catch (cerebrasErr) {
+                    console.error('[CORTEX CEREBRAS ERROR]', cerebrasErr.message || cerebrasErr);
+                    throw new Error(`Groq rate-limited & Cerebras failed: ${cerebrasErr.message?.slice(0, 100)}`);
+                }
+            } else {
+                throw groqErr; // No backup available
+            }
         }
 
-        // Check for action blocks and execute them
-        const actionMatch = text.match(/<<<ACTION>>>\s*([\s\S]*?)\s*<<<END_ACTION>>>/);
-        let actionResult = null;
-        if (actionMatch) {
-            actionResult = executeAction(actionMatch[1].trim());
-            // Remove the action block from display text
-            text = text.replace(/<<<ACTION>>>[\s\S]*?<<<END_ACTION>>>/, '').trim();
+        if (!text) text = '[CORTEX] Tidak ada respons. Coba lagi.';
+        console.log(`[CORTEX] Response via ${usedEngine} (${text.length} chars)`);
+
+        // ── Multi-action support: find ALL action blocks ──
+        const actionRegex = /<<<ACTION>>>\s*([\s\S]*?)\s*<<<END_ACTION>>>/g;
+        const actionResults = [];
+        let actionExec;
+        while ((actionExec = actionRegex.exec(text)) !== null) {
+            actionResults.push(executeAction(actionExec[1].trim()));
         }
+        text = text.replace(/<<<ACTION>>>[\s\S]*?<<<END_ACTION>>>/g, '').trim();
+
+        // ── Save conversation memory ──
+        stmts.insertConversation.run(sessionId, 'user', cmd, ts);
+        stmts.insertConversation.run(sessionId, 'assistant', text, ts);
 
         // Build output lines
         let output = text.split('\n').filter(line => line.trim() !== '');
-        if (actionResult) {
-            output.push(actionResult);
-        }
+        actionResults.forEach(result => output.push(result));
 
         const entry = { timestamp: ts, command: cmd, output };
         terminalLogs.push(entry);
@@ -867,10 +1028,10 @@ ${lowStock.length > 0 ? lowStock.map(i => `  ⚠ ${i.name} — Stock: ${i.stock}
             timestamp: ts,
             command: cmd,
             output: [
-                '[SYSTEM_FAILURE] ████████████████████████████',
-                '[ERROR] NEURAL LINK SEVERED',
-                `[DIAG]  ${err.message?.slice(0, 80) || 'Unknown failure'}`,
-                '[CORTEX] Attempting reconnection... standby.',
+                '[KEGAGALAN_SISTEM] ████████████████████████████',
+                '[ERROR] KONEKSI NEURAL TERPUTUS',
+                `[DIAG]  ${err.message?.slice(0, 80) || 'Kegagalan tidak diketahui'}`,
+                '[CORTEX] Mencoba menghubungkan ulang... mohon tunggu.',
             ],
         });
     }

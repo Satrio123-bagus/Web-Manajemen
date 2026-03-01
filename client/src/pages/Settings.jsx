@@ -2,31 +2,13 @@ import { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { Settings as SettingsIcon, Palette, Volume2, VolumeX, Zap, Monitor, Info } from 'lucide-react';
-
-/* ── Load from localStorage ── */
-function loadSettings() {
-    try {
-        const saved = JSON.parse(localStorage.getItem('i3c_settings') || '{}');
-        return {
-            lowGraphics: saved.lowGraphics ?? false,
-            soundEnabled: saved.soundEnabled ?? true,
-            accentTheme: saved.accentTheme ?? 'cyan', // 'cyan' | 'green'
-        };
-    } catch {
-        return { lowGraphics: false, soundEnabled: true, accentTheme: 'cyan' };
-    }
-}
+import { useSettings } from '../context/SettingsContext';
 
 export default function Settings() {
-    const [settings, setSettings] = useState(loadSettings);
+    const { settings, toggleSetting, setSetting } = useSettings();
 
-    /* Persist on change */
-    useEffect(() => {
-        localStorage.setItem('i3c_settings', JSON.stringify(settings));
-    }, [settings]);
-
-    const toggle = (key) => setSettings(prev => ({ ...prev, [key]: !prev[key] }));
-    const setAccent = (theme) => setSettings(prev => ({ ...prev, accentTheme: theme }));
+    const toggle = (key) => toggleSetting(key);
+    const setAccent = (theme) => setSetting('accentTheme', theme);
 
     return (
         <div className="max-w-2xl mx-auto space-y-8">
@@ -149,8 +131,8 @@ function ToggleSwitch({ enabled, onToggle, activeColor }) {
         <button
             onClick={onToggle}
             className={`relative w-14 h-7 rounded-full transition-all duration-300 shrink-0 border ${enabled
-                    ? 'border-transparent'
-                    : 'bg-white/5 border-white/10'
+                ? 'border-transparent'
+                : 'bg-white/5 border-white/10'
                 }`}
             style={enabled ? { backgroundColor: activeColor + '30', borderColor: activeColor + '50' } : {}}
         >

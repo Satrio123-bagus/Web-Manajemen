@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import NotificationPanel from './NotificationPanel';
 import { Search, Bell, User, Zap, Menu } from 'lucide-react';
 
 export default function Layout({ children, activePage, onSearch }) {
@@ -65,11 +66,8 @@ export default function Layout({ children, activePage, onSearch }) {
                             />
                         </div>
 
-                        {/* Notification bell */}
-                        <button className="relative p-2 rounded-lg text-gray-500 hover:text-[var(--color-neon-cyan)] hover:bg-white/5 transition-all">
-                            <Bell className="w-5 h-5" />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.6)]" />
-                        </button>
+                        {/* Notifications */}
+                        <NotificationPanel />
 
                         {/* Separator */}
                         <div className="hidden md:block w-px h-8 bg-white/10" />

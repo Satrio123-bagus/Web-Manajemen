@@ -7,8 +7,10 @@ import Layout from './components/Layout';
 import Dashboard, { InventoryModal } from './pages/Dashboard';
 import DashboardHome from './pages/DashboardHome';
 import Analytics from './pages/Analytics';
-import Terminal from './pages/Terminal';
 import Settings from './pages/Settings';
+import Terminal from './pages/Terminal';
+import { SettingsProvider } from './context/SettingsContext';
+import { useSound } from './hooks/useSound';
 
 const API = '/api/items';
 
@@ -20,6 +22,8 @@ function AppContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const { playSound } = useSound();
 
   const location = useLocation();
 
@@ -46,16 +50,22 @@ function AppContent() {
 
   /* ── CRUD ── */
   const handleDelete = async (id) => {
+    playSound('click');
     setActiveDeleteId(id);
     try {
       await fetch(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
       // Re-fetch to get valid re-indexed IDs from server
       await fetchItems();
+      playSound('success');
       setActiveDeleteId(null);
-    } catch { setActiveDeleteId(null); }
+    } catch {
+      playSound('error');
+      setActiveDeleteId(null);
+    }
   };
 
   const handleSave = async (data) => {
+    playSound('click');
     try {
       if (editingItem) {
         await fetch(`${API}/${encodeURIComponent(editingItem.id)}`, {
@@ -70,7 +80,11 @@ function AppContent() {
       }
       // Re-fetch to get sorted list from server
       await fetchItems();
-    } catch (err) { console.error(err); }
+      playSound('success');
+    } catch (err) {
+      console.error(err);
+      playSound('error');
+    }
     setIsModalOpen(false);
     setEditingItem(null);
   };
@@ -83,8 +97,12 @@ function AppContent() {
 
   const handleQuickSell = async (id) => {
     const item = items.find(i => i.id === id);
-    if (!item || item.stock <= 0) return;
+    if (!item || item.stock <= 0) {
+      playSound('error');
+      return;
+    }
 
+    playSound('click');
     // Optimistic: immediately decrement stock on screen
     setItems(prev => prev.map(i =>
       i.id === id
@@ -105,16 +123,19 @@ function AppContent() {
         setItems(prev => prev.map(i =>
           i.id === id ? { ...i, stock: i.stock + 1, status: (i.stock + 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' } : i
         ));
+        playSound('error');
         showToast(err.error || 'SALE_FAILED', 'error');
         return;
       }
 
+      playSound('success');
       showToast(`SALE_RECORDED: ${item.name} × 1`, 'success');
     } catch {
       // Revert on network error
       setItems(prev => prev.map(i =>
         i.id === id ? { ...i, stock: i.stock + 1, status: (i.stock + 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' } : i
       ));
+      playSound('error');
       showToast('NETWORK_ERROR: Sale failed', 'error');
     }
   };
@@ -187,8 +208,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <SettingsProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </SettingsProvider>
   );
 }

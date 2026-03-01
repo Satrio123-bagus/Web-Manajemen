@@ -118,3 +118,27 @@ body {
   opacity: 1;
   filter: drop-shadow(0 0 5px var(--color-neon-cyan));
 }
+
+/* ─── Low Graphics Mode Global Overrides ─── */
+body.low-graphics * {
+  /* Disable hardware-intensive blurs */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+
+  /* Disable expensive box-shadows (glows) */
+  box-shadow: none !important;
+
+  /* Replace blur backgrounds with solid dark colors for readability */
+  background-color: rgba(8, 8, 12, 0.95) !important;
+}
+
+body.low-graphics .holographic-border::before {
+  display: none !important;
+}
+
+body.low-graphics .animate-glitch,
+body.low-graphics .animate-flicker {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
