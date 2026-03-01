@@ -4,6 +4,7 @@ import {
     LayoutDashboard, Package, BarChart3, Settings, Terminal,
     ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X
 } from 'lucide-react';
+import { useSound } from '../hooks/useSound';
 
 const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'DASHBOARD', to: '/' },
@@ -18,6 +19,7 @@ export default function Sidebar({ isOpen, onClose }) {
     const [systemStatus, setSystemStatus] = useState('CHECKING'); // CHECKING, ONLINE, OFFLINE
     const [latency, setLatency] = useState(0);
     const [serverInfo, setServerInfo] = useState('EXPRESS');
+    const { playSound } = useSound();
 
     // Polling server status
     useEffect(() => {
@@ -60,6 +62,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
     // Close sidebar on navigation
     const handleNavClick = () => {
+        playSound('hover');
         if (window.innerWidth < 768) { // md breakpoint
             onClose();
         }
@@ -137,12 +140,12 @@ export default function Sidebar({ isOpen, onClose }) {
                     <div className={`flex items-center justify-between ${collapsed ? 'justify-center' : ''}`}>
                         <div className="flex items-center gap-2">
                             <Wifi className={`w-3.5 h-3.5 ${systemStatus === 'ONLINE' ? 'text-emerald-400 animate-pulse' :
-                                    systemStatus === 'CHECKING' ? 'text-amber-400 animate-pulse' :
-                                        'text-red-500'
+                                systemStatus === 'CHECKING' ? 'text-amber-400 animate-pulse' :
+                                    'text-red-500'
                                 }`} />
                             {!collapsed && <span className={`text-[10px] font-mono ${systemStatus === 'ONLINE' ? 'text-emerald-400' :
-                                    systemStatus === 'CHECKING' ? 'text-amber-400' :
-                                        'text-red-500'
+                                systemStatus === 'CHECKING' ? 'text-amber-400' :
+                                    'text-red-500'
                                 }`}>LINK: {systemStatus}</span>}
                         </div>
                     </div>
@@ -167,7 +170,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
                 {/* ── Collapse Toggle ── */}
                 <button
-                    onClick={() => setCollapsed(!collapsed)}
+                    onClick={() => { playSound('click'); setCollapsed(!collapsed); }}
                     className="h-10 border-t border-white/5 flex items-center justify-center text-gray-600 hover:text-[var(--color-neon-cyan)] hover:bg-white/5 transition-all shrink-0"
                 >
                     {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
