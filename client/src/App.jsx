@@ -121,7 +121,7 @@ function AppContent() {
 
   /* ── Render ── */
   return (
-    <Layout activePage={activePage}>
+    <Layout activePage={activePage} onSearch={fetchItems}>
       {/* Error banner */}
       {error && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}

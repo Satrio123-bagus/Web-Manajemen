@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Package, BarChart3, Settings, Terminal,
@@ -15,6 +15,48 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [systemStatus, setSystemStatus] = useState('CHECKING'); // CHECKING, ONLINE, OFFLINE
+    const [latency, setLatency] = useState(0);
+    const [serverInfo, setServerInfo] = useState('EXPRESS');
+
+    // Polling server status
+    useEffect(() => {
+        let isMounted = true;
+
+        const checkStatus = async () => {
+            try {
+                const startTime = Date.now();
+                const res = await fetch('/api/status', {
+                    // Prevent caching for accurate status
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+
+                if (!isMounted) return;
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setSystemStatus('ONLINE');
+                    setLatency(Date.now() - startTime);
+                    if (data.system) setServerInfo(data.system.split(' ')[0]); // 'INSERT3COINS'
+                } else {
+                    setSystemStatus('OFFLINE');
+                }
+            } catch {
+                if (isMounted) setSystemStatus('OFFLINE');
+            }
+        };
+
+        // Initial check
+        checkStatus();
+
+        // Poll every 30 seconds
+        const intervalId = setInterval(checkStatus, 30000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, []);
 
     // Close sidebar on navigation
     const handleNavClick = () => {
@@ -90,17 +132,36 @@ export default function Sidebar({ isOpen, onClose }) {
                             System Status
                         </p>
                     )}
-                    <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>
-                        <Wifi className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                        {!collapsed && <span className="text-[10px] font-mono text-emerald-400">LINK: ACTIVE</span>}
+
+                    {/* Link Status */}
+                    <div className={`flex items-center justify-between ${collapsed ? 'justify-center' : ''}`}>
+                        <div className="flex items-center gap-2">
+                            <Wifi className={`w-3.5 h-3.5 ${systemStatus === 'ONLINE' ? 'text-emerald-400 animate-pulse' :
+                                    systemStatus === 'CHECKING' ? 'text-amber-400 animate-pulse' :
+                                        'text-red-500'
+                                }`} />
+                            {!collapsed && <span className={`text-[10px] font-mono ${systemStatus === 'ONLINE' ? 'text-emerald-400' :
+                                    systemStatus === 'CHECKING' ? 'text-amber-400' :
+                                        'text-red-500'
+                                }`}>LINK: {systemStatus}</span>}
+                        </div>
                     </div>
-                    <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>
-                        <Cpu className="w-3.5 h-3.5 text-[var(--color-neon-cyan)]" />
-                        {!collapsed && <span className="text-[10px] font-mono text-gray-500">NODE: EXPRESS:5000</span>}
+
+                    {/* Node / Backend Info */}
+                    <div className={`flex items-center justify-between ${collapsed ? 'hidden' : ''}`}>
+                        <div className="flex items-center gap-2">
+                            <Cpu className="w-3.5 h-3.5 text-[var(--color-neon-cyan)]" />
+                            <span className="text-[10px] font-mono text-gray-500">NODE: {serverInfo}</span>
+                        </div>
+                        {systemStatus === 'ONLINE' && latency > 0 && (
+                            <span className="text-[9px] font-mono text-gray-600">{latency}ms</span>
+                        )}
                     </div>
+
+                    {/* Client Info */}
                     <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>
                         <Activity className="w-3.5 h-3.5 text-[var(--color-neon-purple)]" />
-                        {!collapsed && <span className="text-[10px] font-mono text-gray-500">VITE: DEV:5173</span>}
+                        {!collapsed && <span className="text-[10px] font-mono text-gray-500">CLIENT: ACTIVE</span>}
                     </div>
                 </div>
 
