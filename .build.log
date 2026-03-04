@@ -1,0 +1,18 @@
+2026-02-23T22:17:15.429059 Project directory: /home/bagussatrio/Web-Manajemen
+2026-02-23T22:17:15.429232 Pulling project images
+2026-02-23T22:17:15.429593 ------------------------------
+2026-02-23T22:17:15.480881  backend Skipped No image to be pulled
+2026-02-23T22:17:15.480940  frontend Skipped No image to be pulled
+2026-02-23T22:17:15.483086 ------------------------------
+2026-02-23T22:17:15.483167 Deploying project
+2026-02-23T22:17:15.483649 ------------------------------
+2026-02-23T22:17:15.537905  Container web-manajemen-backend-1 Recreate 
+2026-02-23T22:17:25.709365  Container web-manajemen-backend-1 Recreated 
+2026-02-23T22:17:25.709407  Container web-manajemen-frontend-1 Recreate 
+2026-02-23T22:17:25.900323  Container web-manajemen-frontend-1 Recreated 
+2026-02-23T22:17:25.906114  Container web-manajemen-backend-1 Starting 
+2026-02-23T22:17:25.985332  Container web-manajemen-backend-1 Started 
+2026-02-23T22:17:25.985382  Container web-manajemen-frontend-1 Starting 
+2026-02-23T22:17:26.092749  Container web-manajemen-frontend-1 Started 
+2026-02-23T22:17:26.096579 ------------------------------
+2026-02-23T22:17:26.096610 Project deployed successfully

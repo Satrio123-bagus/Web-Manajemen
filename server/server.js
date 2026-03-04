@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const Database = require('better-sqlite3');
 const Groq = require('groq-sdk');
-
+const db = require('./config/database');
 // ─── AI SETUP ────────────────────────────────────────────
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
@@ -190,7 +190,7 @@ const PORT = process.env.PORT || 5000;
 // ─── SQLite DATABASE ────────────────────────────────────
 
 const DB_PATH = path.join(__dirname, 'inventory.db');
-const db = new Database(DB_PATH);
+//const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 
 // Ensure tables exist (safe to run every time)
