@@ -12,16 +12,6 @@ const getTimestamp = () => {
     return `[${d}/${m}/${y} ${time}]`;
 };
 
-const BOOT_LINES = [
-    `${getTimestamp()} [BOOT] INSERT3COINS Terminal v3.1.0`,
-    `${getTimestamp()} [BOOT] Menghubungkan ke backend...`,
-    `${getTimestamp()} [BOOT] Enkripsi: AES-256 ✓ | TLS 1.3 ✓`,
-    `${getTimestamp()} [BOOT] CORTEX AI: Analitik ✓ | Multi-Aksi ✓ | Memori ✓`,
-    `${getTimestamp()} [BOOT] Input Suara: ${typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined' ? 'AKTIF ✓' : 'TIDAK_TERSEDIA'}`,
-    `${getTimestamp()} [BOOT] Koneksi berhasil. Ketik "help" untuk daftar perintah.`,
-    '',
-];
-
 // Generate a unique session ID for conversation memory
 const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -41,15 +31,39 @@ export default function Terminal() {
     const recognitionRef = useRef(null);
     const executeRef = useRef(null);
 
-    /* Boot sequence */
+    /* Boot sequence — with real backend health check */
     useEffect(() => {
         if (booted.current) return;
         booted.current = true;
-        BOOT_LINES.forEach((line, i) => {
-            setTimeout(() => {
-                setLines(prev => [...prev, { type: 'system', text: line }]);
-            }, i * 200);
-        });
+
+        const hasSpeech = typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined';
+
+        const addLine = (text, delay) =>
+            new Promise(resolve => setTimeout(() => {
+                setLines(prev => [...prev, { type: 'system', text }]);
+                resolve();
+            }, delay));
+
+        (async () => {
+            await addLine(`${getTimestamp()} [BOOT] INSERT3COINS Terminal v3.1.0`, 0);
+            await addLine(`${getTimestamp()} [BOOT] Memverifikasi koneksi backend...`, 200);
+
+            // Real health check
+            try {
+                const res = await fetch('/api/status', { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) throw new Error('Status not OK');
+                await addLine(`${getTimestamp()} [BOOT] Enkripsi: AES-256 ✓ | TLS 1.3 ✓`, 200);
+                await addLine(`${getTimestamp()} [BOOT] CORTEX AI: Analitik ✓ | Multi-Aksi ✓ | Memori ✓`, 200);
+                await addLine(`${getTimestamp()} [BOOT] Input Suara: ${hasSpeech ? 'AKTIF ✓' : 'TIDAK_TERSEDIA'}`, 200);
+                await addLine(`${getTimestamp()} [BOOT] Koneksi berhasil. Ketik "help" untuk daftar perintah.`, 200);
+                await addLine('', 100);
+            } catch {
+                await addLine(`${getTimestamp()} [BOOT] ✗ GAGAL: Backend tidak dapat dijangkau.`, 200);
+                await addLine(`${getTimestamp()} [BOOT] Pastikan server berjalan di port yang benar.`, 200);
+                await addLine(`${getTimestamp()} [BOOT] Ketik "retry" untuk mencoba ulang koneksi.`, 200);
+                await addLine('', 100);
+            }
+        })();
     }, []);
 
     /* Auto-scroll */
@@ -202,6 +216,19 @@ export default function Terminal() {
             return;
         }
 
+        // Handle retry — re-check backend connectivity
+        if (trimmed.toLowerCase() === 'retry') {
+            setLines(prev => [...prev, { type: 'system', text: `${getTimestamp()} [SYSTEM] Memverifikasi koneksi backend...` }]);
+            try {
+                const res = await fetch('/api/status', { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) throw new Error('Status not OK');
+                setLines(prev => [...prev, { type: 'system', text: `${getTimestamp()} [SYSTEM] ✓ Backend aktif dan terhubung.` }]);
+            } catch {
+                setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ✗ Backend tidak dapat dijangkau.` }]);
+            }
+            return;
+        }
+
         // Handle 'selesai' — end hands-free voice conversation
         const stopWords = ['selesai', 'stop', 'berhenti', 'cukup', 'sudah'];
         if (stopWords.includes(trimmed.toLowerCase())) {
@@ -226,19 +253,19 @@ export default function Terminal() {
 
         setIsProcessing(true);
         try {
-            const res = await fetch('/api/chat', {
+            const res = await fetch('/api/terminal', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Session-ID': sessionId.current,
                 },
-                body: JSON.stringify({ pesan: trimmed, sessionId: sessionId.current }),
+                body: JSON.stringify({ command: trimmed }),
             });
             const data = await res.json();
 
-            if (data.balasan) {
+            if (data.output && Array.isArray(data.output)) {
                 const ts = getTimestamp();
-                // Split multi-line AI response into individual lines
-                const responseLines = data.balasan.split('\n').filter(l => l.trim() !== '');
+                const responseLines = data.output.filter(l => l.trim() !== '');
                 responseLines.forEach((line, i) => {
                     setTimeout(() => {
                         setLines(prev => [...prev, { type: 'output', text: `${ts} ${line}` }]);
@@ -249,7 +276,7 @@ export default function Terminal() {
                 }, responseLines.length * 30);
 
                 // Cortex speaks the response
-                speakResponse(data.balasan);
+                speakResponse(responseLines.join('\n'));
             } else if (data.error) {
                 setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` }]);
                 speakResponse('Error. ' + data.error);
