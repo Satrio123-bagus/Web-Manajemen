@@ -226,31 +226,30 @@ export default function Terminal() {
 
         setIsProcessing(true);
         try {
-            const res = await fetch('/api/terminal', {
+            const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Session-ID': sessionId.current,
                 },
-                body: JSON.stringify({ command: trimmed }),
+                body: JSON.stringify({ pesan: trimmed, sessionId: sessionId.current }),
             });
             const data = await res.json();
 
-            if (data.output) {
-                const ts = data.timestamp ? `[${new Date(data.timestamp).toLocaleString('en-GB')}]` : getTimestamp();
-
-                data.output.forEach((line, i) => {
+            if (data.balasan) {
+                const ts = getTimestamp();
+                // Split multi-line AI response into individual lines
+                const responseLines = data.balasan.split('\n').filter(l => l.trim() !== '');
+                responseLines.forEach((line, i) => {
                     setTimeout(() => {
                         setLines(prev => [...prev, { type: 'output', text: `${ts} ${line}` }]);
                     }, i * 30);
                 });
                 setTimeout(() => {
                     setLines(prev => [...prev, { type: 'output', text: '' }]);
-                }, data.output.length * 30);
+                }, responseLines.length * 30);
 
                 // Cortex speaks the response
-                const spokenText = data.output.filter(l => l.trim()).join('. ');
-                speakResponse(spokenText);
+                speakResponse(data.balasan);
             } else if (data.error) {
                 setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` }]);
                 speakResponse('Error. ' + data.error);
