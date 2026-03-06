@@ -28,8 +28,8 @@ Personality:
 
 Product/Inventory Rules:
 - When the user asks about available products, items, stock, or inventory, you MUST list the actual items from the provided inventory data.
-- Format each item on its own line like: [ITEM] Name | Category | Price Rp | Stock: X | Rarity
-- If asked about a specific category (e.g. "GPU", "CPU"), filter and show only matching items.
+- Format each item on its own line like: [ITEM] Name | Bab | Sub-bab | Price Rp | Stock: X | Rarity
+- If asked about a specific bab/category (e.g. "GPU", "CPU"), filter and show only matching items.
 - If asked about low stock, show items with stock < 5 and mark them with [WARN].
 - If asked about the most expensive or cheapest, sort and show them.
 - If asked about total value or stats, calculate and show the numbers.
@@ -74,14 +74,14 @@ When the user says ONLY "Tambah [Name]" or "Add [Name]" WITHOUT specifying quant
    - Use the RESTOCK action, NOT ADD.
    - Response style: "[CORTEX] Existing unit detected. Stock incremented by 1."
 3. IF the item DOES NOT EXIST → treat as CREATE new item.
-   - Use the ADD action with defaults: stock=0, price=0, category="Unsorted", rarity="COMMON".
+   - Use the ADD action with defaults: stock=0, price=0, category="Unsorted", bab="Unsorted", sub_bab="Uncategorized", rarity="COMMON".
    - Response style: "[CORTEX] New schematic identified. '[Name]' created."
 
 Supported actions:
 
 1. ADD a new item (CREATE/BUAT):
 <<<ACTION>>>
-{"type":"ADD","data":{"name":"Item Name","category":"Category","price":0,"stock":10,"rarity":"COMMON"}}
+{"type":"ADD","data":{"name":"Item Name","category":"Category","bab":"Main Category","sub_bab":"Sub Category","price":0,"stock":10,"rarity":"COMMON"}}
 <<<END_ACTION>>>
 
 2. UPDATE an existing item (set exact stock value):
@@ -104,9 +104,9 @@ Supported actions:
 {"type":"RESTOCK","target":"Full Item Name","quantity":5}
 <<<END_ACTION>>>
 
-6. EDIT an item (EDIT/UBAH — rename, change price, category, or multiple fields at once):
+6. EDIT an item (EDIT/UBAH — rename, change price, bab, sub_bab, or multiple fields at once):
 <<<ACTION>>>
-{"type":"EDIT","target":"Full Item Name","new_name":"New Name","new_stock":15,"new_price":500,"new_category":"NewCat","new_rarity":"RARE"}
+{"type":"EDIT","target":"Full Item Name","new_name":"New Name","new_stock":15,"new_price":500,"new_category":"NewCat","new_bab":"NewBab","new_sub_bab":"NewSubBab","new_rarity":"RARE"}
 <<<END_ACTION>>>
 
 CONTOH RESPON (Contoh dari percakapan sebelumnya, pelajari polanya, SEMUA respons CORTEX HARUS dalam Bahasa Indonesia):
@@ -143,7 +143,7 @@ Response:
 
 Contoh 4 — Atur stok:
 User: "stok panasonic 0"
-Inventory has: "A75C2656" with category "Panasonic"
+Inventory has: "A75C2656" with bab "Panasonic"
 Response:
 [AKSI] Menyesuaikan stok untuk A75C2656...
 <<<ACTION>>>
@@ -226,6 +226,12 @@ db.exec(`
   );
 `);
 
+// ─── SAFE MIGRATION: Add bab & sub_bab columns ─────────
+try { db.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { /* column already exists */ }
+try { db.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { /* column already exists */ }
+// Migrate existing category data into bab for rows that haven't been migrated yet
+try { db.exec(`UPDATE items SET bab = category WHERE bab = 'Uncategorized' AND category IS NOT NULL AND category != ''`); } catch (_) { /* safe */ }
+
 // ─── SECURITY MIDDLEWARE ────────────────────────────────
 
 app.use(helmet());
@@ -254,13 +260,19 @@ app.use(express.json({ limit: '10kb' }));
 // ─── INPUT VALIDATION MIDDLEWARE ────────────────────────
 
 function validateItem(req, res, next) {
-    const { name, category, price, stock, rarity } = req.body;
+    const { name, category, price, stock, rarity, bab, sub_bab } = req.body;
 
     if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0 || name.length > 100)) {
         return res.status(400).json({ error: 'VALIDATION_FAILED: name must be a non-empty string (max 100 chars)' });
     }
     if (category !== undefined && (typeof category !== 'string' || category.trim().length === 0 || category.length > 50)) {
         return res.status(400).json({ error: 'VALIDATION_FAILED: category must be a non-empty string (max 50 chars)' });
+    }
+    if (bab !== undefined && (typeof bab !== 'string' || bab.trim().length === 0 || bab.length > 50)) {
+        return res.status(400).json({ error: 'VALIDATION_FAILED: bab must be a non-empty string (max 50 chars)' });
+    }
+    if (sub_bab !== undefined && (typeof sub_bab !== 'string' || sub_bab.trim().length === 0 || sub_bab.length > 50)) {
+        return res.status(400).json({ error: 'VALIDATION_FAILED: sub_bab must be a non-empty string (max 50 chars)' });
     }
     if (price !== undefined && (typeof price !== 'number' || price < 0 || !isFinite(price))) {
         return res.status(400).json({ error: 'VALIDATION_FAILED: price must be a non-negative number' });
@@ -281,14 +293,14 @@ function validateItem(req, res, next) {
 const stmts = {
     getAllItems: db.prepare('SELECT * FROM items ORDER BY name COLLATE NOCASE'),
     getItemById: db.prepare('SELECT * FROM items WHERE id = ?'),
-    insertItem: db.prepare('INSERT INTO items (id, name, category, price, stock, rarity, status) VALUES (?, ?, ?, ?, ?, ?, ?)'),
-    updateItem: db.prepare('UPDATE items SET name = ?, category = ?, price = ?, stock = ?, rarity = ?, status = ? WHERE id = ?'),
+    insertItem: db.prepare('INSERT INTO items (id, name, category, price, stock, rarity, status, bab, sub_bab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+    updateItem: db.prepare('UPDATE items SET name = ?, category = ?, price = ?, stock = ?, rarity = ?, status = ?, bab = ?, sub_bab = ? WHERE id = ?'),
     deleteItem: db.prepare('DELETE FROM items WHERE id = ?'),
     countItems: db.prepare('SELECT COUNT(*) as cnt FROM items'),
     deleteAll: db.prepare('DELETE FROM items'),
     insertTx: db.prepare('INSERT INTO transactions (transaction_id, item_name, category, unit_price, quantity, total, timestamp, type, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
     getRecentTx: db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 10'),
-    searchItems: db.prepare('SELECT * FROM items WHERE name LIKE ? OR category LIKE ? ORDER BY name COLLATE NOCASE'),
+    searchItems: db.prepare('SELECT * FROM items WHERE name LIKE ? OR category LIKE ? OR bab LIKE ? OR sub_bab LIKE ? ORDER BY name COLLATE NOCASE'),
     // Analytics
     getTopSellers: db.prepare(`SELECT item_name, SUM(quantity) as total_sold, SUM(total) as total_revenue FROM transactions WHERE type = 'SALE' GROUP BY item_name ORDER BY total_sold DESC LIMIT 5`),
     getRevenueTotal: db.prepare(`SELECT COALESCE(SUM(total), 0) as revenue, COUNT(*) as sale_count FROM transactions WHERE type = 'SALE'`),
@@ -324,7 +336,7 @@ const reindexDatabase = db.transaction(() => {
     // 4. Re-insert with sequential IDs
     allItems.forEach((item, index) => {
         const newId = `#${String(index + 1).padStart(3, '0')}`;
-        stmts.insertItem.run(newId, item.name, item.category, item.price, item.stock, item.rarity, item.status);
+        stmts.insertItem.run(newId, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized');
     });
 
     console.log(`>> Database Re-indexed. ${allItems.length} items sorted A-Z.`);
@@ -355,39 +367,45 @@ app.get('/api/items', (req, res) => {
     const { q } = req.query;
     if (q) {
         const query = `%${q}%`;
-        const results = stmts.searchItems.all(query, query);
+        const results = stmts.searchItems.all(query, query, query, query);
         return res.json(results);
     }
     res.json(inventory);
 });
 
 app.post('/api/items', validateItem, (req, res) => {
-    const { name, category, price, stock, rarity } = req.body;
-    if (!name || !category) {
-        return res.status(400).json({ error: 'FIELD_REQUIRED: name, category' });
+    const { name, category, price, stock, rarity, bab, sub_bab } = req.body;
+    if (!name) {
+        return res.status(400).json({ error: 'FIELD_REQUIRED: name' });
     }
 
     const stockVal = Number(stock) || 0;
     const newItemId = `item_${Date.now()}`;
 
+    // bab/sub_bab take priority; fallback to category for backward compatibility
+    const babVal = (bab || category || 'Uncategorized').trim();
+    const subBabVal = (sub_bab || 'Uncategorized').trim();
+
     const item = {
         id: newItemId,
         name: name.trim(),
-        category: category.trim(),
+        category: babVal, // keep category in sync with bab for backward compat
         price: Number(price) || 0,
         stock: stockVal,
         rarity: rarity || 'COMMON',
         status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
+        bab: babVal,
+        sub_bab: subBabVal,
     };
 
-    stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status);
+    stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab);
     refreshInventory();
 
     // Log the creation transaction
     insertTransaction({
         transaction_id: `TX-${Date.now()}`,
         item_name: item.name,
-        category: item.category,
+        category: item.bab,
         unit_price: item.price,
         quantity: item.stock,
         total: 0,
@@ -404,17 +422,21 @@ app.put('/api/items/:id', validateItem, (req, res) => {
     const existing = stmts.getItemById.get(id);
     if (!existing) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
 
-    const { name, category, price, stock, rarity } = req.body;
+    const { name, category, price, stock, rarity, bab, sub_bab } = req.body;
     const updated = {
         name: (name !== undefined ? name.trim() : existing.name),
         category: (category !== undefined ? category.trim() : existing.category),
         price: (price !== undefined ? Number(price) : existing.price),
         stock: (stock !== undefined ? Number(stock) : existing.stock),
         rarity: (rarity !== undefined ? rarity : existing.rarity),
+        bab: (bab !== undefined ? bab.trim() : (category !== undefined ? category.trim() : existing.bab)),
+        sub_bab: (sub_bab !== undefined ? sub_bab.trim() : existing.sub_bab),
     };
+    // Keep category in sync with bab
+    updated.category = updated.bab;
     updated.status = updated.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
 
-    stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, id);
+    stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, id);
     refreshInventory();
 
     const result = { id, ...updated };
@@ -423,7 +445,7 @@ app.put('/api/items/:id', validateItem, (req, res) => {
     insertTransaction({
         transaction_id: `TX-${Date.now()}`,
         item_name: result.name,
-        category: result.category,
+        category: result.bab,
         unit_price: result.price,
         quantity: result.stock,
         total: 0,
@@ -483,7 +505,7 @@ app.post('/api/sell', (req, res) => {
 
     const newStock = item.stock - qty;
     const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
-    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, id);
+    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', id);
 
     const tx = {
         transaction_id: `TX-${Date.now()}`,
@@ -583,10 +605,11 @@ app.get('/api/analytics', (_req, res) => {
     const totalStock = inventory.reduce((s, i) => s + i.stock, 0);
     const lowStockCount = inventory.filter(i => i.stock < 5).length;
 
-    // Category distribution
+    // Category distribution (grouped by bab)
     const categoryMap = {};
     inventory.forEach(i => {
-        categoryMap[i.category] = (categoryMap[i.category] || 0) + 1;
+        const babKey = i.bab || i.category || 'Uncategorized';
+        categoryMap[babKey] = (categoryMap[babKey] || 0) + 1;
     });
     const categoryDistribution = Object.entries(categoryMap).map(([name, count]) => ({
         name,
@@ -654,7 +677,7 @@ function executeAction(actionJson) {
         const action = JSON.parse(actionJson);
         switch (action.type) {
             case 'ADD': {
-                const { name, category, price, stock, rarity } = action.data || {};
+                const { name, category, price, stock, rarity, bab, sub_bab } = action.data || {};
                 if (!name) return '[ERROR] ADD failed: name required.';
 
                 // Use a robust, non-conflicting ID
@@ -662,23 +685,29 @@ function executeAction(actionJson) {
                 const stockVal = Number(stock) || 0;
                 const priceVal = parseIndoNumber(price);
 
+                // bab/sub_bab with fallback to category
+                const babVal = (bab || category || 'Unsorted').trim();
+                const subBabVal = (sub_bab || 'Uncategorized').trim();
+
                 const item = {
                     id: newItemId,
                     name: name.trim(),
-                    category: (category || 'Unsorted').trim(),
+                    category: babVal,
                     price: priceVal,
                     stock: stockVal,
                     rarity: rarity || 'COMMON',
                     status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
+                    bab: babVal,
+                    sub_bab: subBabVal,
                 };
 
-                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status);
+                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab);
 
                 // Add to activity log
                 insertTransaction({
                     transaction_id: generateTxId(),
                     item_name: item.name,
-                    category: item.category,
+                    category: item.bab,
                     unit_price: item.price,
                     quantity: item.stock,
                     total: 0,
@@ -689,7 +718,7 @@ function executeAction(actionJson) {
 
                 refreshInventory();
 
-                return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.category} | Rp${item.price.toLocaleString('id-ID')} | Stok: ${item.stock}`;
+                return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.bab} / ${item.sub_bab} | Rp${item.price.toLocaleString('id-ID')} | Stok: ${item.stock}`;
             }
             case 'UPDATE': {
                 const target = action.target;
@@ -703,15 +732,18 @@ function executeAction(actionJson) {
                     price: data.price !== undefined ? parseIndoNumber(data.price) : existing.price,
                     stock: data.stock !== undefined ? Math.max(0, Number(data.stock)) : existing.stock,
                     rarity: data.rarity !== undefined ? data.rarity : existing.rarity,
+                    bab: data.bab !== undefined ? String(data.bab).trim() : (data.category !== undefined ? String(data.category).trim() : existing.bab || existing.category),
+                    sub_bab: data.sub_bab !== undefined ? String(data.sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                 };
+                updated.category = updated.bab;
                 updated.status = updated.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, existing.id);
+                stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, existing.id);
 
                 // Add to activity log
                 insertTransaction({
                     transaction_id: generateTxId(),
                     item_name: updated.name,
-                    category: updated.category,
+                    category: updated.bab,
                     unit_price: updated.price,
                     quantity: updated.stock,
                     total: 0,
@@ -755,7 +787,7 @@ function executeAction(actionJson) {
                 if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
                 const newStock = item.stock - qty;
                 const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.id);
+                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                 const saleTx = {
                     transaction_id: generateTxId(),
                     item_name: item.name,
@@ -779,7 +811,7 @@ function executeAction(actionJson) {
                 if (!item) return `[ERROR] RESTOCK gagal: item "${target}" tidak ditemukan.`;
                 const newStock = item.stock + qty;
                 const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.id);
+                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                 const restockTx = {
                     transaction_id: generateTxId(),
                     item_name: item.name,
@@ -807,15 +839,18 @@ function executeAction(actionJson) {
                     price: action.new_price !== undefined && action.new_price !== null ? parseIndoNumber(action.new_price) : existing.price,
                     stock: action.new_stock !== undefined && action.new_stock !== null ? Math.max(0, Number(action.new_stock)) : existing.stock,
                     rarity: action.new_rarity ? action.new_rarity : existing.rarity,
+                    bab: action.new_bab ? String(action.new_bab).trim() : (action.new_category ? String(action.new_category).trim() : existing.bab || existing.category),
+                    sub_bab: action.new_sub_bab ? String(action.new_sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                 };
+                edited.category = edited.bab;
                 edited.status = edited.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, existing.id);
+                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id);
 
                 // Add to activity log
                 insertTransaction({
                     transaction_id: generateTxId(),
                     item_name: edited.name,
-                    category: edited.category,
+                    category: edited.bab,
                     unit_price: edited.price,
                     quantity: edited.stock,
                     total: 0,
@@ -911,13 +946,13 @@ LIVE SYSTEM CONTEXT (use this data to answer queries):
 - Total Items: ${inventory.length}
 - Total Stock Value: Rp${totalValue.toLocaleString('id-ID')}
 - Low Stock Alerts: ${lowStock.length} items
-- Categories: ${[...new Set(inventory.map(i => i.category))].join(', ')}
+- Bab (Main Categories): ${[...new Set(inventory.map(i => i.bab || i.category))].join(', ')}
 
 EXISTING ITEMS (use for duplicate checking — do NOT create items that already exist here):
 ${inventory.map(i => `  - "${i.name}"`).join('\n')}
 
 Full Inventory:
-${inventory.map((item, i) => `  ${i + 1}. ${item.name} | Category: ${item.category} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity}`).join('\n')}
+${inventory.map((item, i) => `  ${i + 1}. ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity}`).join('\n')}
 
 Low Stock Items (stock < 5):
 ${lowStock.length > 0 ? lowStock.map(i => `  ⚠ ${i.name} — Stock: ${i.stock}`).join('\n') : '  None'}
