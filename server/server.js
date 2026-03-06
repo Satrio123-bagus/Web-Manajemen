@@ -6,11 +6,13 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const Database = require('better-sqlite3');
 const Groq = require('groq-sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const db = require('./config/database');
 // ─── AI SETUP ────────────────────────────────────────────
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 const CORTEX_SYSTEM_PROMPT = `You are CORTEX, the Central Mainframe AI of the INSERT3COINS cyberpunk inventory store.
 
@@ -1033,6 +1035,59 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                 `[DIAG]  ${err.message?.slice(0, 80) || 'Kegagalan tidak diketahui'}`,
                 '[CORTEX] Mencoba menghubungkan ulang... mohon tunggu.',
             ],
+        });
+    }
+});
+
+// ─── ROUTES: AI CHAT (Groq) ─────────────────────────────
+
+app.post('/api/chat', async (req, res) => {
+    const { pesan, sessionId } = req.body;
+    const session = sessionId || 'session-1';
+
+    if (!pesan || typeof pesan !== 'string') {
+        return res.status(400).json({ error: 'INVALID_INPUT: field "pesan" (string) is required.' });
+    }
+
+    try {
+        // Fetch all items from the database
+        const items = stmts.getAllItems.all();
+
+        // Build system prompt with injected inventory data
+        const systemPrompt = `You are the AI Assistant for the INSERT3COINS inventory system.
+Personality: Cyber/Hacker tone — efficient, concise, and sharp.
+You MUST answer strictly based on the inventory data provided below. Do not fabricate data.
+Always respond in Bahasa Indonesia.
+
+INVENTORY DATA (JSON):
+${JSON.stringify(items, null, 2)}
+
+Answer the operator's question using ONLY the data above. Be concise.`;
+
+        // Call Groq API (Llama 3.3 70B)
+        const chatCompletion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: pesan },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+        });
+
+        const aiResponse = chatCompletion.choices?.[0]?.message?.content || '[CORTEX] Tidak ada respons dari AI.';
+
+        // Log conversation to SQLite (user + ai)
+        const ts = new Date().toISOString();
+        stmts.insertConversation.run(session, 'user', pesan, ts);
+        stmts.insertConversation.run(session, 'ai', aiResponse, ts);
+
+        res.json({ balasan: aiResponse });
+    } catch (err) {
+        console.error('[CHAT GROQ ERROR]', err.message || err);
+        res.status(500).json({
+            error: 'AI_CHAT_FAILED',
+            detail: err.message?.slice(0, 120) || 'Unknown error',
         });
     }
 });
