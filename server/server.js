@@ -1145,7 +1145,30 @@ app.get('*', (req, res) => {
 
 // ─── START ──────────────────────────────────────────────
 
-app.listen(PORT, () => {
+let retryCount = 0;
+const MAX_RETRIES = 3;
+
+const server = app.listen(PORT, () => {
+    retryCount = 0; // Reset on successful start
     console.log(`\n  >> INSERT3COINS API // PORT: ${PORT} // STATUS: ONLINE`);
     console.log(`  >> SECURITY: Helmet ✓ | Rate-Limit ✓ | CORS ✓\n`);
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        retryCount++;
+        if (retryCount > MAX_RETRIES) {
+            console.error(`\n  >> [ERROR] Port ${PORT} tetap terpakai setelah ${MAX_RETRIES} percobaan.`);
+            console.error(`  >> Matikan proses lain yang menggunakan port ${PORT}, lalu coba lagi.`);
+            process.exit(1);
+        }
+        console.log(`\n  >> [WARNING] Port ${PORT} sedang digunakan. Percobaan ${retryCount}/${MAX_RETRIES}...`);
+        setTimeout(() => {
+            server.close();
+            server.listen(PORT);
+        }, 3000);
+    } else {
+        console.error('  >> [ERROR] Server gagal start:', err.message);
+        process.exit(1);
+    }
 });
