@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { stmts, state, refreshInventory, insertTransaction } = require('../services/dbStore');
-const { validateItem } = require('../middleware/validation');
+const { validate, itemSchema } = require('../middleware/validation');
 
 router.get('/', (req, res) => {
     const { q } = req.query;
@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
     res.json(state.inventory);
 });
 
-router.post('/', validateItem, (req, res) => {
+router.post('/', validate(itemSchema), (req, res) => {
     const { name, category, price, stock, rarity, bab, sub_bab } = req.body;
     if (!name) return res.status(400).json({ error: 'FIELD_REQUIRED: name' });
 
@@ -40,7 +40,7 @@ router.post('/', validateItem, (req, res) => {
     res.status(201).json(item);
 });
 
-router.put('/:id', validateItem, (req, res) => {
+router.put('/:id', validate(itemSchema), (req, res) => {
     const id = req.params.id;
     const existing = stmts.getItemById.get(id);
     if (!existing) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });

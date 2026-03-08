@@ -83,7 +83,7 @@ export default function Analytics() {
 
             {/* Charts grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Area Chart — Stock Trends */}
+                {/* Area Chart — Sales Revenue History */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                     className="bg-[rgba(8,8,12,0.7)] backdrop-blur-xl border border-white/5 rounded-2xl p-6 overflow-hidden relative"
@@ -91,8 +91,8 @@ export default function Analytics() {
                     <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.12)_50%)] bg-[length:100%_2px] opacity-20 rounded-2xl" />
                     <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-6 relative z-10">
                         <TrendingUp className="w-4 h-4 text-[var(--color-neon-cyan)]" />
-                        Stock Trends
-                        <span className="ml-auto text-[9px] font-mono text-gray-600">LAST 8 WEEKS</span>
+                        Sales Revenue History
+                        <span className="ml-auto text-[9px] font-mono text-gray-600">LAST 7 DAYS</span>
                     </h3>
                     <div className="h-64 relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
@@ -110,8 +110,8 @@ export default function Analytics() {
                                 <XAxis dataKey="week" tick={{ fill: '#555', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fill: '#555', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} width={50} />
                                 <Tooltip content={<CyberTooltip />} />
-                                <Area type="monotone" dataKey="assets" name="Value (Rp)" stroke={NEON_CYAN} strokeWidth={2} fill="url(#gradCyan)" dot={false} activeDot={{ r: 4, fill: NEON_CYAN, stroke: '#000', strokeWidth: 2 }} />
-                                <Area type="monotone" dataKey="items" name="Items" stroke={NEON_PURPLE} strokeWidth={2} fill="url(#gradPurple)" dot={false} activeDot={{ r: 4, fill: NEON_PURPLE, stroke: '#000', strokeWidth: 2 }} />
+                                <Area type="monotone" dataKey="assets" name="Revenue (Rp)" stroke={NEON_CYAN} strokeWidth={2} fill="url(#gradCyan)" dot={false} activeDot={{ r: 4, fill: NEON_CYAN, stroke: '#000', strokeWidth: 2 }} />
+                                <Area type="monotone" dataKey="items" name="Units Sold" stroke={NEON_PURPLE} strokeWidth={2} fill="url(#gradPurple)" dot={false} activeDot={{ r: 4, fill: NEON_PURPLE, stroke: '#000', strokeWidth: 2 }} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>

@@ -1,13 +1,17 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const { drizzle } = require('drizzle-orm/better-sqlite3');
+const { eq, sum, count, desc, like, or, sql } = require('drizzle-orm');
+const schema = require('../db/schema');
+const { items, transactions, conversations } = schema;
 
-// ─── SQLite DATABASE ────────────────────────────────────
+// ─── SQLite DATABASE + DRIZZLE ORM ──────────────────────
 const DB_PATH = path.join(__dirname, '../inventory.db');
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
+const betterSqlite = new Database(DB_PATH);
+betterSqlite.pragma('journal_mode = WAL');
 
-// Ensure tables exist
-db.exec(`
+// Ensure tables exist natively first (fallback while moving to Drizzle Kit migrations)
+betterSqlite.exec(`
   CREATE TABLE IF NOT EXISTS items (
     id       TEXT PRIMARY KEY,
     name     TEXT NOT NULL,
@@ -36,71 +40,137 @@ db.exec(`
     timestamp TEXT
   );
 `);
+try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
+try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
+try { betterSqlite.exec(`UPDATE items SET bab = category WHERE bab = 'Uncategorized' AND category IS NOT NULL AND category != ''`); } catch (_) { }
 
-// ─── SAFE MIGRATION: Add bab & sub_bab columns ─────────
-try { db.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
-try { db.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
-try { db.exec(`UPDATE items SET bab = category WHERE bab = 'Uncategorized' AND category IS NOT NULL AND category != ''`); } catch (_) { }
+// Initialize Drizzle ORM
+const db = drizzle(betterSqlite, { schema });
 
-// Prepared statements
+// Wrapper to mimic the old prepared statements API using Drizzle ORM to maintain backward compatibility with routes
 const stmts = {
-    getAllItems: db.prepare('SELECT * FROM items ORDER BY name COLLATE NOCASE'),
-    getItemById: db.prepare('SELECT * FROM items WHERE id = ?'),
-    insertItem: db.prepare('INSERT INTO items (id, name, category, price, stock, rarity, status, bab, sub_bab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
-    updateItem: db.prepare('UPDATE items SET name = ?, category = ?, price = ?, stock = ?, rarity = ?, status = ?, bab = ?, sub_bab = ? WHERE id = ?'),
-    deleteItem: db.prepare('DELETE FROM items WHERE id = ?'),
-    countItems: db.prepare('SELECT COUNT(*) as cnt FROM items'),
-    deleteAll: db.prepare('DELETE FROM items'),
-    insertTx: db.prepare('INSERT INTO transactions (transaction_id, item_name, category, unit_price, quantity, total, timestamp, type, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
-    getRecentTx: db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 10'),
-    searchItems: db.prepare('SELECT * FROM items WHERE name LIKE ? OR category LIKE ? OR bab LIKE ? OR sub_bab LIKE ? ORDER BY name COLLATE NOCASE'),
-    getTopSellers: db.prepare(`SELECT item_name, SUM(quantity) as total_sold, SUM(total) as total_revenue FROM transactions WHERE type = 'SALE' GROUP BY item_name ORDER BY total_sold DESC LIMIT 5`),
-    getRevenueTotal: db.prepare(`SELECT COALESCE(SUM(total), 0) as revenue, COUNT(*) as sale_count FROM transactions WHERE type = 'SALE'`),
-    getDailyTrends: db.prepare(`SELECT strftime('%Y-%m-%d', timestamp) as day, SUM(total) as revenue, SUM(quantity) as items FROM transactions WHERE type = 'SALE' GROUP BY day ORDER BY day DESC LIMIT 7`),
-    getAllTx: db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 20'),
-    getConversation: db.prepare('SELECT role, content FROM conversations WHERE session_id = ? ORDER BY id DESC LIMIT 10'),
-    insertConversation: db.prepare('INSERT INTO conversations (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)'),
-    clearConversation: db.prepare('DELETE FROM conversations WHERE session_id = ?'),
+  getAllItems: {
+    all: () => db.select().from(items).orderBy(sql`${items.name} COLLATE NOCASE`).all()
+  },
+  getItemById: {
+    get: (id) => db.select().from(items).where(eq(items.id, id)).get()
+  },
+  insertItem: {
+    run: (id, name, category, price, stock, rarity, status, bab, sub_bab) =>
+      db.insert(items).values({ id, name, category, price, stock, rarity, status, bab, sub_bab }).run()
+  },
+  updateItem: {
+    run: (name, category, price, stock, rarity, status, bab, sub_bab, id) =>
+      db.update(items).set({ name, category, price, stock, rarity, status, bab, sub_bab }).where(eq(items.id, id)).run()
+  },
+  deleteItem: {
+    run: (id) => db.delete(items).where(eq(items.id, id)).run()
+  },
+  countItems: {
+    get: () => {
+      const result = db.select({ cnt: count() }).from(items).get();
+      return result;
+    }
+  },
+  deleteAll: {
+    run: () => db.delete(items).run()
+  },
+  insertTx: {
+    run: (transaction_id, item_name, category, unit_price, quantity, total, timestamp, type, source) =>
+      db.insert(transactions).values({ transaction_id, item_name, category, unit_price, quantity, total, timestamp, type, source }).run()
+  },
+  getRecentTx: {
+    all: () => db.select().from(transactions).orderBy(desc(transactions.timestamp)).limit(10).all()
+  },
+  searchItems: {
+    all: (term1, term2, term3, term4) =>
+      db.select().from(items).where(or(
+        like(items.name, term1),
+        like(items.category, term2),
+        like(items.bab, term3),
+        like(items.sub_bab, term4)
+      )).orderBy(sql`${items.name} COLLATE NOCASE`).all()
+  },
+  getTopSellers: {
+    all: () => db.select({
+      item_name: transactions.item_name,
+      total_sold: sql`SUM(${transactions.quantity})`.mapWith(Number),
+      total_revenue: sql`SUM(${transactions.total})`.mapWith(Number)
+    }).from(transactions).where(eq(transactions.type, 'SALE')).groupBy(transactions.item_name).orderBy(desc(sql`SUM(${transactions.quantity})`)).limit(5).all()
+  },
+  getRevenueTotal: {
+    get: () => {
+      const res = db.select({
+        revenue: sql`COALESCE(SUM(${transactions.total}), 0)`.mapWith(Number),
+        sale_count: count()
+      }).from(transactions).where(eq(transactions.type, 'SALE')).get();
+      return res || { revenue: 0, sale_count: 0 };
+    }
+  },
+  getDailyTrends: {
+    all: () => db.select({
+      day: sql`strftime('%Y-%m-%d', ${transactions.timestamp})`,
+      revenue: sql`SUM(${transactions.total})`.mapWith(Number),
+      items: sql`SUM(${transactions.quantity})`.mapWith(Number)
+    }).from(transactions).where(eq(transactions.type, 'SALE')).groupBy(sql`strftime('%Y-%m-%d', ${transactions.timestamp})`).orderBy(desc(sql`strftime('%Y-%m-%d', ${transactions.timestamp})`)).limit(7).all()
+  },
+  getAllTx: {
+    all: () => db.select().from(transactions).orderBy(desc(transactions.timestamp)).limit(20).all()
+  },
+  getLastTransaction: {
+    get: () => db.select().from(transactions).orderBy(desc(transactions.timestamp)).limit(1).get()
+  },
+  deleteTx: {
+    run: (id) => db.delete(transactions).where(eq(transactions.transaction_id, id)).run()
+  },
+  getConversation: {
+    all: (sessionId) => db.select({ role: conversations.role, content: conversations.content }).from(conversations).where(eq(conversations.session_id, sessionId)).orderBy(desc(conversations.id)).limit(10).all()
+  },
+  insertConversation: {
+    run: (session_id, role, content, timestamp) => db.insert(conversations).values({ session_id, role, content, timestamp }).run()
+  },
+  clearConversation: {
+    run: (sessionId) => db.delete(conversations).where(eq(conversations.session_id, sessionId)).run()
+  },
 };
 
-// State
 const state = {
-    inventory: stmts.getAllItems.all(),
-    terminalLogs: [],
-    readNotificationIds: new Set(),
-    BOOT_TIME: Date.now()
+  inventory: stmts.getAllItems.all(),
+  terminalLogs: [],
+  readNotificationIds: new Set(),
+  BOOT_TIME: Date.now()
 };
 
-console.log(`>> Loaded ${state.inventory.length} items from SQLite`);
+console.log(`>> Loaded ${state.inventory.length} items from SQLite via Drizzle ORM`);
 
 const refreshInventory = () => {
-    state.inventory = stmts.getAllItems.all();
+  state.inventory = stmts.getAllItems.all();
 };
 
 const insertTransaction = (tx) => {
-    stmts.insertTx.run(
-        tx.transaction_id, tx.item_name, tx.category || null,
-        tx.unit_price || 0, tx.quantity || 0, tx.total || 0,
-        tx.timestamp || null, tx.type || null, tx.source || null
-    );
+  stmts.insertTx.run(
+    tx.transaction_id, tx.item_name, tx.category || null,
+    tx.unit_price || 0, tx.quantity || 0, tx.total || 0,
+    tx.timestamp || null, tx.type || null, tx.source || null
+  );
 };
 
-const reindexDatabase = db.transaction(() => {
-    const allItems = stmts.getAllItems.all();
-    allItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-    stmts.deleteAll.run();
-    allItems.forEach((item, index) => {
-        const newId = `#${String(index + 1).padStart(3, '0')}`;
-        stmts.insertItem.run(newId, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized');
-    });
-    console.log(`>> Database Re-indexed. ${allItems.length} items sorted A-Z.`);
+const reindexDatabase = betterSqlite.transaction(() => {
+  const allItems = stmts.getAllItems.all();
+  allItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  stmts.deleteAll.run();
+  allItems.forEach((item, index) => {
+    const newId = `#${String(index + 1).padStart(3, '0')}`;
+    stmts.insertItem.run(newId, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized');
+  });
+  console.log(`>> Database Re-indexed. ${allItems.length} items sorted A-Z.`);
 });
 
 module.exports = {
-    db,
-    stmts,
-    state,
-    refreshInventory,
-    insertTransaction,
-    reindexDatabase
+  db,
+  stmts,
+  state,
+  refreshInventory,
+  insertTransaction,
+  reindexDatabase
 };

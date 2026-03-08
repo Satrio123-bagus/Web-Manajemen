@@ -159,6 +159,41 @@ function executeAction(actionJson) {
                 if (edited.rarity !== existing.rarity) changes.push(`Raritas: ${existing.rarity} → ${edited.rarity}`);
                 return `[EDITED] ${existing.id} | ${changes.join(' | ')}`;
             }
+            case 'ROLLBACK': {
+                const lastTx = stmts.getLastTransaction.get();
+                if (!lastTx) return '[ERROR] Tidak ada transaksi untuk dibatalkan.';
+
+                const item = state.inventory.find(i => i.name === lastTx.item_name);
+
+                if (lastTx.type === 'SALE') {
+                    if (!item) return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
+                    const newStock = item.stock + lastTx.quantity;
+                    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
+                    stmts.deleteTx.run(lastTx.transaction_id);
+                    refreshInventory();
+                    return `[BATAL] Penjualan terakhir dibatalkan. Stok ${item.name} dikembalikan +${lastTx.quantity} (Stok: ${newStock}).`;
+                } else if (lastTx.type === 'RESTOCK') {
+                    if (!item) return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
+                    const newStock = Math.max(0, item.stock - lastTx.quantity);
+                    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
+                    stmts.deleteTx.run(lastTx.transaction_id);
+                    refreshInventory();
+                    return `[BATAL] Restock terakhir dibatalkan. Stok ${item.name} dikurangi -${lastTx.quantity} (Stok: ${newStock}).`;
+                } else if (lastTx.type === 'CREATE') {
+                    if (item) stmts.deleteItem.run(item.id);
+                    stmts.deleteTx.run(lastTx.transaction_id);
+                    refreshInventory();
+                    return `[BATAL] Pembuatan item baru dibatalkan. Item "${lastTx.item_name}" telah dihapus.`;
+                } else if (lastTx.type === 'DELETE') {
+                    return `[BATAL GAGAL] Tidak dapat otomatis membatalkan penghapusan data. Harap buat ulang secara manual: ${lastTx.item_name}`;
+                } else if (lastTx.type === 'UPDATE') {
+                    return `[BATAL GAGAL] Tidak dapat otomatis membatalkan proses EDIT (data lama tertimpa). Harap edit kembali secara manual.`;
+                } else {
+                    return `[BATAL GAGAL] Tipe aksi "${lastTx.type}" tidak didukung untuk dibatalkan otomatis.`;
+                }
+            }
             default: return `[ERROR] Tipe aksi tidak dikenal: ${action.type}`;
         }
     } catch (e) {

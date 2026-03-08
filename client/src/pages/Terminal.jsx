@@ -132,13 +132,29 @@ export default function Terminal() {
     const speakResponse = useCallback((text) => {
         if (!ttsEnabled || !window.speechSynthesis) return;
 
-        // Clean text: remove tags like [CORTEX], [STATUS], timestamps, etc.
-        const cleaned = text
+        // Clean text for natural Indonesian speech
+        let cleaned = text
+            // Remove structural tags
             .replace(/\[.*?\]/g, '')
             .replace(/<<<.*?>>>/g, '')
             .replace(/\/\/.*$/gm, '')
-            .replace(/[─═|•⚠]/g, '')
-            .replace(/Rp([\d.,]+)/g, '$1 rupiah')
+            .replace(/[─═•⚠]/g, '')
+            // Translate symbols to spoken pauses/words
+            .replace(/\|/g, ', ') // replace pipes with pauses
+            .replace(/\bBab:/gi, 'Kategori:')
+            .replace(/\bSub-bab:/gi, 'Sub Kategori:')
+            .replace(/\bPrice:/gi, 'Harga:')
+            .replace(/\bStock:/gi, 'Stok:')
+            .replace(/\bRarity:/gi, 'Raritas:')
+            // Handle Rupiah currency formatting so it reads cleanly (e.g. 128.000 -> 128 ribu)
+            .replace(/Rp\s*([\d.,]+)/gi, (match, p1) => {
+                const numStr = p1.replace(/\./g, ''); // Remove thousand separators
+                return `${numStr} rupiah`;
+            })
+            // Remove bullet points/numbering at start of lines for smoother flow
+            .replace(/^\d+\.\s*/gm, '')
+            .replace(/^\-\s*/gm, '')
+            // Cleanup spaces
             .replace(/\s+/g, ' ')
             .trim();
 
@@ -167,18 +183,28 @@ export default function Terminal() {
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => {
             setIsSpeaking(false);
-            // Auto-listen after Cortex finishes speaking (hands-free mode)
-            if (recognitionRef.current && ttsEnabled) {
+            // Auto-listen after Cortex finishes speaking if it was paused for processing
+            if (recognitionRef.current && isListeningRef.current === 'PAUSED_FOR_PROCESSING') {
                 setTimeout(() => {
+                    isListeningRef.current = true;
                     try {
                         recognitionRef.current.start();
                         setIsListening(true);
                     } catch { /* already listening */ }
-                }, 500);
+                }, 1000); // 1000ms delay protects against echo/reverb
             }
         };
-        utterance.onerror = () => setIsSpeaking(false);
+        utterance.onerror = () => {
+            setIsSpeaking(false);
+            // Fallback restore
+            if (recognitionRef.current && isListeningRef.current === 'PAUSED_FOR_PROCESSING') {
+                isListeningRef.current = true;
+                try { recognitionRef.current.start(); setIsListening(true); } catch { }
+            }
+        };
 
+        // Prevent Chrome Garbage Collection bug by storing a global reference
+        window.__cortexUtterance = utterance;
         window.speechSynthesis.speak(utterance);
     }, [ttsEnabled]);
 
@@ -187,6 +213,7 @@ export default function Terminal() {
     const sendVoiceRef = useRef(null);
     const restartVoiceRef = useRef(null);
     const exitVoiceRef = useRef(null);
+    const isListeningRef = useRef(false); // Track true intention to listen continuously
 
     // Voice trigger keywords
     const SEND_KEYWORDS = ['kirim', 'send', 'eksekusi', 'jalankan'];
@@ -204,6 +231,9 @@ export default function Terminal() {
         recognition.maxAlternatives = 1;
 
         recognition.onresult = (event) => {
+            // HARD GATE: If we are 'PAUSED_FOR_PROCESSING' or false, silently ignore the mic feedback!
+            if (isListeningRef.current !== true) return;
+
             let interim = '';
             let final = '';
 
@@ -231,18 +261,23 @@ export default function Terminal() {
                 const command = words.slice(0, -1).join(' ').trim();
                 finalTranscriptRef.current = command;
                 setInput(command);
-                setTimeout(() => sendVoiceRef.current?.(), 200);
+                if (!isProcessing) {
+                    recognitionRef.current.stop(); // stop immediately to clear buffer
+                    setTimeout(() => sendVoiceRef.current?.(), 200);
+                }
                 return;
             }
 
             // Detect RESTART keywords — clear text, keep listening
             if (RESTART_KEYWORDS.includes(lastWord)) {
+                recognitionRef.current.stop();
                 setTimeout(() => restartVoiceRef.current?.(), 200);
                 return;
             }
 
             // Detect EXIT keywords — end session with farewell
             if (EXIT_KEYWORDS.includes(lastWord)) {
+                recognitionRef.current.stop();
                 setTimeout(() => exitVoiceRef.current?.(), 200);
                 return;
             }
@@ -253,19 +288,24 @@ export default function Terminal() {
         };
 
         recognition.onerror = (e) => {
-            // 'no-speech' is normal — user just paused, don't stop listening
             if (e.error === 'no-speech') return;
-            setIsListening(false);
-            finalTranscriptRef.current = '';
+            if (isListeningRef.current !== true) return;
+            // On other errors, quietly restart if we still want to listen
+            setTimeout(() => {
+                if (isListeningRef.current === true && recognitionRef.current) {
+                    try { recognitionRef.current.start(); } catch { }
+                }
+            }, 1000);
         };
 
         recognition.onend = () => {
-            // In continuous mode, restart if still supposed to be listening
-            // (onend fires on silence timeout even in continuous mode)
-            if (isListening && recognitionRef.current) {
+            // In continuous mode, restart if the user hasn't said 'selesai'
+            if (isListeningRef.current === true && recognitionRef.current) {
                 try {
                     recognitionRef.current.start();
                 } catch { /* already running */ }
+            } else if (isListeningRef.current === false) {
+                setIsListening(false);
             }
         };
 
@@ -284,19 +324,23 @@ export default function Terminal() {
         // Start voice — completely separate from text typing
         finalTranscriptRef.current = '';
         setVoicePreview('');
-        recognitionRef.current.start();
+        isListeningRef.current = true;
         setIsListening(true);
+        try { recognitionRef.current.start(); } catch { }
         setLines(prev => [...prev, {
             type: 'system',
-            text: `${getTimestamp()} [VOICE] Mendengarkan... "kirim"=kirim | "batal"=ulangi | "selesai"=akhiri`
+            text: `${getTimestamp()} [VOICE] Mode suara diaktifkan. Mendengarkan terus-menerus...`
         }]);
     };
 
-    // Send voice command — stops listening and executes
+    // Send voice command — stops listening and executes (auto-restarts via onend or after processing)
     const sendVoice = () => {
         if (!recognitionRef.current) return;
+
+        // Pause microphone while we are processing and Cortex is speaking back to prevent echoing
+        isListeningRef.current = 'PAUSED_FOR_PROCESSING';
         recognitionRef.current.stop();
-        setIsListening(false);
+
         setVoicePreview('');
 
         const finalText = finalTranscriptRef.current;
@@ -332,8 +376,10 @@ export default function Terminal() {
     // Exit voice session — stops and says farewell
     const exitVoice = () => {
         if (!recognitionRef.current) return;
-        recognitionRef.current.stop();
+        isListeningRef.current = false;
         setIsListening(false);
+        recognitionRef.current.stop();
+
         finalTranscriptRef.current = '';
         setVoicePreview('');
 
@@ -475,10 +521,21 @@ export default function Terminal() {
                 }, responseLines.length * 30);
 
                 // Cortex speaks the response
-                speakResponse(responseLines.join('\n'));
+                if (ttsEnabled && window.speechSynthesis) {
+                    speakResponse(responseLines.join('\n'));
+                } else if (isListeningRef.current === 'PAUSED_FOR_PROCESSING') {
+                    // Resume immediately if TTS is turned off
+                    isListeningRef.current = true;
+                    try { recognitionRef.current?.start(); setIsListening(true); } catch { }
+                }
             } else if (data.error) {
                 setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` }]);
-                speakResponse('Error. ' + data.error);
+                if (ttsEnabled && window.speechSynthesis) {
+                    speakResponse('Error. ' + data.error);
+                } else if (isListeningRef.current === 'PAUSED_FOR_PROCESSING') {
+                    isListeningRef.current = true;
+                    try { recognitionRef.current?.start(); setIsListening(true); } catch { }
+                }
             }
         } catch {
             setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] Koneksi ke backend terputus.` }]);
@@ -719,11 +776,12 @@ export default function Terminal() {
                         <input
                             ref={inputRef}
                             type="text"
-                            value={input}
+                            value={isListening ? '' : input}
                             onChange={handleInputChange}
                             onKeyDown={handleKeyDown}
-                            disabled={isProcessing}
-                            className="flex-1 bg-transparent border-none outline-none text-[var(--color-neon-cyan)] font-mono text-sm caret-[var(--color-neon-cyan)]"
+                            disabled={isProcessing || isListening}
+                            placeholder={isListening ? "[ MODE SUARA AKTIF - KEYBOARD DINONAKTIFKAN ]" : ""}
+                            className="flex-1 bg-transparent border-none outline-none text-[var(--color-neon-cyan)] font-mono text-sm caret-[var(--color-neon-cyan)] placeholder:text-emerald-500/50"
                             autoFocus
                             spellCheck={false}
                             autoComplete="off"
@@ -773,7 +831,7 @@ export default function Terminal() {
                         )}
 
                         {/* Blinking cursor */}
-                        {!input && (
+                        {!input && !isListening && (
                             <span className="text-[var(--color-neon-cyan)] animate-[flicker_1s_infinite]">█</span>
                         )}
                     </div>

@@ -1,29 +1,35 @@
-function validateItem(req, res, next) {
-    const { name, category, price, stock, rarity, bab, sub_bab } = req.body;
+const { z } = require('zod');
 
-    if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0 || name.length > 100)) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: name must be a non-empty string (max 100 chars)' });
-    }
-    if (category !== undefined && (typeof category !== 'string' || category.trim().length === 0 || category.length > 50)) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: category must be a non-empty string (max 50 chars)' });
-    }
-    if (bab !== undefined && (typeof bab !== 'string' || bab.trim().length === 0 || bab.length > 50)) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: bab must be a non-empty string (max 50 chars)' });
-    }
-    if (sub_bab !== undefined && (typeof sub_bab !== 'string' || sub_bab.trim().length === 0 || sub_bab.length > 50)) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: sub_bab must be a non-empty string (max 50 chars)' });
-    }
-    if (price !== undefined && (typeof price !== 'number' || price < 0 || !isFinite(price))) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: price must be a non-negative number' });
-    }
-    if (stock !== undefined && (typeof stock !== 'number' || stock < 0 || !Number.isInteger(stock))) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: stock must be a non-negative integer' });
-    }
-    if (rarity !== undefined && !['COMMON', 'RARE', 'LEGENDARY'].includes(rarity)) {
-        return res.status(400).json({ error: 'VALIDATION_FAILED: rarity must be COMMON, RARE, or LEGENDARY' });
-    }
+// Schema for item creation and updates
+const itemSchema = z.object({
+    name: z.string().min(1, 'Item name cannot be empty').max(100, 'Item name too long'),
+    category: z.string().optional().default('MISC'),
+    bab: z.string().optional().default('Uncategorized'),
+    sub_bab: z.string().optional().default('Uncategorized'),
+    price: z.preprocess((val) => Number(val), z.number().min(0, 'Price cannot be negative')),
+    stock: z.preprocess((val) => Number(val), z.number().int('Stock must be an integer').min(0, 'Stock cannot be negative')),
+    rarity: z.enum(['COMMON', 'RARE', 'LEGENDARY']).optional().default('COMMON'),
+    status: z.string().optional().default('IN_STOCK'),
+});
 
-    next();
-}
+// Schema for selling items
+const sellSchema = z.object({
+    id: z.string().min(1, 'Item ID required'),
+    quantity: z.preprocess((val) => Number(val), z.number().int('Quantity must be an integer').min(1, 'Must sell at least 1 unit').max(1000, 'Quantity too high for a single transaction')),
+});
 
-module.exports = { validateItem };
+// Middleware factory for validation
+const validate = (schema) => (req, res, next) => {
+    try {
+        schema.parse(req.body);
+        next();
+    } catch (error) {
+        return res.status(400).json({ error: `VALIDATION_FAILED: ${error.errors[0].message}` });
+    }
+};
+
+module.exports = {
+    itemSchema,
+    sellSchema,
+    validate
+};
