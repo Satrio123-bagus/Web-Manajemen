@@ -38,6 +38,7 @@ Language Triggers (English + Indonesian):
 - UPDATE: "update", "set stock" (set exact stock value only)
 - EDIT: "ubah", "ganti", "edit", "rename", "change name", "ganti nama", "ubah nama", "modify", "menjadi", "jadi", "ke"
 - REDUCE: "kurangi", "reduce", "decrease" → treat as SELL
+- ROLLBACK: "undo", "batal", "cancel", "kembalikan", "rollback", "revert"
 
 SMART INFERENCE RULES (for minimalist/vague commands):
 - "Ubah [A] menjadi [B]" → EDIT: target=[A], new_name=[B]
@@ -91,6 +92,11 @@ Supported actions:
 6. EDIT an item (EDIT/UBAH — rename, change price, bab, sub_bab, or multiple fields at once):
 <<<ACTION>>>
 {"type":"EDIT","target":"Full Item Name","new_name":"New Name","new_stock":15,"new_price":500,"new_category":"NewCat","new_bab":"NewBab","new_sub_bab":"NewSubBab","new_rarity":"RARE"}
+<<<END_ACTION>>>
+
+7. ROLLBACK the last transaction/action (BATAL — undo last sale, restock, or creation):
+<<<ACTION>>>
+{"type":"ROLLBACK"}
 <<<END_ACTION>>>
 
 CONTOH RESPON (Contoh dari percakapan sebelumnya, pelajari polanya, SEMUA respons CORTEX HARUS dalam Bahasa Indonesia):

@@ -1,14 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { stmts, refreshInventory, insertTransaction, state } = require('../services/dbStore');
+const { validate, sellSchema } = require('../middleware/validation');
 
-router.post('/sell', (req, res) => {
-    const { id, quantity } = req.body;
-    const qty = Number(quantity);
-
-    if (!id || !qty || qty < 1 || !Number.isInteger(qty)) {
-        return res.status(400).json({ error: 'INVALID_INPUT: id (string) and quantity (positive integer) required' });
-    }
+router.post('/sell', validate(sellSchema), (req, res) => {
+    const { id, quantity: qty } = req.body;
 
     const item = stmts.getItemById.get(id);
     if (!item) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
