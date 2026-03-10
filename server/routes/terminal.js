@@ -7,6 +7,7 @@ const { CORTEX_SYSTEM_PROMPT } = require('../services/cortexPrompt');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const PORT = process.env.PORT || 5000;
 
 function parseIndoNumber(val) {
@@ -279,10 +280,8 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
 
     try {
         let text = '';
-        const hasCerebras = CEREBRAS_API_KEY && CEREBRAS_API_KEY !== 'YOUR_CEREBRAS_API_KEY_HERE';
         const userPrompt = `${inventoryContext}\n\nOPERATOR COMMAND: ${cmd}`;
         let usedEngine = 'GROQ';
-
         try {
             const messages = [{ role: 'system', content: CORTEX_SYSTEM_PROMPT }];
             conversationHistory.forEach(entry => messages.push({ role: entry.role, content: entry.content }));
@@ -294,6 +293,9 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
             text = chatCompletion.choices[0]?.message?.content || '';
         } catch (groqErr) {
             console.log(`[CORTEX] Groq failed, switching to Cerebras...`);
+            const hasCerebras = CEREBRAS_API_KEY && CEREBRAS_API_KEY !== 'YOUR_CEREBRAS_API_KEY_HERE';
+            const hasOpenRouter = OPENROUTER_API_KEY && OPENROUTER_API_KEY !== 'YOUR_OPENROUTER_API_KEY_HERE';
+
             if (hasCerebras) {
                 usedEngine = 'CEREBRAS';
                 try {
@@ -304,16 +306,51 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                     const cerebrasRes = await fetch('https://api.cerebras.ai/v1/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CEREBRAS_API_KEY}` },
-                        body: JSON.stringify({ model: 'llama3.1-8b', messages, temperature: 0.7, max_tokens: 500 }),
+                        body: JSON.stringify({ model: 'llama3.1-70b', messages, temperature: 0.7, max_tokens: 500 }),
                     });
 
-                    if (!cerebrasRes.ok) throw new Error(`Cerebras failed`);
+                    if (!cerebrasRes.ok) throw new Error(`Cerebras failed: ${cerebrasRes.status}`);
                     const cerebrasData = await cerebrasRes.json();
                     text = cerebrasData.choices?.[0]?.message?.content || '';
                     console.log('[CORTEX] Cerebras backup succeeded.');
                 } catch (cerebrasErr) {
                     console.error('[CORTEX CEREBRAS ERROR]', cerebrasErr.message || cerebrasErr);
-                    throw new Error(`Groq rate-limited & Cerebras failed`);
+
+                    if (hasOpenRouter) {
+                        usedEngine = 'OPENROUTER';
+                        console.log(`[CORTEX] Cerebras failed, switching to OpenRouter (Final Failsafe)...`);
+                        try {
+                            const messages = [{ role: 'system', content: CORTEX_SYSTEM_PROMPT }];
+                            conversationHistory.forEach(entry => messages.push({ role: entry.role, content: entry.content }));
+                            messages.push({ role: 'user', content: userPrompt });
+
+                            const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                                    'HTTP-Referer': 'http://localhost:8080',
+                                    'X-Title': 'INSERT3COINS CORTEX'
+                                },
+                                body: JSON.stringify({
+                                    model: 'meta-llama/llama-3.1-70b-instruct',
+                                    messages,
+                                    temperature: 0.7,
+                                    max_tokens: 500
+                                }),
+                            });
+
+                            if (!orRes.ok) throw new Error(`OpenRouter failed: ${orRes.status}`);
+                            const orData = await orRes.json();
+                            text = orData.choices?.[0]?.message?.content || '';
+                            console.log('[CORTEX] OpenRouter ultimate failsafe succeeded.');
+                        } catch (orErr) {
+                            console.error('[CORTEX OPENROUTER ERROR]', orErr.message || orErr);
+                            throw new Error(`All neural nodes (Groq, Cerebras, OpenRouter) are offline.`);
+                        }
+                    } else {
+                        throw new Error(`Groq & Cerebras failed, and no OpenRouter key provided.`);
+                    }
                 }
             } else {
                 throw groqErr;
