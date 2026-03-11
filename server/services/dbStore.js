@@ -39,6 +39,12 @@ betterSqlite.exec(`
     content TEXT NOT NULL,
     timestamp TEXT
   );
+  CREATE TABLE IF NOT EXISTS barang (
+    id TEXT PRIMARY KEY,
+    nama_barang TEXT NOT NULL,
+    stok INTEGER NOT NULL DEFAULT 0,
+    kategori TEXT
+  );
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -51,6 +57,9 @@ const db = drizzle(betterSqlite, { schema });
 const stmts = {
   getAllItems: {
     all: () => db.select().from(items).orderBy(sql`${items.name} COLLATE NOCASE`).all()
+  },
+  getPaginatedItems: {
+    all: (limit, offset) => db.select().from(items).orderBy(sql`${items.name} COLLATE NOCASE`).limit(limit).offset(offset).all()
   },
   getItemById: {
     get: (id) => db.select().from(items).where(eq(items.id, id)).get()

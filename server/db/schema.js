@@ -32,8 +32,16 @@ const conversations = sqliteTable('conversations', {
     timestamp: text('timestamp'),
 });
 
+const tabelBarang = sqliteTable('barang', {
+    id: text('id').primaryKey(),
+    nama_barang: text('nama_barang').notNull(),
+    stok: integer('stok').notNull().default(0),
+    kategori: text('kategori')
+});
+
 module.exports = {
     items,
     transactions,
     conversations,
+    tabelBarang,
 };

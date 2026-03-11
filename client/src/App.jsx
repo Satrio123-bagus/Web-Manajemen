@@ -11,83 +11,101 @@ import Settings from './pages/Settings';
 import Terminal from './pages/Terminal';
 import { SettingsProvider } from './context/SettingsContext';
 import { useSound } from './hooks/useSound';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const API = '/api/items';
 
 function AppContent() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeDeleteId, setActiveDeleteId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [toast, setToast] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
 
   const { playSound } = useSound();
-
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   // Derive activePage from URL
   const activePage = location.pathname === '/' ? 'dashboard'
     : location.pathname.replace('/', '');
 
-  /* ── Fetch ── */
-  const fetchItems = useCallback(async (query = '') => {
-    try {
-      setError(null);
-      const url = query ? `${API}?q=${encodeURIComponent(query)}` : API;
+  /* ── React Query Fetch ── */
+  const { data: qData, isLoading: loading, error: qError } = useQuery({
+    queryKey: ['items', { q: searchQuery, page }],
+    queryFn: async () => {
+      let url = API;
+      if (searchQuery) {
+        url = `${API}?q=${encodeURIComponent(searchQuery)}`;
+      } else {
+        // We use page limit for standard view
+        url = `${API}?page=${page}&limit=50`;
+      }
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Server error');
-      setItems(await res.json());
-    } catch {
-      setError('CONNECTION_REFUSED // Gagal terhubung ke Server API');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      if (!res.ok) throw new Error('CONNECTION_REFUSED // Gagal terhubung ke Server API');
+      return res.json();
+    },
+    staleTime: 60000, 
+  });
 
-  useEffect(() => { fetchItems(); }, [fetchItems, location.pathname]);
+  const error = qError ? qError.message : null;
+  // If the server returns paginated data (has .data array), use that, otherwise fallback to array result
+  const items = qData?.data ? qData.data : (Array.isArray(qData) ? qData : []);
+  const meta = qData?.total ? { total: qData.total, page: qData.page, totalPages: qData.totalPages } : null;
 
-  /* ── CRUD ── */
-  const handleDelete = async (id) => {
-    playSound('click');
-    setActiveDeleteId(id);
-    try {
-      await fetch(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      // Re-fetch to get valid re-indexed IDs from server
-      await fetchItems();
+  /* ── Mutations ── */
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      return id;
+    },
+    onMutate: () => { playSound('click'); },
+    onSuccess: () => {
       playSound('success');
+      queryClient.invalidateQueries({ queryKey: ['items'] });
       setActiveDeleteId(null);
-    } catch {
+    },
+    onError: () => {
       playSound('error');
       setActiveDeleteId(null);
     }
-  };
+  });
 
-  const handleSave = async (data) => {
-    playSound('click');
-    try {
-      if (editingItem) {
-        await fetch(`${API}/${encodeURIComponent(editingItem.id)}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-      } else {
-        await fetch(API, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-      }
-      // Re-fetch to get sorted list from server
-      await fetchItems();
+  const saveMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const url = id ? `${API}/${encodeURIComponent(id)}` : API;
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      return res.json();
+    },
+    onMutate: () => { playSound('click'); },
+    onSuccess: () => {
       playSound('success');
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      setIsModalOpen(false);
+      setEditingItem(null);
+    },
+    onError: (err) => {
       console.error(err);
       playSound('error');
     }
-    setIsModalOpen(false);
-    setEditingItem(null);
+  });
+
+  const handleDelete = (id) => {
+    setActiveDeleteId(id);
+    deleteMutation.mutate(id);
   };
+
+  const handleSave = (data) => {
+    saveMutation.mutate({ id: editingItem?.id, data });
+  };
+
 
   /* ── Quick Sell (optimistic) ── */
   const showToast = (message, type = 'success') => {
@@ -95,54 +113,58 @@ function AppContent() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleQuickSell = async (id) => {
-    const item = items.find(i => i.id === id);
-    if (!item || item.stock <= 0) {
-      playSound('error');
-      return;
-    }
-
-    playSound('click');
-    // Optimistic: immediately decrement stock on screen
-    setItems(prev => prev.map(i =>
-      i.id === id
-        ? { ...i, stock: i.stock - 1, status: (i.stock - 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' }
-        : i
-    ));
-
-    try {
+  const sellMutation = useMutation({
+    mutationFn: async ({ id }) => {
       const res = await fetch('/api/sell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, quantity: 1 }),
       });
-
       if (!res.ok) {
         const err = await res.json();
-        // Revert optimistic update
-        setItems(prev => prev.map(i =>
-          i.id === id ? { ...i, stock: i.stock + 1, status: (i.stock + 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' } : i
-        ));
-        playSound('error');
-        showToast(err.error || 'SALE_FAILED', 'error');
-        return;
+        throw new Error(err.error || 'SALE_FAILED');
       }
-
+      return await res.json();
+    },
+    onMutate: async ({ id }) => {
+      playSound('click');
+      // Optimistic Update
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousData = queryClient.getQueryData(['items', { q: searchQuery, page }]);
+      queryClient.setQueryData(['items', { q: searchQuery, page }], (old) => {
+        if (!old) return old;
+        const processItem = (i) => i.id === id ? { ...i, stock: i.stock - 1, status: (i.stock - 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' } : i;
+        if (old.data) return { ...old, data: old.data.map(processItem) };
+        return old.map(processItem);
+      });
+      return { previousData };
+    },
+    onSuccess: (_, { itemInfo }) => {
       playSound('success');
-      showToast(`SALE_RECORDED: ${item.name} × 1`, 'success');
-    } catch {
-      // Revert on network error
-      setItems(prev => prev.map(i =>
-        i.id === id ? { ...i, stock: i.stock + 1, status: (i.stock + 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' } : i
-      ));
+      showToast(`SALE_RECORDED: ${itemInfo.name} × 1`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+    onError: (err, _, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['items', { q: searchQuery, page }], context.previousData);
+      }
       playSound('error');
-      showToast('NETWORK_ERROR: Sale failed', 'error');
+      showToast(err.message || 'NETWORK_ERROR: Sale failed', 'error');
     }
+  });
+
+  const handleQuickSell = (id) => {
+    const item = items.find(i => i.id === id);
+    if (!item || item.stock <= 0) {
+      playSound('error');
+      return;
+    }
+    sellMutation.mutate({ id, itemInfo: item });
   };
 
   /* ── Render ── */
   return (
-    <Layout activePage={activePage} onSearch={fetchItems}>
+    <Layout activePage={activePage} onSearch={(q) => setSearchQuery(q)}>
       {/* Error banner */}
       {error && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
@@ -162,7 +184,9 @@ function AppContent() {
           <Route path="/inventory" element={
             <Dashboard
               items={items}
-              onSearch={fetchItems}
+              meta={meta}
+              onPageChange={setPage}
+              onSearch={(q) => setSearchQuery(q)}
               onDelete={handleDelete}
               onEdit={(item) => { setEditingItem(item); setIsModalOpen(true); }}
               onAdd={() => { setEditingItem(null); setIsModalOpen(true); }}
