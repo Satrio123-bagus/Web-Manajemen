@@ -4,12 +4,36 @@ const { stmts, state, refreshInventory, insertTransaction } = require('../servic
 const { validate, itemSchema } = require('../middleware/validation');
 
 router.get('/', (req, res) => {
-    const { q } = req.query;
+    const { q, page, limit } = req.query;
+    
+    // Search Mode
     if (q) {
         const query = `%${q}%`;
         const results = stmts.searchItems.all(query, query, query, query);
         return res.json(results);
     }
+    
+    // Pagination Mode
+    if (page && limit) {
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 50;
+        const offset = (pageNum - 1) * limitNum;
+        
+        const totalResult = stmts.countItems.get();
+        const totalItems = totalResult?.cnt || 0;
+        const totalPages = Math.ceil(totalItems / limitNum);
+        
+        const results = stmts.getPaginatedItems.all(limitNum, offset);
+        
+        return res.json({
+            data: results,
+            total: totalItems,
+            page: pageNum,
+            totalPages: totalPages
+        });
+    }
+
+    // Default Fallback (Legacy)
     res.json(state.inventory);
 });
 

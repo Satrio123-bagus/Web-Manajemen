@@ -64,7 +64,7 @@ function StatCard({ icon: Icon, label, value, suffix, accent, delay = 0 }) {
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD (exported)
    ═══════════════════════════════════════════════════════════ */
-export default function Dashboard({ items, onDelete, onEdit, onAdd, onSell, isDeleting, onSearch }) {
+export default function Dashboard({ items, meta, onPageChange, onDelete, onEdit, onAdd, onSell, isDeleting, onSearch }) {
     const [search, setSearch] = useState('');
 
     // Debounce search
@@ -145,7 +145,7 @@ export default function Dashboard({ items, onDelete, onEdit, onAdd, onSell, isDe
                                 Inventory Registry
                             </h3>
                             <p className="text-xs font-mono text-gray-600 mt-1">
-                                {filtered.length} of {items.length} records displayed
+                                {meta ? `Showing page ${meta.page} of ${meta.totalPages || 1} (${meta.total} records)` : `${filtered.length} of ${items.length} records displayed`}
                             </p>
                         </div>
                         <div className="flex gap-3 items-center">
@@ -339,13 +339,36 @@ export default function Dashboard({ items, onDelete, onEdit, onAdd, onSell, isDe
                             </div>
                         )}
 
-                        {/* Table footer */}
-                        <div className="px-5 py-3 border-t border-white/5 flex justify-between items-center">
+                        {/* Table footer & Pagination Controls */}
+                        <div className="px-5 py-3 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
                             <p className="text-[10px] font-mono text-gray-600">
                                 TOTAL_ASSETS: <span className="text-[var(--color-neon-cyan)]">{stats.totalAssets.toLocaleString()} Rp</span>
                             </p>
+                            
+                            {meta && meta.totalPages > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => onPageChange(meta.page - 1)}
+                                        disabled={meta.page <= 1}
+                                        className="px-3 py-1 bg-white/5 border border-white/10 rounded text-xs text-white hover:bg-white/10 hover:border-[var(--color-neon-cyan)] disabled:opacity-30 transition-all font-mono uppercase"
+                                    >
+                                        &lt; Prev
+                                    </button>
+                                    <span className="text-[10px] text-[var(--color-neon-cyan)] font-mono tracking-widest px-2">
+                                        [{String(meta.page).padStart(2, '0')} / {String(meta.totalPages).padStart(2, '0')}]
+                                    </span>
+                                    <button
+                                        onClick={() => onPageChange(meta.page + 1)}
+                                        disabled={meta.page >= meta.totalPages}
+                                        className="px-3 py-1 bg-white/5 border border-white/10 rounded text-xs text-white hover:bg-white/10 hover:border-[var(--color-neon-cyan)] disabled:opacity-30 transition-all font-mono uppercase"
+                                    >
+                                        Next &gt;
+                                    </button>
+                                </div>
+                            )}
+                            
                             <p className="text-[10px] font-mono text-gray-600">
-                                RECORDS: {filtered.length}/{items.length}
+                                RECORDS: {filtered.length}/{meta ? meta.total : items.length}
                             </p>
                         </div>
                     </div>

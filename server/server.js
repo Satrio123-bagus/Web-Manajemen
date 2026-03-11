@@ -35,6 +35,7 @@ app.get('/api/status', (req, res) => {
 
 // ─── MOUNT ROUTES ───────────────────────────────────────
 app.use('/api/items', require('./routes/items'));
+app.use('/api/barang', require('./routes/barang'));
 app.use('/api', require('./routes/sales')); // covers /api/sell and /api/transactions
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/analytics', require('./routes/analytics'));
