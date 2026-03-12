@@ -64,7 +64,7 @@ function StatCard({ icon: Icon, label, value, suffix, accent, delay = 0 }) {
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD (exported)
    ═══════════════════════════════════════════════════════════ */
-export default function Dashboard({ items, meta, onPageChange, onDelete, onEdit, onAdd, onSell, isDeleting, onSearch }) {
+export default function Dashboard({ items, meta, onPageChange, limit, onLimitChange, onDelete, onEdit, onAdd, onSell, isDeleting, onSearch }) {
     const [search, setSearch] = useState('');
 
     // Debounce search
@@ -119,7 +119,7 @@ export default function Dashboard({ items, meta, onPageChange, onDelete, onEdit,
                     accent="from-[var(--color-neon-cyan)] to-blue-500" delay={0}
                 />
                 <StatCard
-                    icon={Package} label="System Load" value={stats.totalItems} suffix="ITEMS"
+                    icon={Package} label="System Load" value={meta ? meta.total : stats.totalItems} suffix="ITEMS"
                     accent="from-[var(--color-neon-purple)] to-pink-500" delay={0.1}
                 />
                 <StatCard
@@ -341,9 +341,23 @@ export default function Dashboard({ items, meta, onPageChange, onDelete, onEdit,
 
                         {/* Table footer & Pagination Controls */}
                         <div className="px-5 py-3 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <p className="text-[10px] font-mono text-gray-600">
-                                TOTAL_ASSETS: <span className="text-[var(--color-neon-cyan)]">{stats.totalAssets.toLocaleString()} Rp</span>
-                            </p>
+                            <div className="flex items-center gap-4">
+                                <p className="text-[10px] font-mono text-gray-600">
+                                    TOTAL_ASSETS: <span className="text-[var(--color-neon-cyan)]">{stats.totalAssets.toLocaleString()} Rp</span>
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-mono text-gray-600">LIMIT:</span>
+                                    <select 
+                                        value={limit || 50} 
+                                        onChange={(e) => onLimitChange(Number(e.target.value))}
+                                        className="bg-[#0a0a0c] border border-white/10 rounded text-[10px] font-mono text-white p-1 focus:outline-none focus:border-[var(--color-neon-cyan)]"
+                                    >
+                                        <option value="10">10</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                            </div>
                             
                             {meta && meta.totalPages > 1 && (
                                 <div className="flex items-center gap-2">
