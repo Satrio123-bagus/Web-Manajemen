@@ -22,6 +22,7 @@ function AppContent() {
   const [toast, setToast] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
 
   const { playSound } = useSound();
   const location = useLocation();
@@ -33,14 +34,13 @@ function AppContent() {
 
   /* ── React Query Fetch ── */
   const { data: qData, isLoading: loading, error: qError } = useQuery({
-    queryKey: ['items', { q: searchQuery, page }],
+    queryKey: ['items', { q: searchQuery, page, limit }],
     queryFn: async () => {
       let url = API;
       if (searchQuery) {
         url = `${API}?q=${encodeURIComponent(searchQuery)}`;
       } else {
-        // We use page limit for standard view
-        url = `${API}?page=${page}&limit=50`;
+        url = `${API}?page=${page}&limit=${limit}`;
       }
       const res = await fetch(url);
       if (!res.ok) throw new Error('CONNECTION_REFUSED // Gagal terhubung ke Server API');
@@ -186,6 +186,8 @@ function AppContent() {
               items={items}
               meta={meta}
               onPageChange={setPage}
+              limit={limit}
+              onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
               onSearch={(q) => setSearchQuery(q)}
               onDelete={handleDelete}
               onEdit={(item) => { setEditingItem(item); setIsModalOpen(true); }}
