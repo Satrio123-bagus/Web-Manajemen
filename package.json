@@ -4,10 +4,10 @@
     "private": true,
     "description": "INSERT3COINS Full Stack — Cyberpunk Inventory System",
     "scripts": {
-        "dev": "concurrently -n CLIENT,SERVER -c cyan,magenta \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
-        "install:all": "npm install && npm install --prefix client && npm install --prefix server",
-        "build": "npm run build --prefix client",
-        "start": "node server/server.js",
+        "dev": "concurrently -n FRONTEND,BACKEND -c cyan,magenta \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
+        "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+        "build": "npm run build --prefix frontend",
+        "start": "node backend/src/index.js",
         "postinstall": "npm run build"
     },
     "devDependencies": {

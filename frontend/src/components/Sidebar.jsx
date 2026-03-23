@@ -5,6 +5,7 @@ import {
     ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut
 } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
+import api from '../api';
 
 const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'DASHBOARD', to: '/' },
@@ -28,7 +29,7 @@ export default function Sidebar({ isOpen, onClose }) {
         const checkStatus = async () => {
             try {
                 const startTime = Date.now();
-                const res = await fetch('/api/status', {
+                const res = await api.get('/status', {
                     // Prevent caching for accurate status
                     headers: { 'Cache-Control': 'no-cache' }
                 });

@@ -1,20 +1,20 @@
 services:
   backend:
-    build: ./server
+    build: ./backend
     restart: unless-stopped
     env_file:
-      - ./server/.env
+      - ./backend/.env
     environment:
       - PORT=8080
     expose:
       - "8080"
     volumes:
-      - ./server/data:/app/data
+      - ./backend/data:/app/data
     networks:
       - insert3coins-net
 
   frontend:
-    build: ./client
+    build: ./frontend
     restart: unless-stopped
     ports:
       - "80:80"

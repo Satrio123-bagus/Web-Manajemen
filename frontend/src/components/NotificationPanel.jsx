@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, AlertTriangle, AlertCircle, Info, X, Check } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
+import api from '../api';
 
 const TYPE_CONFIG = {
     critical: {
@@ -41,7 +42,7 @@ export default function NotificationPanel() {
     // Fetch notifications
     const fetchNotifications = async () => {
         try {
-            const res = await fetch('/api/notifications');
+            const res = await api.get('/notifications');
             if (res.ok) {
                 const data = await res.json();
 
@@ -80,11 +81,7 @@ export default function NotificationPanel() {
 
     const markAsRead = async (id) => {
         try {
-            await fetch('/api/notifications/read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
-            });
+            await api.post('/notifications/read', { id });
             setNotifications(prev =>
                 prev.map(n => n.id === id ? { ...n, read: true } : n)
             );
