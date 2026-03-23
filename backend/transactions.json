@@ -1,0 +1,12 @@
+[
+  {
+    "transaction_id": "TX-1771283432306",
+    "item_name": "A75C2656",
+    "category": "Panasonic",
+    "unit_price": 123,
+    "quantity": 1,
+    "total": 123,
+    "timestamp": "2026-02-16T23:10:32.306Z",
+    "type": "SALE"
+  }
+]

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Trash2, Volume2, VolumeX, Send, X, Copy, Download } from 'lucide-react';
+import api from '../api';
 
 /* ── Help command content ── */
 const HELP_LINES = [
@@ -100,9 +101,7 @@ export default function Terminal() {
         const hasSpeech = typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined';
 
         // Fetch inventory names for autocomplete
-        fetch('/api/items', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
-        })
+        api.get('/items')
             .then(res => res.json())
             .then(data => setInventoryNames(data.map(i => i.name)))
             .catch(() => { });
@@ -119,9 +118,8 @@ export default function Terminal() {
 
             // Real health check
             try {
-                const res = await fetch('/api/status', { 
-                    signal: AbortSignal.timeout(5000),
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+                const res = await api.get('/status', { 
+                    signal: AbortSignal.timeout(5000)
                 });
                 if (!res.ok) throw new Error('Status not OK');
                 await addLine(`${getTimestamp()} [BOOT] Enkripsi: AES-256 ✓ | TLS 1.3 ✓`, 200);
@@ -434,12 +432,8 @@ export default function Terminal() {
     /* Clear conversation memory */
     const clearMemory = async () => {
         try {
-            await fetch('/api/terminal/history', {
-                method: 'DELETE',
-                headers: { 
-                    'X-Session-ID': sessionId.current,
-                    'Authorization': 'Bearer ' + localStorage.getItem('cortex_token')
-                },
+            await api.delete('/terminal/history', {
+                headers: { 'X-Session-ID': sessionId.current }
             });
             const newId = generateSessionId();
             sessionId.current = newId;
@@ -488,9 +482,8 @@ export default function Terminal() {
         if (trimmed.toLowerCase() === 'retry') {
             addLines({ type: 'system', text: `${getTimestamp()} [SYSTEM] Memverifikasi koneksi backend...` });
             try {
-                const res = await fetch('/api/status', { 
-                    signal: AbortSignal.timeout(5000),
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+                const res = await api.get('/status', { 
+                    signal: AbortSignal.timeout(5000)
                 });
                 if (!res.ok) throw new Error('Status not OK');
                 addLines({ type: 'system', text: `${getTimestamp()} [SYSTEM] ✓ Backend aktif dan terhubung.` });
@@ -524,14 +517,8 @@ export default function Terminal() {
 
         setIsProcessing(true);
         try {
-            const res = await fetch('/api/terminal', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Session-ID': sessionId.current,
-                    'Authorization': 'Bearer ' + localStorage.getItem('cortex_token')
-                },
-                body: JSON.stringify({ command: trimmed }),
+            const res = await api.post('/terminal', { command: trimmed }, {
+                headers: { 'X-Session-ID': sessionId.current }
             });
             const data = await res.json();
 

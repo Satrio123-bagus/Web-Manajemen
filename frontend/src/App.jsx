@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import { SettingsProvider } from './context/SettingsContext';
 import { useSound } from './hooks/useSound';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api, { fetchApi } from './api';
 
 const API = '/api/items';
 
@@ -44,11 +45,7 @@ function AppContent() {
       } else {
         url = `${API}?page=${page}&limit=${limit}`;
       }
-      const res = await fetch(url, {
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
+      const res = await api.get(url);
       if (!res.ok) {
         if (res.status === 401) {
             localStorage.removeItem('cortex_token');
@@ -71,12 +68,7 @@ function AppContent() {
   /* ── Mutations ── */
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`${API}/${encodeURIComponent(id)}`, { 
-        method: 'DELETE',
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
+      const res = await api.delete(`${API}/${encodeURIComponent(id)}`);
       if (!res.ok) throw new Error('Failed to delete');
       return id;
     },
@@ -96,11 +88,8 @@ function AppContent() {
     mutationFn: async ({ id, data }) => {
       const url = id ? `${API}/${encodeURIComponent(id)}` : API;
       const method = id ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method, headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
-        },
+      const res = await fetchApi(url, {
+        method,
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error('Failed to save');
@@ -137,14 +126,7 @@ function AppContent() {
 
   const sellMutation = useMutation({
     mutationFn: async ({ id }) => {
-      const res = await fetch('/api/sell', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify({ id, quantity: 1 }),
-      });
+      const res = await api.post('/sell', { id, quantity: 1 });
       if (!res.ok) {
         if (res.status === 401) {
             localStorage.removeItem('cortex_token');

@@ -8,6 +8,7 @@ import {
     Coins, Cpu, AlertTriangle, Bot as TerminalIcon,
     Shield, Zap, ChevronRight, Activity
 } from 'lucide-react';
+import api from '../api';
 
 const NEON_CYAN = '#00f3ff';
 const NEON_PURPLE = '#bc13fe';
@@ -120,9 +121,7 @@ export default function DashboardHome() {
     // Fetch analytics, items, dan transaksi
     useEffect(() => {
         const safeFetch = async (url) => {
-            const r = await fetch(url, {
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
-            });
+            const r = await api.get(url);
             if (!r.ok) throw new Error(`${r.status}`);
             return r.json();
         };

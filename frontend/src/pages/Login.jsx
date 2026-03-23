@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, ServerCrash, KeyRound } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
+import api from '../api';
 
 export default function Login({ onLogin }) {
     const [password, setPassword] = useState('');
@@ -16,11 +17,7 @@ export default function Login({ onLogin }) {
         playSound('click');
 
         try {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
+            const res = await api.post('/auth/login', { password });
 
             const data = await res.json();
 

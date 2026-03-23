@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Database } from 'lucide-react';
+import api from '../api';
 
 const LOG_TYPE_STYLES = {
     CREATE: 'text-emerald-400',
@@ -33,9 +34,7 @@ export default function ActivityLog() {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const res = await fetch('/api/transactions/recent', {
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
-                });
+                const res = await api.get('/transactions/recent');
                 if (!res.ok) {
                     throw new Error(`Network response was not ok: ${res.statusText}`);
                 }

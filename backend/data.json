@@ -1,0 +1,110 @@
+[
+  {
+    "id": "#001",
+    "name": "A75C2656",
+    "category": "Panasonic",
+    "price": 123,
+    "stock": 9,
+    "rarity": "COMMON",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#002",
+    "name": "A75C3623",
+    "category": "Panasonic",
+    "price": 124,
+    "stock": 20,
+    "rarity": "COMMON",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#003",
+    "name": "Arcade PCB (Retro Edition)",
+    "category": "Retro",
+    "price": 75,
+    "stock": 15,
+    "rarity": "COMMON",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#004",
+    "name": "Bio-Hacking Deck v2",
+    "category": "Bioware",
+    "price": 1850,
+    "stock": 4,
+    "rarity": "RARE",
+    "status": "LOW_STOCK"
+  },
+  {
+    "id": "#005",
+    "name": "Cybernetic Arm (Left)",
+    "category": "Implant",
+    "price": 3200,
+    "stock": 2,
+    "rarity": "LEGENDARY",
+    "status": "LOW_STOCK"
+  },
+  {
+    "id": "#006",
+    "name": "Holographic Projector",
+    "category": "Hardware",
+    "price": 420,
+    "stock": 18,
+    "rarity": "COMMON",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#007",
+    "name": "Neural Link v4.5",
+    "category": "Implant",
+    "price": 2750,
+    "stock": 1,
+    "rarity": "LEGENDARY",
+    "status": "LOW_STOCK"
+  },
+  {
+    "id": "#008",
+    "name": "Plasma Battery Cell",
+    "category": "Power",
+    "price": 95,
+    "stock": 50,
+    "rarity": "COMMON",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#009",
+    "name": "Quantum Core i9",
+    "category": "CPU",
+    "price": 899,
+    "stock": 12,
+    "rarity": "RARE",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#010",
+    "name": "RTX 5090 Ti (Obsidian)",
+    "category": "GPU",
+    "price": 4500,
+    "stock": 3,
+    "rarity": "LEGENDARY",
+    "status": "LOW_STOCK"
+  },
+  {
+    "id": "#011",
+    "name": "Smart Vision Implant",
+    "category": "Bioware",
+    "price": 2100,
+    "stock": 6,
+    "rarity": "RARE",
+    "status": "IN_STOCK"
+  },
+  {
+    "id": "#012",
+    "name": "Thermal Katana",
+    "category": "Weapon",
+    "price": 1600,
+    "stock": 8,
+    "rarity": "RARE",
+    "status": "IN_STOCK"
+  }
+]

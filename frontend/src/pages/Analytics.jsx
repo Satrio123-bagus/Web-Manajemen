@@ -9,6 +9,7 @@ import {
     TrendingUp, PieChart as PieIcon, Activity, Layers,
     Shield, Zap, BarChart3
 } from 'lucide-react';
+import api from '../api';
 
 const NEON_CYAN = '#00f3ff';
 const NEON_PURPLE = '#bc13fe';
@@ -49,9 +50,7 @@ export default function Analytics() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch('/api/analytics', {
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
-                });
+                const res = await api.get('/analytics');
                 const jsonData = await res.json();
                 setData(jsonData);
             } catch (error) {
