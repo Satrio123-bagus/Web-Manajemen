@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-    LayoutDashboard, Package, BarChart3, Settings, Terminal,
-    ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X
+    LayoutDashboard, Package, BarChart3, Settings, Bot,
+    ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut
 } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
 
@@ -10,7 +10,7 @@ const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'DASHBOARD', to: '/' },
     { icon: Package, label: 'INVENTORY', to: '/inventory' },
     { icon: BarChart3, label: 'ANALYTICS', to: '/analytics' },
-    { icon: Terminal, label: 'TERMINAL', to: '/terminal' },
+    { icon: Bot, label: 'AI MANAGER', to: '/terminal' },
     { icon: Settings, label: 'SETTINGS', to: '/settings' },
 ];
 
@@ -168,10 +168,19 @@ export default function Sidebar({ isOpen, onClose }) {
                     </div>
                 </div>
 
+                {/* ── Logout Button ── */}
+                <button
+                    onClick={() => { playSound('error'); localStorage.removeItem('cortex_token'); window.location.href='/'; }}
+                    className={`h-12 border-t border-white/5 flex items-center ${collapsed ? 'justify-center' : 'px-6 gap-3'} text-red-500/80 hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0 w-full hover:shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]`}
+                >
+                    <LogOut className="w-5 h-5 shrink-0" />
+                    {!collapsed && <span className="text-sm font-mono tracking-wider font-bold">DISCONNECT</span>}
+                </button>
+
                 {/* ── Collapse Toggle ── */}
                 <button
                     onClick={() => { playSound('click'); setCollapsed(!collapsed); }}
-                    className="h-10 border-t border-white/5 flex items-center justify-center text-gray-600 hover:text-[var(--color-neon-cyan)] hover:bg-white/5 transition-all shrink-0"
+                    className="h-10 border-t border-white/5 flex items-center justify-center text-gray-600 hover:text-[var(--color-neon-cyan)] hover:bg-white/5 transition-all shrink-0 w-full"
                 >
                     {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>

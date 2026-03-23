@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip
 } from 'recharts';
 import {
-    Coins, Cpu, AlertTriangle, Terminal as TerminalIcon,
+    Coins, Cpu, AlertTriangle, Bot as TerminalIcon,
     Shield, Zap, ChevronRight, Activity
 } from 'lucide-react';
 
@@ -114,14 +114,15 @@ function logColor(type) {
    ═══════════════════════════════════════════════════════════ */
 export default function DashboardHome() {
     const [analytics, setAnalytics] = useState(null);
-    const [items, setItems] = useState([]);
     const [terminalLogs, setTerminalLogs] = useState([]);
     const logRef = useRef(null);
 
     // Fetch analytics, items, dan transaksi
     useEffect(() => {
         const safeFetch = async (url) => {
-            const r = await fetch(url);
+            const r = await fetch(url, {
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+            });
             if (!r.ok) throw new Error(`${r.status}`);
             return r.json();
         };
@@ -129,17 +130,15 @@ export default function DashboardHome() {
         const fetchAll = () => {
             Promise.all([
                 safeFetch('/api/analytics'),
-                safeFetch('/api/items'),
                 safeFetch('/api/transactions'),
-            ]).then(([a, i, t]) => {
+            ]).then(([a, t]) => {
                 setAnalytics(a);
-                setItems(i);
                 setTerminalLogs(t);
             }).catch(() => {
                 // Set empty defaults so the dashboard still renders
                 setAnalytics(prev => prev || {
                     totalStockValue: 0, totalItems: 0, totalStock: 0,
-                    lowStockCount: 0, categoryDistribution: [],
+                    lowStockCount: 0, lowStockItems: [], categoryDistribution: [],
                     rarityDistribution: [], stockTrends: [],
                 });
             });
@@ -148,7 +147,7 @@ export default function DashboardHome() {
         fetchAll();
         const interval = setInterval(() => {
             safeFetch('/api/transactions').then(setTerminalLogs).catch(() => { });
-        }, 10000); // Poll setiap 10 detik (lebih hemat)
+        }, 30000); // Poll setiap 30 detik (optimized dari 10s)
 
         return () => clearInterval(interval);
     }, []);
@@ -158,7 +157,7 @@ export default function DashboardHome() {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [terminalLogs]);
 
-    const lowStockItems = useMemo(() => items.filter(i => i.stock < 5), [items]);
+    const lowStockItems = analytics?.lowStockItems || [];
     const totalValue = analytics?.totalStockValue || 0;
     const totalItems = analytics?.totalItems || 0;
     const MAX_CAPACITY = 100;
@@ -346,12 +345,12 @@ export default function DashboardHome() {
                     </div>
                 </GlassCard>
 
-                {/* ═══ WIDGET E — TERMINAL LOG ═══ */}
+                {/* ═══ WIDGET E — AI MANAGER LOG ═══ */}
                 <GlassCard delay={0.3} className="xl:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
                         <TerminalIcon className="w-4 h-4 text-[var(--color-neon-cyan)]" />
                         <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-gray-500 uppercase">
-                            TERMINAL_LOG
+                            AI_MANAGER_LOG
                         </GlitchHeader>
                         <span className="ml-auto text-[9px] font-mono text-emerald-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE

@@ -6,6 +6,10 @@ services:
       - ./server/.env
     environment:
       - PORT=8080
+    expose:
+      - "8080"
+    volumes:
+      - ./server/data:/app/data
     networks:
       - insert3coins-net
 

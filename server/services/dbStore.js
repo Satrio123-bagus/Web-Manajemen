@@ -1,12 +1,17 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 const { drizzle } = require('drizzle-orm/better-sqlite3');
 const { eq, sum, count, desc, like, or, sql } = require('drizzle-orm');
 const schema = require('../db/schema');
 const { items, transactions, conversations } = schema;
 
 // ─── SQLite DATABASE + DRIZZLE ORM ──────────────────────
-const DB_PATH = path.join(__dirname, '../inventory.db');
+const dataDir = path.join(__dirname, '../data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+const DB_PATH = path.join(dataDir, 'inventory.db');
 const betterSqlite = new Database(DB_PATH);
 betterSqlite.pragma('journal_mode = WAL');
 

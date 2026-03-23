@@ -33,11 +33,13 @@ export default function ActivityLog() {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const response = await fetch('/api/transactions');
-                if (!response.ok) {
-                    throw new Error(`Network response was not ok: ${response.statusText}`);
+                const res = await fetch('/api/transactions/recent', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+                });
+                if (!res.ok) {
+                    throw new Error(`Network response was not ok: ${res.statusText}`);
                 }
-                const data = await response.json();
+                const data = await res.json();
                 setLogs(data);
             } catch (err) {
                 setError(err.message);
