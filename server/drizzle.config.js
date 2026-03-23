@@ -4,6 +4,6 @@ module.exports = {
     out: "./db/migrations",
     dialect: "sqlite",
     dbCredentials: {
-        url: "./inventory.db",
-    }
+        url: "./data/inventory.db",
+    },
 };

@@ -60,8 +60,21 @@ const getTimestamp = () => {
 // Generate a unique session ID for conversation memory
 const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+// ─── PERSISTENT SESSION: Simpan session di localStorage agar AI ingat percakapan ────
+const getOrCreateSessionId = () => {
+    const stored = localStorage.getItem('cortex_session_id');
+    if (stored) return stored;
+    const newId = generateSessionId();
+    localStorage.setItem('cortex_session_id', newId);
+    return newId;
+};
+
 export default function Terminal() {
     const [lines, setLines] = useState([]);
+
+    // ─── MEMORY CAP: Limit terminal lines to prevent memory leaks ────
+    const MAX_LINES = 500;
+    const addLines = (newLine) => setLines(prev => [...prev, newLine].slice(-MAX_LINES));
     const [input, setInput] = useState('');
     const [history, setHistory] = useState([]);
     const [histIdx, setHistIdx] = useState(-1);
@@ -75,7 +88,7 @@ export default function Terminal() {
     const bottomRef = useRef(null);
     const inputRef = useRef(null);
     const booted = useRef(false);
-    const sessionId = useRef(generateSessionId());
+    const sessionId = useRef(getOrCreateSessionId());
     const recognitionRef = useRef(null);
     const executeRef = useRef(null);
 
@@ -87,24 +100,29 @@ export default function Terminal() {
         const hasSpeech = typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined';
 
         // Fetch inventory names for autocomplete
-        fetch('/api/items')
+        fetch('/api/items', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+        })
             .then(res => res.json())
             .then(data => setInventoryNames(data.map(i => i.name)))
             .catch(() => { });
 
         const addLine = (text, delay) =>
             new Promise(resolve => setTimeout(() => {
-                setLines(prev => [...prev, { type: 'system', text }]);
+                addLines({ type: 'system', text });
                 resolve();
             }, delay));
 
         (async () => {
-            await addLine(`${getTimestamp()} [BOOT] INSERT3COINS Terminal v3.1.0`, 0);
+            await addLine(`${getTimestamp()} [BOOT] INSERT3COINS AI Manager v3.1.0`, 0);
             await addLine(`${getTimestamp()} [BOOT] Memverifikasi koneksi backend...`, 200);
 
             // Real health check
             try {
-                const res = await fetch('/api/status', { signal: AbortSignal.timeout(5000) });
+                const res = await fetch('/api/status', { 
+                    signal: AbortSignal.timeout(5000),
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+                });
                 if (!res.ok) throw new Error('Status not OK');
                 await addLine(`${getTimestamp()} [BOOT] Enkripsi: AES-256 ✓ | TLS 1.3 ✓`, 200);
                 await addLine(`${getTimestamp()} [BOOT] CORTEX AI: Analitik ✓ | Multi-Aksi ✓ | Memori ✓`, 200);
@@ -314,10 +332,10 @@ export default function Terminal() {
 
     const toggleVoice = () => {
         if (!recognitionRef.current) {
-            setLines(prev => [...prev, {
+            addLines({
                 type: 'error',
                 text: `${getTimestamp()} [ERROR] Voice input not supported in this browser.`
-            }]);
+            });
             return;
         }
 
@@ -327,10 +345,10 @@ export default function Terminal() {
         isListeningRef.current = true;
         setIsListening(true);
         try { recognitionRef.current.start(); } catch { }
-        setLines(prev => [...prev, {
+        addLines({
             type: 'system',
             text: `${getTimestamp()} [VOICE] Mode suara diaktifkan. Mendengarkan terus-menerus...`
-        }]);
+        });
     };
 
     // Send voice command — stops listening and executes (auto-restarts via onend or after processing)
@@ -346,10 +364,10 @@ export default function Terminal() {
         const finalText = finalTranscriptRef.current;
         finalTranscriptRef.current = '';
         if (finalText.trim()) {
-            setLines(prev => [...prev, {
+            addLines({
                 type: 'system',
                 text: `${getTimestamp()} [VOICE] ✓ Perintah dikirim.`
-            }]);
+            });
             setTimeout(() => executeRef.current?.(finalText.trim()), 300);
         }
     };
@@ -361,10 +379,10 @@ export default function Terminal() {
         recognitionRef.current.stop();
         finalTranscriptRef.current = '';
         setVoicePreview('');
-        setLines(prev => [...prev, {
+        addLines({
             type: 'system',
             text: `${getTimestamp()} [VOICE] ↻ Teks dihapus. Silakan ulangi...`
-        }]);
+        });
         // Restart listening after a brief delay
         setTimeout(() => {
             try {
@@ -391,10 +409,10 @@ export default function Terminal() {
         ];
         const farewell = farewells[Math.floor(Math.random() * farewells.length)];
 
-        setLines(prev => [...prev, {
+        addLines({
             type: 'system',
             text: `${getTimestamp()} [CORTEX] ${farewell}`
-        }]);
+        });
 
         // Speak the farewell
         if (ttsEnabled && window.speechSynthesis) {
@@ -418,18 +436,23 @@ export default function Terminal() {
         try {
             await fetch('/api/terminal/history', {
                 method: 'DELETE',
-                headers: { 'X-Session-ID': sessionId.current },
+                headers: { 
+                    'X-Session-ID': sessionId.current,
+                    'Authorization': 'Bearer ' + localStorage.getItem('cortex_token')
+                },
             });
-            sessionId.current = generateSessionId();
-            setLines(prev => [...prev, {
+            const newId = generateSessionId();
+            sessionId.current = newId;
+            localStorage.setItem('cortex_session_id', newId);
+            addLines({
                 type: 'system',
                 text: `${getTimestamp()} [SYSTEM] Memori percakapan dihapus. Sesi baru dimulai.`
-            }]);
+            });
         } catch {
-            setLines(prev => [...prev, {
+            addLines({
                 type: 'error',
                 text: `${getTimestamp()} [ERROR] Gagal menghapus memori.`
-            }]);
+            });
         }
     };
 
@@ -439,14 +462,14 @@ export default function Terminal() {
         if (!trimmed) return;
 
         // Add command to display
-        setLines(prev => [...prev, { type: 'input', text: `${getTimestamp()} > ${trimmed}` }]);
+        addLines({ type: 'input', text: `${getTimestamp()} > ${trimmed}` });
         setHistory(prev => [trimmed, ...prev].slice(0, 50));
         setHistIdx(-1);
         setInput('');
 
         // Handle client-side clear
         if (trimmed.toLowerCase() === 'clear') {
-            setLines([{ type: 'system', text: `${getTimestamp()} [SYSTEM] Terminal dibersihkan.` }]);
+            setLines([{ type: 'system', text: `${getTimestamp()} [SYSTEM] AI Manager dibersihkan.` }]);
             return;
         }
 
@@ -455,7 +478,7 @@ export default function Terminal() {
             const ts = getTimestamp();
             HELP_LINES.forEach((line, i) => {
                 setTimeout(() => {
-                    setLines(prev => [...prev, { type: 'help', text: `${ts} ${line}` }]);
+                    addLines({ type: 'help', text: `${ts} ${line}` });
                 }, i * 15);
             });
             return;
@@ -463,13 +486,16 @@ export default function Terminal() {
 
         // Handle retry — re-check backend connectivity
         if (trimmed.toLowerCase() === 'retry') {
-            setLines(prev => [...prev, { type: 'system', text: `${getTimestamp()} [SYSTEM] Memverifikasi koneksi backend...` }]);
+            addLines({ type: 'system', text: `${getTimestamp()} [SYSTEM] Memverifikasi koneksi backend...` });
             try {
-                const res = await fetch('/api/status', { signal: AbortSignal.timeout(5000) });
+                const res = await fetch('/api/status', { 
+                    signal: AbortSignal.timeout(5000),
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+                });
                 if (!res.ok) throw new Error('Status not OK');
-                setLines(prev => [...prev, { type: 'system', text: `${getTimestamp()} [SYSTEM] ✓ Backend aktif dan terhubung.` }]);
+                addLines({ type: 'system', text: `${getTimestamp()} [SYSTEM] ✓ Backend aktif dan terhubung.` });
             } catch {
-                setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ✗ Backend tidak dapat dijangkau.` }]);
+                addLines({ type: 'error', text: `${getTimestamp()} [ERROR] ✗ Backend tidak dapat dijangkau.` });
             }
             return;
         }
@@ -483,7 +509,7 @@ export default function Terminal() {
             setIsSpeaking(false);
 
             const goodbye = 'CORTEX menonaktifkan mode suara. Sampai jumpa, operator.';
-            setLines(prev => [...prev, { type: 'system', text: `${getTimestamp()} [CORTEX] ${goodbye}` }]);
+            addLines({ type: 'system', text: `${getTimestamp()} [CORTEX] ${goodbye}` });
 
             // Speak the farewell WITHOUT auto-listen after
             if (ttsEnabled && window.speechSynthesis) {
@@ -503,6 +529,7 @@ export default function Terminal() {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Session-ID': sessionId.current,
+                    'Authorization': 'Bearer ' + localStorage.getItem('cortex_token')
                 },
                 body: JSON.stringify({ command: trimmed }),
             });
@@ -513,11 +540,11 @@ export default function Terminal() {
                 const responseLines = data.output.filter(l => l.trim() !== '');
                 responseLines.forEach((line, i) => {
                     setTimeout(() => {
-                        setLines(prev => [...prev, { type: 'output', text: `${ts} ${line}` }]);
+                        addLines({ type: 'output', text: `${ts} ${line}` });
                     }, i * 30);
                 });
                 setTimeout(() => {
-                    setLines(prev => [...prev, { type: 'output', text: '' }]);
+                    addLines({ type: 'output', text: '' });
                 }, responseLines.length * 30);
 
                 // Cortex speaks the response
@@ -529,7 +556,7 @@ export default function Terminal() {
                     try { recognitionRef.current?.start(); setIsListening(true); } catch { }
                 }
             } else if (data.error) {
-                setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` }]);
+                addLines({ type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` });
                 if (ttsEnabled && window.speechSynthesis) {
                     speakResponse('Error. ' + data.error);
                 } else if (isListeningRef.current === 'PAUSED_FOR_PROCESSING') {
@@ -538,7 +565,7 @@ export default function Terminal() {
                 }
             }
         } catch {
-            setLines(prev => [...prev, { type: 'error', text: `${getTimestamp()} [ERROR] Koneksi ke backend terputus.` }]);
+            addLines({ type: 'error', text: `${getTimestamp()} [ERROR] Koneksi ke backend terputus.` });
         } finally {
             setIsProcessing(false);
         }
@@ -688,7 +715,7 @@ export default function Terminal() {
                         <span className="w-3 h-3 rounded-full bg-emerald-400/80" />
                     </div>
                     <span className="text-[10px] font-mono tracking-widest text-gray-600 flex-1 text-center">
-                        INSERT3COINS_TERMINAL — {isProcessing ? 'PROCESSING...' : isSpeaking ? 'SPEAKING...' : isListening ? 'LISTENING...' : 'READY'}
+                        INSERT3COINS_AI_MANAGER — {isProcessing ? 'PROCESSING...' : isSpeaking ? 'SPEAKING...' : isListening ? 'LISTENING...' : 'READY'}
                     </span>
 
                     {/* TTS Toggle */}

@@ -6,7 +6,12 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'inventory.db');
+// Define paths
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+const DB_PATH = path.join(dataDir, 'inventory.db');
 const DATA_FILE = path.join(__dirname, 'data.json');
 const TX_FILE = path.join(__dirname, 'transactions.json');
 

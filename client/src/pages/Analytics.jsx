@@ -47,11 +47,20 @@ export default function Analytics() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch('/api/analytics')
-            .then(r => r.json())
-            .then(setData)
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        const fetchData = async () => {
+            try {
+                const res = await fetch('/api/analytics', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('cortex_token') }
+                });
+                const jsonData = await res.json();
+                setData(jsonData);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
     }, []);
 
     if (loading || !data) {

@@ -9,6 +9,7 @@ import DashboardHome from './pages/DashboardHome';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Terminal from './pages/Terminal';
+import Login from './pages/Login';
 import { SettingsProvider } from './context/SettingsContext';
 import { useSound } from './hooks/useSound';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 const API = '/api/items';
 
 function AppContent() {
+  const [token, setToken] = useState(localStorage.getItem('cortex_token'));
   const [activeDeleteId, setActiveDeleteId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -42,11 +44,23 @@ function AppContent() {
       } else {
         url = `${API}?page=${page}&limit=${limit}`;
       }
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('CONNECTION_REFUSED // Gagal terhubung ke Server API');
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+            localStorage.removeItem('cortex_token');
+            setToken(null);
+        }
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || `HTTP_ERROR_${res.status} // API menolak koneksi`);
+      }
       return res.json();
     },
     staleTime: 60000, 
+    enabled: !!token,
   });
 
   const error = qError ? qError.message : null;
@@ -57,7 +71,12 @@ function AppContent() {
   /* ── Mutations ── */
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/${encodeURIComponent(id)}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
       if (!res.ok) throw new Error('Failed to delete');
       return id;
     },
@@ -78,7 +97,10 @@ function AppContent() {
       const url = id ? `${API}/${encodeURIComponent(id)}` : API;
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, {
-        method, headers: { 'Content-Type': 'application/json' },
+        method, headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error('Failed to save');
@@ -117,11 +139,18 @@ function AppContent() {
     mutationFn: async ({ id }) => {
       const res = await fetch('/api/sell', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
         body: JSON.stringify({ id, quantity: 1 }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        if (res.status === 401) {
+            localStorage.removeItem('cortex_token');
+            setToken(null);
+        }
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'SALE_FAILED');
       }
       return await res.json();
@@ -163,6 +192,10 @@ function AppContent() {
   };
 
   /* ── Render ── */
+  if (!token) {
+    return <Login onLogin={setToken} />;
+  }
+
   return (
     <Layout activePage={activePage} onSearch={(q) => setSearchQuery(q)}>
       {/* Error banner */}

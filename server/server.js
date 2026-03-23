@@ -20,7 +20,7 @@ app.use(cors({
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'RATE_LIMIT_EXCEEDED // Too many requests, try again later.' },
@@ -33,16 +33,37 @@ app.get('/api/status', (req, res) => {
     res.json({ status: 'ONLINE', timestamp: new Date().toISOString() });
 });
 
-// ─── MOUNT ROUTES ───────────────────────────────────────
-app.use('/api/items', require('./routes/items'));
-app.use('/api/barang', require('./routes/barang'));
-app.use('/api', require('./routes/sales')); // covers /api/sell and /api/transactions
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/analytics', require('./routes/analytics'));
-app.use('/api/terminal/history', require('./routes/history'));
-app.use('/api/terminal', require('./routes/terminal'));
-app.use('/api/chat', require('./routes/chat'));
+// ─── AUTH MIDDLEWARE ────────────────────────────────────
+const authMiddleware = require('./middleware/auth');
 
+// ─── LOGIN RATE LIMITER (Brute-Force Protection) ───────
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Max 5 login attempts per 15 minutes per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'LOGIN_RATE_LIMIT // Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' },
+});
+
+// ─── MOUNT ROUTES ───────────────────────────────────────
+app.use('/api/auth', loginLimiter, require('./routes/auth'));
+app.use('/api/items', authMiddleware, require('./routes/items'));
+app.use('/api/barang', authMiddleware, require('./routes/barang'));
+app.use('/api', authMiddleware, require('./routes/sales')); // covers /api/sell and /api/transactions
+app.use('/api/notifications', authMiddleware, require('./routes/notifications'));
+app.use('/api/analytics', authMiddleware, require('./routes/analytics'));
+app.use('/api/terminal/history', authMiddleware, require('./routes/history'));
+
+const aiLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 10, // Limit each IP to 10 AI requests per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'RATE_LIMIT_EXCEEDED // AI Engine Cooling Down. Try again in a minute.' },
+});
+
+app.use('/api/terminal', authMiddleware, aiLimiter, require('./routes/terminal'));
+app.use('/api/chat', authMiddleware, aiLimiter, require('./routes/chat'));
 // ─── SERVE FRONTEND (PRODUCTION) ───────────────────────
 const DIST_PATH = path.join(__dirname, '../client/dist');
 app.use(express.static(DIST_PATH));

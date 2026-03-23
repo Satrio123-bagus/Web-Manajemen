@@ -208,6 +208,10 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: 'INVALID_INPUT: command string required' });
     }
 
+    if (command.length > 500) {
+        return res.status(400).json({ error: 'INVALID_INPUT: Command terlalu panjang (maksimal 500 karakter).' });
+    }
+
     const cmd = command.trim();
     const ts = new Date().toISOString();
     const cmdLower = cmd.toLowerCase();
@@ -250,25 +254,44 @@ router.post('/', async (req, res) => {
     const totalValue = state.inventory.reduce((sum, i) => sum + i.price * i.stock, 0);
     const lowStock = state.inventory.filter(i => i.stock < 5);
 
+    // --- SMART CONTEXT INJECTION (KEYWORD FILTER) ---
+    const words = cmd.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    let relevantItems = [];
+    
+    if (words.length > 0) {
+        relevantItems = state.inventory.filter(item => {
+            const searchStr = `${item.name} ${item.category} ${item.bab} ${item.sub_bab} ${item.id}`.toLowerCase();
+            return words.some(w => searchStr.includes(w));
+        });
+    }
+    
+    // Always include low stock items for alerts, and limit total context size
+    let combinedItems = [...new Map([...relevantItems, ...lowStock].map(item => [item.id, item])).values()];
+    
+    // If command doesn't match anything specific, just provide a general sample
+    if (combinedItems.length === 0 || relevantItems.length === 0) {
+         const general = state.inventory.slice(0, 10);
+         combinedItems = [...new Map([...lowStock, ...general].map(item => [item.id, item])).values()];
+    }
+    
+    // Hard cap to prevent token explosion (optimized: 25 is enough for context)
+    if (combinedItems.length > 25) {
+        combinedItems = combinedItems.slice(0, 25);
+    }
+
     const inventoryContext = `
 LIVE SYSTEM CONTEXT:
 - System: INSERT3COINS Core v3.0.0
 - Status: ONLINE
 - Uptime: ${h}h ${m}m ${s}s
 - Port: ${PORT}
-- Total Items: ${state.inventory.length}
+- Total Items (in DB): ${state.inventory.length}
 - Total Stock Value: Rp${totalValue.toLocaleString('id-ID')}
 - Low Stock Alerts: ${lowStock.length} items
 - Bab (Main Categories): ${[...new Set(state.inventory.map(i => i.bab || i.category))].join(', ')}
 
-EXISTING ITEMS:
-${state.inventory.map(i => `  - "${i.name}"`).join('\n')}
-
-Full Inventory:
-${state.inventory.map((item, i) => `  ${i + 1}. ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity}`).join('\n')}
-
-Low Stock Items (stock < 5):
-${lowStock.length > 0 ? lowStock.map(i => `  ⚠ ${i.name} — Stock: ${i.stock}`).join('\n') : '  None'}
+RELEVANT ITEMS (Filtered Context, Max 25):
+${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity} ${item.stock < 5 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
 
 ANALYTICS DATA:
 - Total Revenue: Rp${revenueStats.revenue.toLocaleString('id-ID')} from ${revenueStats.sale_count} sale(s)
@@ -288,7 +311,7 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
             messages.push({ role: 'user', content: userPrompt });
 
             const chatCompletion = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 500,
+                model: 'llama-3.3-70b-versatile', messages, temperature: 0.4, max_tokens: 500,
             });
             text = chatCompletion.choices[0]?.message?.content || '';
         } catch (groqErr) {
@@ -306,7 +329,7 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                     const cerebrasRes = await fetch('https://api.cerebras.ai/v1/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CEREBRAS_API_KEY}` },
-                        body: JSON.stringify({ model: 'llama3.1-70b', messages, temperature: 0.7, max_tokens: 500 }),
+                        body: JSON.stringify({ model: 'llama3.1-70b', messages, temperature: 0.4, max_tokens: 500 }),
                     });
 
                     if (!cerebrasRes.ok) throw new Error(`Cerebras failed: ${cerebrasRes.status}`);
@@ -335,7 +358,7 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                                 body: JSON.stringify({
                                     model: 'meta-llama/llama-3.1-70b-instruct',
                                     messages,
-                                    temperature: 0.7,
+                                    temperature: 0.4,
                                     max_tokens: 500
                                 }),
                             });
@@ -360,11 +383,38 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
         if (!text) text = '[CORTEX] Tidak ada respons. Coba lagi.';
         console.log(`[CORTEX] Response via ${usedEngine} (${text.length} chars)`);
 
+        // ─── PROMPT INJECTION PROTECTION ─────────────────────
         const actionRegex = /<<<ACTION>>>\s*([\s\S]*?)\s*<<<END_ACTION>>>/g;
         const actionResults = [];
         let actionExec;
+        let deleteCount = 0;
+        const MAX_ACTIONS_PER_CMD = 5;
+        const MAX_DELETES_PER_CMD = 1;
+
         while ((actionExec = actionRegex.exec(text)) !== null) {
-            actionResults.push(executeAction(actionExec[1].trim()));
+            if (actionResults.length >= MAX_ACTIONS_PER_CMD) {
+                actionResults.push('[SECURITY] Batas maksimum aksi per perintah tercapai. Sisa aksi diabaikan.');
+                break;
+            }
+
+            const actionStr = actionExec[1].trim();
+            try {
+                const parsed = JSON.parse(actionStr);
+                // Block excessive DELETE actions (prompt injection defense)
+                if (parsed.type === 'DELETE') {
+                    deleteCount++;
+                    if (deleteCount > MAX_DELETES_PER_CMD) {
+                        actionResults.push('[SECURITY] Batas DELETE per perintah tercapai. Aksi DELETE tambahan diblokir.');
+                        continue;
+                    }
+                }
+            } catch (e) {
+                // Invalid JSON — skip but don't crash
+                actionResults.push('[ERROR] Aksi tidak valid, JSON rusak.');
+                continue;
+            }
+
+            actionResults.push(executeAction(actionStr));
         }
         text = text.replace(/<<<ACTION>>>[\s\S]*?<<<END_ACTION>>>/g, '').trim();
 
@@ -380,12 +430,13 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
         res.json({ timestamp: ts, command: cmd, output });
     } catch (err) {
         console.error('[CORTEX ERROR]', err.message);
+        // ─── SECURITY: Don't leak internal error details to client ───
+        console.error('[CORTEX DETAIL]', err.stack || err);
         res.json({
             timestamp: ts, command: cmd, output: [
                 '[KEGAGALAN_SISTEM] ████████████████████████████',
                 '[ERROR] KONEKSI NEURAL TERPUTUS',
-                `[DIAG]  ${err.message?.slice(0, 80) || 'Kegagalan tidak diketahui'}`,
-                '[CORTEX] Mencoba menghubungkan ulang... mohon tunggu.',
+                '[CORTEX] Terjadi kesalahan internal. Mencoba menghubungkan ulang...',
             ],
         });
     }
