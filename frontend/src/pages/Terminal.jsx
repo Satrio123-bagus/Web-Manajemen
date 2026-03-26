@@ -182,15 +182,23 @@ export default function Terminal() {
         const utterance = new SpeechSynthesisUtterance(cleaned);
         utterance.lang = 'id-ID';
 
-        // Pick the smoothest available voice (prefer Google/premium voices)
+        // Pilih suara Bahasa Indonesia (id-ID atau in-ID). Prioritaskan suara Laki-laki (Male).
         const voices = window.speechSynthesis.getVoices();
-        const preferred = voices.find(v =>
-            v.lang.startsWith('id') && v.name.toLowerCase().includes('google')
-        ) || voices.find(v =>
-            v.lang.startsWith('id') && (v.name.includes('Female') || v.name.includes('Natural'))
-        ) || voices.find(v => v.lang.startsWith('id'));
+        const preferred = voices.find(v => 
+            (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('male')
+        ) || voices.find(v => 
+            (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('google')
+        ) || voices.find(v => 
+            v.lang.startsWith('id') || v.lang.startsWith('in')
+        );
 
-        if (preferred) utterance.voice = preferred;
+        if (preferred) {
+            utterance.voice = preferred;
+            utterance.lang = preferred.lang;
+        } else {
+            // Fallback jika array voices kosong (sering terjadi di browser HP)
+            utterance.lang = 'id-ID';
+        }
 
         utterance.rate = 1.0;   // natural speed (not rushed)
         utterance.pitch = 1.0;  // natural pitch
