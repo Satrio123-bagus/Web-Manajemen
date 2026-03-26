@@ -311,7 +311,7 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
             messages.push({ role: 'user', content: userPrompt });
 
             const chatCompletion = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile', messages, temperature: 0.4, max_tokens: 500,
+                model: 'llama-3.3-70b-versatile', messages, temperature: 0.8, max_tokens: 500,
             });
             text = chatCompletion.choices[0]?.message?.content || '';
         } catch (groqErr) {
@@ -329,7 +329,7 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                     const cerebrasRes = await fetch('https://api.cerebras.ai/v1/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CEREBRAS_API_KEY}` },
-                        body: JSON.stringify({ model: 'llama3.1-70b', messages, temperature: 0.4, max_tokens: 500 }),
+                        body: JSON.stringify({ model: 'llama3.1-70b', messages, temperature: 0.8, max_tokens: 500 }),
                     });
 
                     if (!cerebrasRes.ok) throw new Error(`Cerebras failed: ${cerebrasRes.status}`);
@@ -358,7 +358,7 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                                 body: JSON.stringify({
                                     model: 'meta-llama/llama-3.1-70b-instruct',
                                     messages,
-                                    temperature: 0.4,
+                                    temperature: 0.8,
                                     max_tokens: 500
                                 }),
                             });
