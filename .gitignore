@@ -9,3 +9,4 @@ backend/data/*.db-shm
 backend/data/*.db-wal
 backend/*.db
 frontend/dist/
+ssl/
