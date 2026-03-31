@@ -71,7 +71,18 @@ const getOrCreateSessionId = () => {
 };
 
 export default function Terminal() {
-    const [lines, setLines] = useState([]);
+    const [lines, setLines] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cortex_terminal_lines');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return Array.isArray(parsed) ? parsed : [];
+            }
+        } catch (e) {
+            console.error('Failed to parse local storage lines', e);
+        }
+        return [];
+    });
 
     // ─── MEMORY CAP: Limit terminal lines to prevent memory leaks ────
     const MAX_LINES = 500;
@@ -113,8 +124,12 @@ export default function Terminal() {
             }, delay));
 
         (async () => {
-            await addLine(`${getTimestamp()} [BOOT] INSERT3COINS AI Manager v3.1.0`, 0);
-            await addLine(`${getTimestamp()} [BOOT] Memverifikasi koneksi backend...`, 200);
+            const isRestored = localStorage.getItem('cortex_terminal_lines') !== null;
+            
+            if (!isRestored) {
+                await addLine(`${getTimestamp()} [BOOT] INSERT3COINS AI Manager v3.1.0`, 0);
+                await addLine(`${getTimestamp()} [BOOT] Memverifikasi koneksi backend...`, 200);
+            }
 
             // Real health check
             try {
@@ -122,19 +137,35 @@ export default function Terminal() {
                     signal: AbortSignal.timeout(5000)
                 });
                 if (!res.ok) throw new Error('Status not OK');
-                await addLine(`${getTimestamp()} [BOOT] Enkripsi: AES-256 ✓ | TLS 1.3 ✓`, 200);
-                await addLine(`${getTimestamp()} [BOOT] CORTEX AI: Analitik ✓ | Multi-Aksi ✓ | Memori ✓`, 200);
-                await addLine(`${getTimestamp()} [BOOT] Input Suara: ${hasSpeech ? 'AKTIF ✓' : 'TIDAK_TERSEDIA'}`, 200);
-                await addLine(`${getTimestamp()} [BOOT] Koneksi berhasil. Ketik "help" untuk daftar perintah.`, 200);
-                await addLine('', 100);
+                
+                if (!isRestored) {
+                    await addLine(`${getTimestamp()} [BOOT] Enkripsi: AES-256 ✓ | TLS 1.3 ✓`, 200);
+                    await addLine(`${getTimestamp()} [BOOT] CORTEX AI: Analitik ✓ | Multi-Aksi ✓ | Memori ✓`, 200);
+                    await addLine(`${getTimestamp()} [BOOT] Input Suara: ${hasSpeech ? 'AKTIF ✓' : 'TIDAK_TERSEDIA'}`, 200);
+                    await addLine(`${getTimestamp()} [BOOT] Koneksi berhasil. Ketik "help" untuk daftar perintah.`, 200);
+                    await addLine('', 100);
+                }
             } catch {
-                await addLine(`${getTimestamp()} [BOOT] ✗ GAGAL: Backend tidak dapat dijangkau.`, 200);
-                await addLine(`${getTimestamp()} [BOOT] Pastikan server berjalan di port yang benar.`, 200);
-                await addLine(`${getTimestamp()} [BOOT] Ketik "retry" untuk mencoba ulang koneksi.`, 200);
-                await addLine('', 100);
+                if (!isRestored) {
+                    await addLine(`${getTimestamp()} [BOOT] ✗ GAGAL: Backend tidak dapat dijangkau.`, 200);
+                    await addLine(`${getTimestamp()} [BOOT] Pastikan server berjalan di port yang benar.`, 200);
+                    await addLine(`${getTimestamp()} [BOOT] Ketik "retry" untuk mencoba ulang koneksi.`, 200);
+                    await addLine('', 100);
+                } else {
+                    addLines({ type: 'error', text: `${getTimestamp()} [ERROR] ✗ GAGAL: Backend tidak dapat dijangkau.` });
+                }
             }
         })();
     }, []);
+
+    // Sync lines to localStorage whenever it changes
+    useEffect(() => {
+        if (lines.length > 0) {
+            localStorage.setItem('cortex_terminal_lines', JSON.stringify(lines));
+        } else {
+            localStorage.removeItem('cortex_terminal_lines');
+        }
+    }, [lines]);
 
     /* Auto-scroll */
     useEffect(() => {
@@ -143,6 +174,16 @@ export default function Terminal() {
 
     /* Focus input on click anywhere */
     const focusInput = useCallback(() => inputRef.current?.focus(), []);
+
+    // Preload TTS voices for mobile browsers to prevent English fallback
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.getVoices();
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+    }, []);
 
     /* ── Text-to-Speech (Cortex speaks back) ── */
     const speakResponse = useCallback((text) => {
@@ -182,24 +223,6 @@ export default function Terminal() {
         const utterance = new SpeechSynthesisUtterance(cleaned);
         utterance.lang = 'id-ID';
 
-        // Pilih suara Bahasa Indonesia (id-ID atau in-ID). Prioritaskan suara Laki-laki (Male).
-        const voices = window.speechSynthesis.getVoices();
-        const preferred = voices.find(v => 
-            (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('male')
-        ) || voices.find(v => 
-            (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('google')
-        ) || voices.find(v => 
-            v.lang.startsWith('id') || v.lang.startsWith('in')
-        );
-
-        if (preferred) {
-            utterance.voice = preferred;
-            utterance.lang = preferred.lang;
-        } else {
-            // Fallback jika array voices kosong (sering terjadi di browser HP)
-            utterance.lang = 'id-ID';
-        }
-
         utterance.rate = 1.0;   // natural speed (not rushed)
         utterance.pitch = 1.0;  // natural pitch
         utterance.volume = 1.0;
@@ -227,9 +250,47 @@ export default function Terminal() {
             }
         };
 
-        // Prevent Chrome Garbage Collection bug by storing a global reference
-        window.__cortexUtterance = utterance;
-        window.speechSynthesis.speak(utterance);
+        const attemptSpeak = () => {
+            const voices = window.speechSynthesis.getVoices();
+            const preferred = voices.find(v => 
+                (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('male')
+            ) || voices.find(v => 
+                (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('google')
+            ) || voices.find(v => 
+                v.lang.startsWith('id') || v.lang.startsWith('in')
+            );
+
+            if (preferred) {
+                utterance.voice = preferred;
+                utterance.lang = preferred.lang;
+            } else {
+                utterance.lang = 'id-ID'; // Force fallback to Indonesian language code
+            }
+
+            // Prevent Chrome Garbage Collection bug by storing a global reference
+            window.__cortexUtterance = utterance;
+            window.speechSynthesis.speak(utterance);
+        };
+
+        // Mobile browsers load voices asynchronously. Wait for them if empty.
+        if (window.speechSynthesis.getVoices().length === 0) {
+            let triggered = false;
+            window.speechSynthesis.onvoiceschanged = () => {
+                if (!triggered) {
+                    triggered = true;
+                    attemptSpeak();
+                }
+            };
+            // Failsafe timer if onvoiceschanged doesn't fire
+            setTimeout(() => {
+                if (!triggered) {
+                    triggered = true;
+                    attemptSpeak();
+                }
+            }, 600);
+        } else {
+            attemptSpeak();
+        }
     }, [ttsEnabled]);
 
     /* ── Voice Input Setup ── */
@@ -446,10 +507,10 @@ export default function Terminal() {
             const newId = generateSessionId();
             sessionId.current = newId;
             localStorage.setItem('cortex_session_id', newId);
-            addLines({
+            setLines([{
                 type: 'system',
                 text: `${getTimestamp()} [SYSTEM] Memori percakapan dihapus. Sesi baru dimulai.`
-            });
+            }]);
         } catch {
             addLines({
                 type: 'error',
