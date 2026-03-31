@@ -252,19 +252,39 @@ export default function Terminal() {
 
         const attemptSpeak = () => {
             const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v => 
-                (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('male')
-            ) || voices.find(v => 
-                (v.lang.startsWith('id') || v.lang.startsWith('in')) && v.name.toLowerCase().includes('google')
-            ) || voices.find(v => 
-                v.lang.startsWith('id') || v.lang.startsWith('in')
-            );
+
+            // Helper: cek apakah suara mengandung kata kunci Indonesia
+            const isIndoVoice = (v) =>
+                v.lang.startsWith('id') || v.lang.startsWith('in-') ||
+                v.name.toLowerCase().includes('indonesia') ||
+                v.name.toLowerCase().includes('indonesian');
+
+            // Helper: cek apakah suara adalah suara wanita
+            const isFemale = (v) => {
+                const n = v.name.toLowerCase();
+                return n.includes('female') || n.includes('wanita') ||
+                    n.includes('woman') || n.includes('girl') ||
+                    // Google Bahasa Indonesia (desktop Chrome) adalah suara wanita
+                    (n.includes('indonesia') && !n.includes('male'));
+            };
+
+            // Tier 1: Suara Indonesia Wanita dari Google (desktop Chrome)
+            let preferred = voices.find(v => isIndoVoice(v) && isFemale(v) && v.name.toLowerCase().includes('google'));
+            // Tier 2: Suara Indonesia Wanita apapun
+            if (!preferred) preferred = voices.find(v => isIndoVoice(v) && isFemale(v));
+            // Tier 3: Suara Indonesia dari Google (fallback, termasuk pria)
+            if (!preferred) preferred = voices.find(v => isIndoVoice(v) && v.name.toLowerCase().includes('google'));
+            // Tier 4: Suara Indonesia apapun yang tersedia
+            if (!preferred) preferred = voices.find(v => isIndoVoice(v));
 
             if (preferred) {
                 utterance.voice = preferred;
                 utterance.lang = preferred.lang;
+                // Naikkan sedikit pitch jika suaranya bukan wanita agar lebih nyaman
+                if (!isFemale(preferred)) utterance.pitch = 1.2;
             } else {
-                utterance.lang = 'id-ID'; // Force fallback to Indonesian language code
+                // Fallback paksa ke kode bahasa Indonesia
+                utterance.lang = 'id-ID';
             }
 
             // Prevent Chrome Garbage Collection bug by storing a global reference
@@ -287,7 +307,7 @@ export default function Terminal() {
                     triggered = true;
                     attemptSpeak();
                 }
-            }, 600);
+            }, 800);
         } else {
             attemptSpeak();
         }
