@@ -18,6 +18,9 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/ssl/cloudflare:ro  # Cloudflare Origin Certificate (read-only)
     depends_on:
       - backend
     networks:
