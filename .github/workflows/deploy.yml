@@ -1,0 +1,47 @@
+name: 🚀 Deploy to VPS
+
+# ─── TRIGGER ─────────────────────────────────────────────────────────────────
+# Otomatis berjalan setiap kali ada push ke branch main
+on:
+  push:
+    branches:
+      - main
+
+# ─── JOBS ────────────────────────────────────────────────────────────────────
+jobs:
+  deploy:
+    name: Deploy to Production VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Tampilkan info deployment di GitHub Actions log
+      - name: 📋 Deployment Info
+        run: |
+          echo "🚀 Deploying to 3coinsstock.com"
+          echo "📦 Branch: ${{ github.ref_name }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "💬 Commit: ${{ github.event.head_commit.message }}"
+
+      # Step 2: SSH ke VPS dan jalankan deployment secara otomatis
+      - name: 🔗 SSH & Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            echo "📁 Navigating to project directory..."
+            cd ${{ secrets.VPS_PATH }}
+
+            echo "⬇️  Pulling latest code from GitHub..."
+            git pull origin main
+
+            echo "🐳 Rebuilding and restarting Docker containers..."
+            sudo docker compose down
+            sudo docker compose up -d --build
+
+            echo "✅ Verifying containers are running..."
+            sudo docker compose ps
+
+            echo "🎉 Deployment complete!"
