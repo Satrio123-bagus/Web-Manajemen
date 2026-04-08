@@ -20,7 +20,7 @@ app.use(cors({
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: 200, // ~13 request/menit — cukup untuk penggunaan normal, cegah scraping
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'RATE_LIMIT_EXCEEDED // Too many requests, try again later.' },
