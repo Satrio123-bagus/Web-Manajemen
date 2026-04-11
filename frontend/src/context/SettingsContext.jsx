@@ -19,13 +19,18 @@ export function SettingsProvider({ children }) {
     // Apply global CSS variables based on theme
     useEffect(() => {
         const root = document.documentElement;
-        if (settings.accentTheme === 'green') {
-            root.style.setProperty('--color-neon-cyan', '#22c55e'); // Green accent
-            root.style.setProperty('--color-neon-purple', '#10b981'); // Emerald secondary
-        } else {
-            root.style.setProperty('--color-neon-cyan', '#00f3ff'); // Default cyan
-            root.style.setProperty('--color-neon-purple', '#bc13fe'); // Default purple
-        }
+        // Map setiap pilihan tema ke pasangan warna primer & sekunder
+        const themeMap = {
+            cyan:   { primary: '#00f3ff', secondary: '#bc13fe' },
+            green:  { primary: '#22c55e', secondary: '#10b981' },
+            purple: { primary: '#a855f7', secondary: '#7c3aed' },
+            amber:  { primary: '#f59e0b', secondary: '#d97706' },
+            rose:   { primary: '#f43f5e', secondary: '#e11d48' },
+            sky:    { primary: '#38bdf8', secondary: '#0ea5e9' },
+        };
+        const chosen = themeMap[settings.accentTheme] ?? themeMap.cyan;
+        root.style.setProperty('--color-neon-cyan',   chosen.primary);
+        root.style.setProperty('--color-neon-purple',  chosen.secondary);
 
         // Handle low graphics mode by toggling a class on the body
         if (settings.lowGraphics) {
