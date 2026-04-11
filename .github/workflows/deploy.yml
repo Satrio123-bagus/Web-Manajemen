@@ -56,7 +56,9 @@ jobs:
 
             echo "🐳 Rebuilding and restarting Docker containers..."
             sudo docker compose down
-            sudo docker compose up -d --build
+            # --no-cache memastikan perubahan kode src/ selalu ter-compile ulang
+            sudo docker compose build --no-cache
+            sudo docker compose up -d
 
             echo "✅ Verifying containers are running..."
             sudo docker compose ps
