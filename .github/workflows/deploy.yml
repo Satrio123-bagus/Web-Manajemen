@@ -9,8 +9,25 @@ on:
 
 # ─── JOBS ────────────────────────────────────────────────────────────────────
 jobs:
+  # Job 1: Mengecek apakah ada password/kunci rahasia yang tidak sengaja ter-push
+  security-scan:
+    name: 🕵️‍♂️ Scan for Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ambil seluruh riwayat commit untuk dipindai
+          
+      - name: 🔐 Run Gitleaks Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job 2: Melakukan Deploy ke VPS
   deploy:
     name: Deploy to Production VPS
+    needs: security-scan # ⚠️ Menahan proses Deploy. Hanya berjalan jika security-scan lolos (tidak ada rahasia bocor)
     runs-on: ubuntu-latest
 
     steps:
