@@ -667,14 +667,20 @@ export default function Terminal() {
         }
     };
 
+    // Fungsi untuk menerapkan suggestion — bisa dipanggil dari klik/tap (HP) maupun TAB (PC)
+    const applySuggestion = (suggestion) => {
+        const parts = input.split(' ');
+        parts[parts.length - 1] = suggestion;
+        setInput(parts.join(' ') + ' ');
+        setSuggestions([]);
+        // Kembalikan fokus ke input setelah tap di HP
+        setTimeout(() => inputRef.current?.focus(), 0);
+    };
+
     const handleKeyDown = (e) => {
         if (e.key === 'Tab' && suggestions.length > 0) {
             e.preventDefault();
-            const parts = input.split(' ');
-            // Replace the last partially typed word with the first suggestion
-            parts[parts.length - 1] = suggestions[0];
-            setInput(parts.join(' ') + ' ');
-            setSuggestions([]);
+            applySuggestion(suggestions[0]);
         } else if (e.key === 'Enter') {
             execute(input);
             setSuggestions([]);
@@ -890,14 +896,24 @@ export default function Terminal() {
                             autoComplete="off"
                         />
 
-                        {/* Autocomplete suggestions */}
+                        {/* Autocomplete suggestions — bisa diklik/disentuh (HP) ATAU tekan TAB (PC) */}
                         {suggestions.length > 0 && (
-                            <div className="absolute left-4 -top-8 flex gap-2">
+                            <div className="absolute left-4 -top-10 flex gap-2 z-50">
                                 {suggestions.map((s, idx) => (
-                                    <div key={idx} className="text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] px-2 py-0.5 rounded border border-[var(--color-neon-cyan)]/30 backdrop-blur-md">
+                                    <button
+                                        key={idx}
+                                        // onMouseDown mencegah input kehilangan fokus sebelum klik terdaftar (PC)
+                                        onMouseDown={(e) => { e.preventDefault(); applySuggestion(s); }}
+                                        // onTouchEnd untuk HP — mencegah event ghost click
+                                        onTouchEnd={(e) => { e.preventDefault(); applySuggestion(s); }}
+                                        className="text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] px-2 py-1 rounded border border-[var(--color-neon-cyan)]/30 backdrop-blur-md active:bg-[var(--color-neon-cyan)]/30 hover:bg-[var(--color-neon-cyan)]/20 transition-all cursor-pointer select-none flex items-center gap-1.5"
+                                    >
                                         {s}
-                                        {idx === 0 && <span className="ml-2 opacity-50 text-[10px] bg-black/40 px-1 rounded">TAB</span>}
-                                    </div>
+                                        {/* Label TAB hanya muncul di perangkat non-sentuh (CSS media query) */}
+                                        {idx === 0 && (
+                                            <span className="hidden sm:inline opacity-50 text-[10px] bg-black/40 px-1 rounded">TAB</span>
+                                        )}
+                                    </button>
                                 ))}
                             </div>
                         )}
