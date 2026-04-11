@@ -120,25 +120,52 @@ body {
 }
 
 /* ─── Low Graphics Mode Global Overrides ─── */
+/* Hanya mematikan efek yang benar-benar berat bagi GPU, tanpa merusak tampilan UI */
+
+/* 1. Matikan semua backdrop-blur (penyebab utama lag di HP/PC lama) */
 body.low-graphics * {
-  /* Disable hardware-intensive blurs */
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-
-  /* Disable expensive box-shadows (glows) */
-  box-shadow: none !important;
-
-  /* Replace blur backgrounds with solid dark colors for readability */
-  background-color: rgba(8, 8, 12, 0.95) !important;
 }
 
+/* 2. Ganti bg transparan pada elemen blur (glassmorphism) agar tetap terbaca */
+/* Hanya targetkan elemen dengan kelas backdrop-blur agar tidak merusak elemen lain */
+body.low-graphics .backdrop-blur-xl,
+body.low-graphics .backdrop-blur-lg,
+body.low-graphics .backdrop-blur-md,
+body.low-graphics .backdrop-blur-sm {
+  background-color: rgba(8, 8, 12, 0.97) !important;
+}
+
+/* 3. Matikan holographic border yang pakai gradient animasi */
 body.low-graphics .holographic-border::before {
   display: none !important;
 }
 
+/* 4. Matikan animasi mahal: glitch, flicker, pulse, spin */
 body.low-graphics .animate-glitch,
-body.low-graphics .animate-flicker {
+body.low-graphics .animate-flicker,
+body.low-graphics .animate-pulse,
+body.low-graphics .animate-spin,
+body.low-graphics .animate-bounce {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;
+}
+
+/* 5. Matikan CRT scanline overlay di Terminal (sangat berat karena background-image repeating) */
+body.low-graphics .bg-\[linear-gradient\(rgba\(18\,16\,16\,0\)_50\%\,rgba\(0\,0\,0\,0\.3\)_50\%\)\] {
+  display: none !important;
+}
+
+/* 6. Batasi glow shadow besar (biarkan shadow kecil untuk keterbacaan UI) */
+body.low-graphics .shadow-\[0_0_40px_rgba\(0\,243\,255\,0\.08\)\],
+body.low-graphics .shadow-\[0_0_60px_rgba\(0\,243\,255\,0\.1\)\],
+body.low-graphics .shadow-\[0_0_30px_rgba\(188\,19\,254\,0\.15\)\] {
+  box-shadow: none !important;
+}
+
+/* 7. Percepat/hapus semua transition yang memakan waktu > 200ms */
+body.low-graphics * {
+  transition-duration: 0ms !important;
 }
