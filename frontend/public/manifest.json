@@ -1,8 +1,10 @@
 {
+  "id": "/",
   "name": "INSERT3COINS | AI Manager",
   "short_name": "I3C Manager",
   "description": "Sistem manajemen inventori berbasis AI untuk operasional gudang.",
-  "start_url": "/terminal",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0a0a0f",
   "theme_color": "#00f3ff",
@@ -10,16 +12,22 @@
   "lang": "id-ID",
   "icons": [
     {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -28,7 +36,7 @@
       "short_name": "Terminal",
       "description": "Buka terminal voice AI langsung",
       "url": "/terminal",
-      "icons": [{ "src": "/icon-512.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "categories": ["productivity", "business"],
