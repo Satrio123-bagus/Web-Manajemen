@@ -116,7 +116,12 @@ function logColor(type) {
 export default function DashboardHome() {
     const [analytics, setAnalytics] = useState(null);
     const [terminalLogs, setTerminalLogs] = useState([]);
+    const [lastUpdated, setLastUpdated] = useState(null);   // Waktu terakhir data diperbarui
+    const [countdown, setCountdown] = useState(30);         // Hitung mundur ke refresh berikutnya
+    const [newLogCount, setNewLogCount] = useState(0);      // Jumlah log baru sejak refresh
+    const [isRefreshing, setIsRefreshing] = useState(false); // Status loading saat refresh
     const logRef = useRef(null);
+    const prevLogCount = useRef(0);                          // Simpan jumlah log sebelumnya
 
     // Fetch analytics, items, dan transaksi
     useEffect(() => {
@@ -143,12 +148,38 @@ export default function DashboardHome() {
             });
         };
 
-        fetchAll();
-        const interval = setInterval(() => {
-            safeFetch('/api/transactions').then(setTerminalLogs).catch(() => { });
-        }, 30000); // Poll setiap 30 detik (optimized dari 10s)
+        const POLL_INTERVAL = 30; // detik
 
-        return () => clearInterval(interval);
+        const fetchLogs = async (showLoader = false) => {
+            if (showLoader) setIsRefreshing(true);
+            try {
+                const fresh = await safeFetch('/api/transactions');
+                setTerminalLogs(fresh);
+                setLastUpdated(new Date());
+                // Deteksi apakah ada log baru sejak polling terakhir
+                const added = fresh.length - prevLogCount.current;
+                if (prevLogCount.current > 0 && added > 0) setNewLogCount(added);
+                prevLogCount.current = fresh.length;
+            } catch { /* silent */ } finally {
+                if (showLoader) setIsRefreshing(false);
+                setCountdown(POLL_INTERVAL);
+            }
+        };
+
+        fetchAll();
+
+        // Polling setiap 30 detik
+        const pollInterval = setInterval(() => fetchLogs(), POLL_INTERVAL * 1000);
+
+        // Hitung mundur setiap 1 detik untuk ditampilkan ke pengguna
+        const countdownInterval = setInterval(() => {
+            setCountdown(prev => (prev <= 1 ? POLL_INTERVAL : prev - 1));
+        }, 1000);
+
+        return () => {
+            clearInterval(pollInterval);
+            clearInterval(countdownInterval);
+        };
     }, []);
 
     // Auto-scroll terminal log
@@ -351,10 +382,55 @@ export default function DashboardHome() {
                         <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-gray-500 uppercase">
                             AI_MANAGER_LOG
                         </GlitchHeader>
-                        <span className="ml-auto text-[9px] font-mono text-emerald-400 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
-                        </span>
+
+                        {/* Badge log baru */}
+                        <AnimatePresence>
+                            {newLogCount > 0 && (
+                                <motion.span
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0, opacity: 0 }}
+                                    onClick={() => setNewLogCount(0)}
+                                    className="text-[9px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full cursor-pointer hover:bg-emerald-500/30 transition-colors"
+                                >
+                                    +{newLogCount} baru
+                                </motion.span>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="ml-auto flex items-center gap-3">
+                            {/* Tombol refresh manual */}
+                            <button
+                                id="btn-refresh-log"
+                                onClick={() => {
+                                    setNewLogCount(0);
+                                    const safeFetch = async (url) => { const r = await api.get(url); if (!r.ok) throw new Error(); return r.json(); };
+                                    setIsRefreshing(true);
+                                    safeFetch('/api/transactions')
+                                        .then(data => { setTerminalLogs(data); setLastUpdated(new Date()); prevLogCount.current = data.length; })
+                                        .catch(() => {})
+                                        .finally(() => { setIsRefreshing(false); setCountdown(30); });
+                                }}
+                                className="text-[9px] font-mono text-gray-600 hover:text-[var(--color-neon-cyan)] transition-colors flex items-center gap-1"
+                                title="Refresh sekarang"
+                            >
+                                <Activity className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-[var(--color-neon-cyan)]' : ''}`} />
+                                {isRefreshing ? 'refreshing...' : `↻ ${countdown}s`}
+                            </button>
+
+                            {/* Indikator LIVE + waktu update terakhir */}
+                            <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                            </span>
+                        </div>
                     </div>
+
+                    {/* Keterangan waktu terakhir diperbarui */}
+                    {lastUpdated && (
+                        <p className="text-[9px] font-mono text-gray-700 mb-2">
+                            Last sync: {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} • auto-refresh tiap 30 detik
+                        </p>
+                    )}
 
                     <div
                         ref={logRef}
