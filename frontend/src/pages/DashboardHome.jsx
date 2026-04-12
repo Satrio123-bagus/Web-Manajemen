@@ -131,6 +131,8 @@ export default function DashboardHome() {
             return r.json();
         };
 
+        const POLL_INTERVAL = 30; // detik
+
         const fetchAll = () => {
             Promise.all([
                 safeFetch('/api/analytics'),
@@ -138,6 +140,10 @@ export default function DashboardHome() {
             ]).then(([a, t]) => {
                 setAnalytics(a);
                 setTerminalLogs(t);
+                // Inisialisasi lastUpdated & prevLogCount sejak pertama kali halaman dimuat
+                setLastUpdated(new Date());
+                prevLogCount.current = t.length;
+                setCountdown(POLL_INTERVAL);
             }).catch(() => {
                 // Set empty defaults so the dashboard still renders
                 setAnalytics(prev => prev || {
@@ -147,8 +153,6 @@ export default function DashboardHome() {
                 });
             });
         };
-
-        const POLL_INTERVAL = 30; // detik
 
         const fetchLogs = async (showLoader = false) => {
             if (showLoader) setIsRefreshing(true);
