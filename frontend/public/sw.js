@@ -5,8 +5,8 @@
 
 const CACHE_NAME = 'i3c-cache-v1';
 
-// Aset yang di-cache saat install (App Shell)
-const PRECACHE_ASSETS = ['/', '/terminal'];
+// Hanya cache '/' sebagai App Shell — SPA route seperti '/terminal' bukan file statis
+const PRECACHE_ASSETS = ['/'];
 
 // ─── INSTALL: Pre-cache app shell ──────────────────────────────────────────
 self.addEventListener('install', (event) => {
