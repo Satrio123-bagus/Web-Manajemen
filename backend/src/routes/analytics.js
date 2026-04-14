@@ -26,7 +26,7 @@ router.get('/', (_req, res) => {
         const babKey = i.bab || i.category || 'Uncategorized';
         categoryMap[babKey] = (categoryMap[babKey] || 0) + 1;
 
-        const rarKey = i.rarity || 'COMMON';
+        const rarKey = i.rarity || 'BIASA';
         rarityMap[rarKey] = (rarityMap[rarKey] || 0) + 1;
     }
 

@@ -11,9 +11,8 @@ import ActivityLog from '../components/ActivityLog';
    RARITY CONFIG
    ═══════════════════════════════════════════════════════════ */
 const RARITY_STYLE = {
-    COMMON: { text: 'text-gray-400', border: 'border-gray-500/40', bg: 'bg-gray-500/10', dot: 'bg-gray-400' },
-    RARE: { text: 'text-[var(--color-neon-cyan)]', border: 'border-[var(--color-neon-cyan)]/40', bg: 'bg-[var(--color-neon-cyan)]/10', dot: 'bg-[var(--color-neon-cyan)]' },
-    LEGENDARY: { text: 'text-amber-400', border: 'border-amber-400/40', bg: 'bg-amber-400/10', dot: 'bg-amber-400' },
+    BIASA:  { text: 'text-gray-400',                       border: 'border-gray-500/40',                    bg: 'bg-gray-500/10',                    dot: 'bg-gray-400' },
+    LANGKA: { text: 'text-amber-400',                      border: 'border-amber-400/40',                   bg: 'bg-amber-400/10',                   dot: 'bg-amber-400' },
 };
 
 function stockStatus(stock) {
@@ -205,7 +204,7 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                     <AnimatePresence mode="popLayout">
                                         {filtered.map((item, idx) => {
                                             const status = stockStatus(item.stock);
-                                            const rarity = RARITY_STYLE[item.rarity] || RARITY_STYLE.COMMON;
+                                            const rarity = RARITY_STYLE[item.rarity] || RARITY_STYLE.BIASA;
                                             const deleting = isDeleting === item.id;
 
                                             return (
@@ -250,7 +249,7 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                                     <td className="px-5 py-4">
                                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest uppercase border ${rarity.text} ${rarity.bg} ${rarity.border}`}>
                                                             <span className={`w-1.5 h-1.5 rounded-full ${rarity.dot}`} />
-                                                            {item.rarity || 'COMMON'}
+                                                            {item.rarity === 'LANGKA' ? 'Remote Langka' : 'Remote Biasa'}
                                                         </span>
                                                     </td>
 
@@ -399,7 +398,7 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
    MODAL (exported for App.jsx)
    ═══════════════════════════════════════════════════════════ */
 export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
-    const empty = { name: '', bab: '', sub_bab: '', price: '', stock: '', rarity: 'COMMON' };
+    const empty = { name: '', bab: '', sub_bab: '', price: '', stock: '', rarity: 'BIASA' };
     const [form, setForm] = useState(empty);
 
     // Sync form with modal open/close
@@ -462,12 +461,11 @@ export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
                                 <FieldInput label="STOCK_LEVEL" type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} placeholder="0" />
                             </div>
                             <div className="relative">
-                                <label className="block text-[10px] uppercase font-mono tracking-widest text-[var(--color-neon-cyan)] mb-1 opacity-70">RARITY_CLASS</label>
+                                <label className="block text-[10px] uppercase font-mono tracking-widest text-[var(--color-neon-cyan)] mb-1 opacity-70">TIPE_REMOTE</label>
                                 <select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })}
                                     className="w-full bg-white/5 border-b border-white/10 p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)] transition-all font-mono text-sm rounded-t-sm appearance-none cursor-pointer">
-                                    <option value="COMMON" className="bg-[#0a0a0c]">COMMON</option>
-                                    <option value="RARE" className="bg-[#0a0a0c]">RARE</option>
-                                    <option value="LEGENDARY" className="bg-[#0a0a0c]">LEGENDARY</option>
+                                    <option value="BIASA"  className="bg-[#0a0a0c]">Remote Biasa</option>
+                                    <option value="LANGKA" className="bg-[#0a0a0c]">Remote Langka</option>
                                 </select>
                             </div>
                             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit"

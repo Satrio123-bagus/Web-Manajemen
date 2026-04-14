@@ -48,7 +48,7 @@ router.post('/', validate(itemSchema), (req, res) => {
 
     const item = {
         id: newItemId, name: name.trim(), category: babVal, price: Number(price) || 0,
-        stock: stockVal, rarity: rarity || 'COMMON', status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
+        stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
         bab: babVal, sub_bab: subBabVal
     };
 

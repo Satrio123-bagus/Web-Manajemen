@@ -8,7 +8,7 @@ const itemSchema = z.object({
     sub_bab: z.string().optional().default('Uncategorized'),
     price: z.preprocess((val) => Number(val), z.number().min(0, 'Price cannot be negative')),
     stock: z.preprocess((val) => Number(val), z.number().int('Stock must be an integer').min(0, 'Stock cannot be negative')),
-    rarity: z.enum(['COMMON', 'RARE', 'LEGENDARY']).optional().default('COMMON'),
+    rarity: z.enum(['BIASA', 'LANGKA']).optional().default('BIASA'),
     status: z.string().optional().default('IN_STOCK'),
 });
 
