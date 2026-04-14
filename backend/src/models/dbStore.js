@@ -23,7 +23,7 @@ betterSqlite.exec(`
     category TEXT NOT NULL DEFAULT 'MISC',
     price    INTEGER DEFAULT 0,
     stock    INTEGER DEFAULT 0,
-    rarity   TEXT DEFAULT 'COMMON',
+    rarity   TEXT DEFAULT 'BIASA',
     status   TEXT DEFAULT 'IN_STOCK'
   );
   CREATE TABLE IF NOT EXISTS transactions (

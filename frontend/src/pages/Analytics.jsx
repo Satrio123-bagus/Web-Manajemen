@@ -181,7 +181,7 @@ export default function Analytics() {
                     <div className="flex gap-6 relative z-10">
                         {data.rarityDistribution.map(r => {
                             const pct = Math.round((r.count / data.totalItems) * 100);
-                            const color = r.name === 'LEGENDARY' ? '#facc15' : r.name === 'RARE' ? NEON_CYAN : '#9ca3af';
+                            const color = r.name === 'LANGKA' ? '#facc15' : '#9ca3af';
                             return (
                                 <div key={r.name} className="flex-1">
                                     <div className="flex justify-between items-end mb-2">
