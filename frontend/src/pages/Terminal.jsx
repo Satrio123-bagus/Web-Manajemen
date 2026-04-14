@@ -97,6 +97,7 @@ export default function Terminal() {
     const [voicePreview, setVoicePreview] = useState('');
     const [inventoryNames, setInventoryNames] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
+    const [suggestionType, setSuggestionType] = useState('item'); // 'item' | 'command'
     const bottomRef = useRef(null);
     const inputRef = useRef(null);
     const booted = useRef(false);
@@ -111,11 +112,19 @@ export default function Terminal() {
 
         const hasSpeech = typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined';
 
-        // Fetch inventory names for autocomplete
-        api.get('/items')
-            .then(res => res.json())
-            .then(data => setInventoryNames(data.map(i => i.name)))
-            .catch(() => { });
+        // Fetch inventory names for autocomplete (initial)
+        const fetchInventoryNames = () => {
+            api.get('/items')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) setInventoryNames(data.map(i => i.name));
+                })
+                .catch(() => { });
+        };
+        fetchInventoryNames();
+        // Refresh setiap 60 detik agar item baru langsung tersedia di autocomplete
+        const refreshInterval = setInterval(fetchInventoryNames, 60_000);
+        return () => clearInterval(refreshInterval);
 
         const addLine = (text, delay) =>
             new Promise(resolve => setTimeout(() => {
@@ -340,20 +349,25 @@ export default function Terminal() {
             if (isListeningRef.current !== true) return;
 
             let interim = '';
-            let final = '';
+            let newFinal = '';
 
-            for (let i = 0; i < event.results.length; i++) {
+            // FIX: Gunakan event.resultIndex sebagai start index.
+            // Web Speech API bersifat kumulatif — event.results berisi SEMUA hasil lama + baru.
+            // Jika kita loop dari i=0, kata-kata lama akan terbaca ulang di setiap event
+            // dan menyebabkan duplikasi ("tambahkan tambahkan remote remote").
+            // Dengan mulai dari event.resultIndex, kita HANYA memproses hasil BARU.
+            for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    final += transcript + ' ';
+                    newFinal += transcript + ' ';
                 } else {
                     interim += transcript;
                 }
             }
 
-            // Store accumulated final transcript
-            if (final) {
-                finalTranscriptRef.current = final.trim();
+            // Akumulasikan ke ref yang sudah ada (bukan replace seluruhnya)
+            if (newFinal) {
+                finalTranscriptRef.current = (finalTranscriptRef.current + ' ' + newFinal).trim();
             }
 
             // Check for voice keywords in the latest final text
@@ -415,7 +429,12 @@ export default function Terminal() {
         };
 
         recognitionRef.current = recognition;
-    }, [isListening]);
+
+        // FIX: Dependency array dikosongkan [] — recognition HANYA dibuat sekali saat mount.
+        // Sebelumnya [isListening] menyebabkan instance baru dibuat setiap state berubah,
+        // sehingga dua instance bisa berjalan bersamaan di HP dan menghasilkan input ganda.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const toggleVoice = () => {
         if (!recognitionRef.current) {
@@ -650,18 +669,51 @@ export default function Terminal() {
     // Keep executeRef synced so voice input can always call the latest version
     executeRef.current = execute;
 
+    // Kata-kata perintah yang bisa di-autocomplete
+    const COMMAND_WORDS = [
+        'tampilkan semua stok', 'stok rendah', 'laporan penjualan',
+        'item terlaris', 'total pendapatan', 'system reindex',
+        'tampilkan', 'tambah stok', 'tambah', 'jual', 'cari', 'hapus',
+        'ubah', 'harga', 'stok', 'buat', 'clear', 'help', 'retry',
+    ];
+
+    // Kata-kata perintah yang mengindikasikan bahwa kata berikutnya adalah nama item
+    const ITEM_TRIGGER_WORDS = [
+        'jual', 'tambah', 'tambah stok', 'cari', 'hapus', 'ubah', 'harga', 'stok', 'buat',
+    ];
+
     const handleInputChange = (e) => {
         const val = e.target.value;
         setInput(val);
 
-        // Autocomplete logic
-        const parts = val.split(' ');
-        const lastWord = parts[parts.length - 1].toLowerCase();
+        const lower = val.toLowerCase().trim();
+        const parts = lower.split(' ');
+        const lastWord = parts[parts.length - 1];
 
-        if (lastWord.length >= 2) {
-            // Find matches in inventory (excluding exact matches if they already finished typing it)
-            const matches = inventoryNames.filter(n => n.toLowerCase().includes(lastWord) && n.toLowerCase() !== lastWord);
-            setSuggestions(matches.slice(0, 3));
+        // Jangan tampilkan suggestion jika input terlalu pendek
+        if (lower.length < 2) {
+            setSuggestions([]);
+            return;
+        }
+
+        // Cek apakah bagian awal perintah cocok dengan ITEM_TRIGGER_WORDS
+        // Jika ya, suggest nama item
+        const isItemContext = ITEM_TRIGGER_WORDS.some(trigger => lower.startsWith(trigger + ' '));
+
+        if (isItemContext && lastWord.length >= 1) {
+            // Mode suggest item: cocokkan nama item berdasarkan kata terakhir
+            const matches = inventoryNames.filter(n =>
+                n.toLowerCase().includes(lastWord) && n.toLowerCase() !== lastWord
+            );
+            setSuggestions(matches.slice(0, 4));
+            setSuggestionType('item');
+        } else if (!isItemContext && lastWord.length >= 2) {
+            // Mode suggest perintah: cocokkan kata perintah
+            const matches = COMMAND_WORDS.filter(cmd =>
+                cmd.startsWith(lower) && cmd !== lower
+            );
+            setSuggestions(matches.slice(0, 4));
+            setSuggestionType('command');
         } else {
             setSuggestions([]);
         }
@@ -669,10 +721,21 @@ export default function Terminal() {
 
     // Fungsi untuk menerapkan suggestion — bisa dipanggil dari klik/tap (HP) maupun TAB (PC)
     const applySuggestion = (suggestion) => {
-        const parts = input.split(' ');
-        parts[parts.length - 1] = suggestion;
-        setInput(parts.join(' ') + ' ');
+        let newInput;
+        if (suggestionType === 'command') {
+            // Untuk perintah, ganti seluruh input dengan perintah yang dipilih
+            newInput = suggestion + ' ';
+        } else {
+            // Untuk nama item, ganti hanya kata terakhir
+            const parts = input.split(' ');
+            parts[parts.length - 1] = suggestion;
+            newInput = parts.join(' ') + ' ';
+        }
+        setInput(newInput);
         setSuggestions([]);
+        // Trigger ulang autocomplete untuk konteks baru (nama item setelah perintah)
+        const fakeEvent = { target: { value: newInput } };
+        handleInputChange(fakeEvent);
         // Kembalikan fokus ke input setelah tap di HP
         setTimeout(() => inputRef.current?.focus(), 0);
     };
@@ -897,26 +960,7 @@ export default function Terminal() {
                         />
 
                         {/* Autocomplete suggestions — bisa diklik/disentuh (HP) ATAU tekan TAB (PC) */}
-                        {suggestions.length > 0 && (
-                            <div className="absolute left-4 -top-10 flex gap-2 z-50">
-                                {suggestions.map((s, idx) => (
-                                    <button
-                                        key={idx}
-                                        // onMouseDown mencegah input kehilangan fokus sebelum klik terdaftar (PC)
-                                        onMouseDown={(e) => { e.preventDefault(); applySuggestion(s); }}
-                                        // onTouchEnd untuk HP — mencegah event ghost click
-                                        onTouchEnd={(e) => { e.preventDefault(); applySuggestion(s); }}
-                                        className="text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] px-2 py-1 rounded border border-[var(--color-neon-cyan)]/30 backdrop-blur-md active:bg-[var(--color-neon-cyan)]/30 hover:bg-[var(--color-neon-cyan)]/20 transition-all cursor-pointer select-none flex items-center gap-1.5"
-                                    >
-                                        {s}
-                                        {/* Label TAB hanya muncul di perangkat non-sentuh (CSS media query) */}
-                                        {idx === 0 && (
-                                            <span className="hidden sm:inline opacity-50 text-[10px] bg-black/40 px-1 rounded">TAB</span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        {/* POSISI: di BAWAH input agar tidak tertutup keyboard virtual HP */}
 
                         {/* Voice input controls */}
                         {isListening ? (
@@ -954,6 +998,33 @@ export default function Terminal() {
                             <span className="text-[var(--color-neon-cyan)] animate-[flicker_1s_infinite]">█</span>
                         )}
                     </div>
+
+                    {/* Autocomplete suggestions — di bawah input bar, aman dari keyboard HP */}
+                    {suggestions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 px-2 pt-1 pb-2 border-t border-white/5">
+                            {/* Label konteks */}
+                            <span className="text-[10px] text-gray-600 font-mono self-center shrink-0">
+                                {suggestionType === 'command' ? '⌘ perintah:' : '📦 item:'}
+                            </span>
+                            {suggestions.map((s, idx) => (
+                                <button
+                                    key={idx}
+                                    // onMouseDown mencegah input kehilangan fokus sebelum klik terdaftar (PC)
+                                    onMouseDown={(e) => { e.preventDefault(); applySuggestion(s); }}
+                                    // onTouchEnd untuk HP — mencegah ghost click
+                                    onTouchEnd={(e) => { e.preventDefault(); applySuggestion(s); }}
+                                    className="text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] px-2.5 py-1 rounded-md border border-[var(--color-neon-cyan)]/30 backdrop-blur-md active:scale-95 active:bg-[var(--color-neon-cyan)]/30 hover:bg-[var(--color-neon-cyan)]/20 transition-all cursor-pointer select-none flex items-center gap-1.5 touch-manipulation"
+                                >
+                                    {s}
+                                    {/* Label TAB hanya muncul di layar besar (desktop) */}
+                                    {idx === 0 && (
+                                        <span className="hidden md:inline opacity-40 text-[10px] font-mono bg-black/40 px-1 rounded">TAB</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     <div ref={bottomRef} />
                 </div>
             </motion.div>
