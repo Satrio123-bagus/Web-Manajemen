@@ -6,10 +6,13 @@ services:
       - ./backend/.env
     environment:
       - PORT=8080
+      - OLLAMA_HOST=http://ollama:11434   # Hermes Agent endpoint (internal)
     expose:
       - "8080"
     volumes:
       - ./backend/data:/app/data
+    depends_on:
+      - ollama
     networks:
       - insert3coins-net
 
@@ -26,6 +29,34 @@ services:
     networks:
       - insert3coins-net
 
+  # ─── HERMES AGENT (Ollama) ─────────────────────────────────────────────────
+  # Model AI lokal untuk laporan otomatis & klasifikasi produk.
+  # TIDAK terekspos ke internet — hanya bisa diakses oleh backend via Docker network.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    expose:
+      - "11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=1          # Hanya 1 request bersamaan (hemat CPU)
+      - OLLAMA_MAX_LOADED_MODELS=1     # Hanya 1 model di RAM
+      - OLLAMA_KEEP_ALIVE=5m           # Auto-unload model setelah 5 menit idle
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'                  # Sisakan 0.5 core untuk web app
+          memory: 4G                   # Hard cap — VPS aman dari OOM
+        reservations:
+          memory: 256M                 # Minimal saat idle (tanpa model loaded)
+    networks:
+      - insert3coins-net
+
 networks:
   insert3coins-net:
     driver: bridge
+
+volumes:
+  ollama_data:                         # Persist model downloads across restarts

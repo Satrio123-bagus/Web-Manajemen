@@ -4,6 +4,7 @@ const Groq = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { stmts, state, insertTransaction, refreshInventory, reindexDatabase } = require('../models/dbStore');
 const { CORTEX_SYSTEM_PROMPT } = require('../services/cortexPrompt');
+const hermes = require('../agents/hermesClient');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
@@ -369,14 +370,62 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
                             console.log('[CORTEX] OpenRouter ultimate failsafe succeeded.');
                         } catch (orErr) {
                             console.error('[CORTEX OPENROUTER ERROR]', orErr.message || orErr);
-                            throw new Error(`All neural nodes (Groq, Cerebras, OpenRouter) are offline.`);
+
+                            // ─── FAILOVER 4: Hermes 3B Lokal (Ollama) ─────────
+                            console.log('[CORTEX] All cloud APIs failed. Trying Hermes local...');
+                            try {
+                                const hermesAvailable = await hermes.isAvailable();
+                                if (!hermesAvailable) throw new Error('Hermes offline');
+
+                                usedEngine = 'HERMES_LOCAL';
+                                text = await hermes.generate(userPrompt, {
+                                    system: CORTEX_SYSTEM_PROMPT,
+                                    temperature: 0.8,
+                                    maxTokens: 500,
+                                });
+                                console.log('[CORTEX] Hermes local fallback succeeded.');
+                            } catch (hermesErr) {
+                                console.error('[CORTEX HERMES ERROR]', hermesErr.message || hermesErr);
+                                throw new Error('All neural nodes (Groq, Cerebras, OpenRouter, Hermes) are offline.');
+                            }
                         }
                     } else {
-                        throw new Error(`Groq & Cerebras failed, and no OpenRouter key provided.`);
+                        // No OpenRouter key — try Hermes directly
+                        console.log('[CORTEX] No OpenRouter key. Trying Hermes local...');
+                        try {
+                            const hermesAvailable = await hermes.isAvailable();
+                            if (!hermesAvailable) throw new Error('Hermes offline');
+
+                            usedEngine = 'HERMES_LOCAL';
+                            text = await hermes.generate(userPrompt, {
+                                system: CORTEX_SYSTEM_PROMPT,
+                                temperature: 0.8,
+                                maxTokens: 500,
+                            });
+                            console.log('[CORTEX] Hermes local fallback succeeded.');
+                        } catch (hermesErr) {
+                            console.error('[CORTEX HERMES ERROR]', hermesErr.message || hermesErr);
+                            throw new Error('Groq & Cerebras failed, no OpenRouter key, Hermes offline.');
+                        }
                     }
                 }
             } else {
-                throw groqErr;
+                // No Cerebras key — try Hermes directly
+                console.log('[CORTEX] No Cerebras key. Trying Hermes local...');
+                try {
+                    const hermesAvailable = await hermes.isAvailable();
+                    if (!hermesAvailable) throw groqErr;
+
+                    usedEngine = 'HERMES_LOCAL';
+                    text = await hermes.generate(userPrompt, {
+                        system: CORTEX_SYSTEM_PROMPT,
+                        temperature: 0.8,
+                        maxTokens: 500,
+                    });
+                    console.log('[CORTEX] Hermes local fallback succeeded.');
+                } catch (hermesErr) {
+                    throw groqErr;
+                }
             }
         }
 

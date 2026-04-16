@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const cron = require('node-cron');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -83,7 +84,38 @@ const server = app.listen(PORT, () => {
     retryCount = 0;
     console.log(`\n  >> INSERT3COINS API // PORT: ${PORT} // STATUS: ONLINE`);
     console.log(`  >> SECURITY: Helmet ✓ | Rate-Limit ✓ | CORS ✓`);
-    console.log(`  >> ARCHITECTURE: Modularized Routes ✓\n`);
+    console.log(`  >> ARCHITECTURE: Modularized Routes ✓`);
+
+    // ─── HERMES AGENT: Startup check + Cron scheduler ──────────────────
+    const hermes = require('./agents/hermesClient');
+    const { generateDailyReport } = require('./agents/reportAgent');
+
+    hermes.isAvailable().then(available => {
+        if (available) {
+            console.log(`  >> HERMES AGENT: Online ✓ (${hermes.MODEL_NAME})`);
+        } else {
+            console.log(`  >> HERMES AGENT: Offline (model akan di-pull saat pertama dipakai)`);
+        }
+    }).catch(() => {
+        console.log(`  >> HERMES AGENT: Ollama belum tersedia, skip.`);
+    });
+
+    // Cron: Laporan harian setiap jam 00:00 WIB (UTC+7 = 17:00 UTC)
+    cron.schedule('0 17 * * *', async () => {
+        console.log('[CRON] Memulai pembuatan laporan harian...');
+        try {
+            const result = await generateDailyReport();
+            if (result.success) {
+                console.log('[CRON] ✓ Laporan harian berhasil dibuat.');
+            } else {
+                console.warn('[CRON] ✗ Laporan gagal:', result.error);
+            }
+        } catch (err) {
+            console.error('[CRON] Error:', err.message);
+        }
+    }, { timezone: 'UTC' });
+
+    console.log(`  >> CRON: Laporan harian @ 00:00 WIB ✓\n`);
 });
 
 server.on('error', (err) => {

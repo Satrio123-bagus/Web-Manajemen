@@ -50,6 +50,14 @@ betterSqlite.exec(`
     stok INTEGER NOT NULL DEFAULT 0,
     kategori TEXT
   );
+  CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'DAILY',
+    content TEXT NOT NULL,
+    generated_by TEXT DEFAULT 'HERMES_3B',
+    timestamp TEXT
+  );
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -145,6 +153,25 @@ const stmts = {
   },
   clearConversation: {
     run: (sessionId) => db.delete(conversations).where(eq(conversations.session_id, sessionId)).run()
+  },
+  // ─── Hermes Agent: Reports ─────────────────────────────────────────
+  insertReport: {
+    run: (date, type, content, generatedBy, timestamp) => {
+      const stmt = betterSqlite.prepare('INSERT INTO reports (date, type, content, generated_by, timestamp) VALUES (?, ?, ?, ?, ?)');
+      return stmt.run(date, type, content, generatedBy, timestamp);
+    }
+  },
+  getReports: {
+    all: (limit = 10) => {
+      const stmt = betterSqlite.prepare('SELECT * FROM reports ORDER BY id DESC LIMIT ?');
+      return stmt.all(limit);
+    }
+  },
+  getLatestReport: {
+    get: () => {
+      const stmt = betterSqlite.prepare('SELECT * FROM reports ORDER BY id DESC LIMIT 1');
+      return stmt.get();
+    }
   },
 };
 
