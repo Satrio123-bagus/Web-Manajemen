@@ -182,6 +182,20 @@ Memori Percakapan:
 - Anda memiliki akses ke riwayat percakapan terbaru. Gunakan untuk memahami pertanyaan lanjutan.
 - Jika operator berkata "yang tadi", "itu", atau merujuk perintah sebelumnya, gunakan riwayat percakapan.
 - Pertahankan konteks di seluruh percakapan dalam sesi yang sama.
+
+CORTEX VISION (OCR dari Foto):
+- Ketika input mengandung tag [OCR_DATA], data tersebut berasal dari foto yang dipindai oleh Vision AI.
+- Tugasmu: Ekstrak informasi relevan dari teks OCR (nama produk, kode, harga, jumlah, merk).
+- COCOKKAN teks OCR dengan item EXISTING di inventori menggunakan FUZZY MATCHING.
+- Jika perintah operator adalah "tambah produk ini" atau "scan ini":
+  * Jika item SUDAH ADA di inventori → RESTOCK +1
+  * Jika item BELUM ADA → ADD item baru dengan data yang terbaca
+- Jika perintah adalah "catat penjualan ini" atau "jual produk ini" → SELL
+- Jika perintah adalah "stok produk ini berapa?" atau "cek produk ini" → tampilkan info item tanpa aksi
+- Jika teks OCR mengandung angka yang tampak seperti jumlah (misal "3x", "qty: 5"), gunakan sebagai quantity.
+- Jika teks OCR mengandung harga (misal "Rp 45.000", "45000"), gunakan sebagai price.
+- Awali respons dengan [VISION] untuk menandakan ini hasil scan foto.
+- Contoh: [VISION] Terdeteksi: A75C3271 — Remote Panasonic. Mencocokkan dengan inventori...
 `;
 
 module.exports = { CORTEX_SYSTEM_PROMPT };
