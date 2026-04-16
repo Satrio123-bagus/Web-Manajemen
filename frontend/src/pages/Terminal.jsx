@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { Mic, MicOff, Trash2, Volume2, VolumeX, Send, X, Copy, Download } from 'lucide-react';
+import { Mic, MicOff, Trash2, Volume2, VolumeX, Send, X, Copy, Download, Camera } from 'lucide-react';
 import api from '../api';
 
 /* ── Help command content ── */
@@ -98,12 +98,15 @@ export default function Terminal() {
     const [inventoryNames, setInventoryNames] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [suggestionType, setSuggestionType] = useState('item'); // 'item' | 'command'
+    const [pendingImage, setPendingImage] = useState(null);   // base64 gambar yang siap dikirim
+    const [imagePreview, setImagePreview] = useState(null);    // URL preview gambar
     const bottomRef = useRef(null);
     const inputRef = useRef(null);
     const booted = useRef(false);
     const sessionId = useRef(getOrCreateSessionId());
     const recognitionRef = useRef(null);
     const executeRef = useRef(null);
+    const cameraInputRef = useRef(null);
 
     /* Boot sequence — with real backend health check */
     useEffect(() => {
@@ -745,7 +748,12 @@ export default function Terminal() {
             e.preventDefault();
             applySuggestion(suggestions[0]);
         } else if (e.key === 'Enter') {
-            execute(input);
+            // Jika ada foto tertempel, kirim via Vision endpoint
+            if (pendingImage) {
+                sendVision();
+            } else {
+                execute(input);
+            }
             setSuggestions([]);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -839,6 +847,123 @@ export default function Terminal() {
         a.download = `cortex_log_${new Date().toISOString().slice(0, 10)}.txt`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    /* ── CORTEX Vision: Image compression utility ── */
+    const compressImage = (file, maxWidth = 1024, quality = 0.8) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width;
+                    let h = img.height;
+                    // Resize jika lebih besar dari maxWidth (hemat bandwidth gudang)
+                    if (w > maxWidth) {
+                        h = Math.round((h * maxWidth) / w);
+                        w = maxWidth;
+                    }
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    /* ── CORTEX Vision: Handle image selection from camera/gallery ── */
+    const handleImageSelect = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            addLines({ type: 'error', text: `${getTimestamp()} [VISION ERROR] Tipe file tidak didukung. Gunakan JPEG, PNG, atau WebP.` });
+            return;
+        }
+
+        // Validate size (raw, sebelum kompresi)
+        if (file.size > 10 * 1024 * 1024) {
+            addLines({ type: 'error', text: `${getTimestamp()} [VISION ERROR] Ukuran file terlalu besar (maks 10MB).` });
+            return;
+        }
+
+        try {
+            addLines({ type: 'system', text: `${getTimestamp()} [VISION] 📷 Memproses gambar...` });
+            const compressed = await compressImage(file);
+            setPendingImage(compressed);
+            setImagePreview(compressed);
+            addLines({ type: 'system', text: `${getTimestamp()} [VISION] ✓ Foto siap. Ketik perintah lalu Enter (misal: "tambah produk ini").` });
+            inputRef.current?.focus();
+        } catch (err) {
+            console.error('[VISION] Image compression failed:', err);
+            addLines({ type: 'error', text: `${getTimestamp()} [VISION ERROR] Gagal memproses gambar.` });
+        }
+
+        // Reset file input agar bisa pilih foto yang sama lagi
+        e.target.value = '';
+    };
+
+    /* ── CORTEX Vision: Send image + command to backend ── */
+    const sendVision = async () => {
+        if (!pendingImage) return;
+
+        const cmd = input.trim() || 'tambah produk ini';  // Default command jika kosong
+        addLines({ type: 'input', text: `${getTimestamp()} > [VISION] ${cmd}` });
+        setHistory(prev => [cmd, ...prev].slice(0, 50));
+        setHistIdx(-1);
+        setInput('');
+        setIsProcessing(true);
+
+        try {
+            const res = await api.postVision(pendingImage, cmd, {
+                headers: { 'X-Session-ID': sessionId.current }
+            });
+            const data = await res.json();
+
+            if (data.output && Array.isArray(data.output)) {
+                const ts = getTimestamp();
+                const responseLines = data.output.filter(l => l.trim() !== '');
+                responseLines.forEach((line, i) => {
+                    setTimeout(() => {
+                        addLines({ type: 'output', text: `${ts} ${line}` });
+                    }, i * 30);
+                });
+                setTimeout(() => {
+                    addLines({ type: 'output', text: '' });
+                }, responseLines.length * 30);
+
+                // Cortex speaks the response
+                if (ttsEnabled && window.speechSynthesis) {
+                    speakResponse(responseLines.join('\n'));
+                }
+            } else if (data.error) {
+                addLines({ type: 'error', text: `${getTimestamp()} [ERROR] ${data.error}` });
+            }
+        } catch (err) {
+            console.error('[VISION] Send failed:', err);
+            addLines({ type: 'error', text: `${getTimestamp()} [VISION ERROR] Koneksi ke backend terputus.` });
+        } finally {
+            setIsProcessing(false);
+            // Clear image after sending
+            setPendingImage(null);
+            setImagePreview(null);
+        }
+    };
+
+    /* ── CORTEX Vision: Cancel pending image ── */
+    const cancelImage = () => {
+        setPendingImage(null);
+        setImagePreview(null);
+        addLines({ type: 'system', text: `${getTimestamp()} [VISION] Foto dibatalkan.` });
+        inputRef.current?.focus();
     };
 
     return (
@@ -952,7 +1077,7 @@ export default function Terminal() {
                             onChange={handleInputChange}
                             onKeyDown={handleKeyDown}
                             disabled={isProcessing || isListening}
-                            placeholder={isListening ? "[ MODE SUARA AKTIF - KEYBOARD DINONAKTIFKAN ]" : ""}
+                            placeholder={isListening ? "[ MODE SUARA AKTIF - KEYBOARD DINONAKTIFKAN ]" : pendingImage ? "Ketik perintah (misal: tambah produk ini)" : ""}
                             className="flex-1 bg-transparent border-none outline-none text-[var(--color-neon-cyan)] font-mono text-sm caret-[var(--color-neon-cyan)] placeholder:text-emerald-500/50"
                             autoFocus
                             spellCheck={false}
@@ -983,21 +1108,83 @@ export default function Terminal() {
                                 </button>
                             </>
                         ) : (
+                            <>
+                                {/* Camera / Vision button */}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }}
+                                    disabled={isProcessing}
+                                    className={`p-2 rounded-lg transition-all ${
+                                        pendingImage
+                                            ? 'text-amber-400 bg-amber-500/10 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+                                            : 'text-gray-600 hover:text-amber-400 hover:bg-amber-400/10'
+                                    }`}
+                                    title="Scan foto (CORTEX Vision)"
+                                >
+                                    <Camera className="w-4 h-4" />
+                                </button>
+                                {/* Hidden file input for camera/gallery */}
+                                <input
+                                    ref={cameraInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={handleImageSelect}
+                                />
+                                {/* Voice input button */}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); toggleVoice(); }}
+                                    disabled={isProcessing}
+                                    className="p-2 rounded-lg text-gray-600 hover:text-[var(--color-neon-cyan)] hover:bg-[var(--color-neon-cyan)]/10 transition-all"
+                                    title="Voice input (Indonesian)"
+                                >
+                                    <Mic className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+
+                        {/* Send vision button — muncul saat ada foto terpasang */}
+                        {pendingImage && (
                             <button
-                                onClick={(e) => { e.stopPropagation(); toggleVoice(); }}
+                                onClick={(e) => { e.stopPropagation(); sendVision(); }}
                                 disabled={isProcessing}
-                                className="p-2 rounded-lg text-gray-600 hover:text-[var(--color-neon-cyan)] hover:bg-[var(--color-neon-cyan)]/10 transition-all"
-                                title="Voice input (Indonesian)"
+                                className="p-2 rounded-lg text-amber-400 bg-amber-500/10 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.3)] hover:bg-amber-500/20 transition-all animate-pulse"
+                                title="Kirim foto ke CORTEX Vision"
                             >
-                                <Mic className="w-4 h-4" />
+                                <Send className="w-4 h-4" />
                             </button>
                         )}
 
                         {/* Blinking cursor */}
-                        {!input && !isListening && (
+                        {!input && !isListening && !pendingImage && (
                             <span className="text-[var(--color-neon-cyan)] animate-[flicker_1s_infinite]">█</span>
                         )}
                     </div>
+
+                    {/* Image preview — muncul di bawah input saat foto terpasang */}
+                    {imagePreview && (
+                        <div className="relative mx-2 mt-1 mb-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                            <div className="flex items-start gap-3">
+                                <img
+                                    src={imagePreview}
+                                    alt="Preview scan"
+                                    className="w-16 h-16 object-cover rounded-md border border-amber-500/30"
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-amber-400 font-mono">[VISION] 📷 Foto siap dipindai</p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">Ketik perintah lalu tekan Enter atau klik tombol kirim</p>
+                                    <p className="text-[10px] text-gray-600 mt-0.5">Contoh: "tambah produk ini", "cek produk ini", "jual produk ini"</p>
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); cancelImage(); }}
+                                    className="shrink-0 p-1 rounded text-gray-500 hover:text-red-400 transition-colors"
+                                    title="Batalkan foto"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Autocomplete suggestions — di bawah input bar, aman dari keyboard HP */}
                     {suggestions.length > 0 && (

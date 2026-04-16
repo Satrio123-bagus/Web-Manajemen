@@ -26,7 +26,7 @@ const limiter = rateLimit({
     message: { error: 'RATE_LIMIT_EXCEEDED // Too many requests, try again later.' },
 });
 app.use('/api/', limiter);
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '5mb' }));  // 5MB untuk mendukung upload gambar base64 (CORTEX Vision)
 
 // ─── HEALTH CHECK ENDPOINT ─────────────────────────────
 app.get('/api/status', (req, res) => {
@@ -63,6 +63,7 @@ const aiLimiter = rateLimit({
 });
 
 app.use('/api/terminal', authMiddleware, aiLimiter, require('./routes/terminal'));
+app.use('/api/terminal/vision', authMiddleware, aiLimiter, require('./routes/vision'));
 app.use('/api/chat', authMiddleware, aiLimiter, require('./routes/chat'));
 // ─── SERVE FRONTEND (PRODUCTION) ───────────────────────
 const DIST_PATH = path.join(__dirname, '../../frontend/dist');
