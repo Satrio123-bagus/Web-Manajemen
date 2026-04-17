@@ -66,6 +66,7 @@ async function generate(prompt, options = {}) {
         options: {
             temperature,
             num_predict: maxTokens,
+            num_ctx: 2048, // Batasi context window agar jauh lebih hemat RAM
         },
     };
 
