@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { stmts, state, refreshInventory, insertTransaction } = require('../models/dbStore');
 const { validate, itemSchema } = require('../middleware/validation');
+const { autoClassifyIfNeeded } = require('../agents/classifyAgent'); // Hermes auto-classifier
+const { logAudit } = require('../middleware/auditLogger');
 
 router.get('/', (req, res) => {
     const { q, page, limit } = req.query;
@@ -62,6 +64,10 @@ router.post('/', validate(itemSchema), (req, res) => {
     });
 
     res.status(201).json(item);
+
+    // Jalankan auto-klasifikasi Hermes di background (non-blocking)
+    // Hermes akan mengisi bab/sub_bab/rarity jika item belum punya kategori
+    autoClassifyIfNeeded(newItemId).catch(() => {});
 });
 
 router.put('/:id', validate(itemSchema), (req, res) => {
@@ -108,6 +114,10 @@ router.delete('/:id', (req, res) => {
 
     stmts.deleteItem.run(id);
     refreshInventory();
+
+    // Catat ke audit log — hapus item adalah aksi yang tidak bisa di-undo
+    logAudit('ITEM_DELETE', `ID: ${id} | Name: ${existing.name} | Stock: ${existing.stock}`, req);
+
     res.json({ message: 'ITEM_DECONSTRUCTED', id: existing.id, name: existing.name });
 });
 

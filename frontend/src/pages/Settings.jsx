@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Settings as SettingsIcon, Palette, Volume2, VolumeX,
-    Monitor, Info, Cpu, ShieldCheck, Zap, Check
+    Monitor, Info, Cpu, ShieldCheck, Zap, Check, Bell, BellOff, Send
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { usePushNotification } from '../hooks/usePushNotification';
 
 /* ─── Accent color palette ─── */
 const ACCENT_THEMES = [
@@ -20,6 +21,7 @@ const ACCENT_THEMES = [
 export default function Settings() {
     const { settings, toggleSetting, setSetting } = useSettings();
     const [hoveredAccent, setHoveredAccent] = useState(null);
+    const push = usePushNotification();
 
     const toggle    = (key)         => toggleSetting(key);
     const setAccent = (theme)       => setSetting('accentTheme', theme);
@@ -152,6 +154,68 @@ export default function Settings() {
                         })}
                     </div>
                 </div>
+            </Section>
+
+            {/* ── Section: Push Notifications ── */}
+            <Section label="PUSH NOTIFICATIONS" icon={Bell} delay={0.2}>
+                <SettingRow
+                    icon={push.isSubscribed ? Bell : BellOff}
+                    iconBg={push.isSubscribed ? 'rgba(0,243,255,0.12)' : 'rgba(100,100,100,0.1)'}
+                    iconColor={push.isSubscribed ? 'var(--color-neon-cyan)' : '#666'}
+                    title="Notifikasi Browser"
+                    description={
+                        !push.isSupported
+                            ? 'Browser kamu tidak mendukung push notification.'
+                            : push.permission === 'denied'
+                                ? 'Izin ditolak. Reset izin di pengaturan browser.'
+                                : push.isSubscribed
+                                    ? 'Aktif — kamu akan menerima alert stok kritis & laporan harian.'
+                                    : 'Aktifkan untuk menerima notifikasi bahkan saat tab ditutup.'
+                    }
+                    badge={
+                        !push.isSupported
+                            ? { label: 'TIDAK DIDUKUNG', color: '#666' }
+                            : push.permission === 'denied'
+                                ? { label: 'DIBLOKIR', color: '#f43f5e' }
+                                : push.isSubscribed
+                                    ? { label: 'AKTIF', color: '#00f3ff' }
+                                    : { label: 'NONAKTIF', color: '#555' }
+                    }
+                >
+                    <ToggleSwitch
+                        enabled={push.isSubscribed}
+                        onToggle={push.isSubscribed ? push.unsubscribe : push.subscribe}
+                        activeColor="var(--color-neon-cyan)"
+                        id="toggle-push"
+                        disabled={!push.isSupported || push.permission === 'denied' || push.isLoading}
+                    />
+                </SettingRow>
+
+                {/* Tombol Test Notifikasi (hanya tampil jika sudah subscribe) */}
+                {push.isSubscribed && (
+                    <div className="px-5 py-3 flex items-center justify-between border-t border-white/[0.04]">
+                        <div className="text-xs text-gray-600 font-mono">
+                            Kirim notifikasi percobaan ke browser ini
+                        </div>
+                        <button
+                            id="btn-test-push"
+                            onClick={async () => {
+                                const r = await push.sendTest();
+                                if (!r.success) alert('Gagal: ' + r.error);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#00f3ff]/30 text-[#00f3ff] text-[10px] font-mono hover:bg-[#00f3ff]/10 transition-all"
+                        >
+                            <Send className="w-3 h-3" /> Kirim Test
+                        </button>
+                    </div>
+                )}
+
+                {/* Error message */}
+                {push.error && (
+                    <p className="px-5 py-2 text-[10px] text-red-400 font-mono border-t border-white/[0.04]">
+                        ⚠️ {push.error}
+                    </p>
+                )}
             </Section>
 
             {/* ── Section: System Info ── */}

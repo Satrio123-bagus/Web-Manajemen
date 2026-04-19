@@ -76,3 +76,56 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
   );
 });
+
+// ─── PUSH: Tampilkan notifikasi dari server ────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'INSERT3COINS',
+    body: 'Ada pembaruan baru.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    url: '/',
+    tag: 'general',
+  };
+
+  if (event.data) {
+    try { data = { ...data, ...JSON.parse(event.data.text()) }; }
+    catch (_) { data.body = event.data.text(); }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon,
+      badge: data.badge,
+      tag: data.tag,
+      renotify: true,
+      requireInteraction: data.tag === 'low-stock', // Stok kritis tidak auto-hilang
+      data: { url: data.url },
+      actions: [
+        { action: 'open', title: '📦 Buka Aplikasi' },
+        { action: 'dismiss', title: '✕ Tutup' },
+      ],
+    })
+  );
+});
+
+// ─── NOTIFICATIONCLICK: Arahkan ke halaman yang tepat ─────────────────────
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
+
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    })
+  );
+});

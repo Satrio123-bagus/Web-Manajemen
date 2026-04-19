@@ -10,6 +10,7 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Terminal from './pages/Terminal';
 import Login from './pages/Login';
+import TransactionHistory from './pages/TransactionHistory';
 import { SettingsProvider } from './context/SettingsContext';
 import { useSound } from './hooks/useSound';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -213,6 +214,7 @@ function AppContent() {
           } />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/terminal" element={<Terminal />} />
+          <Route path="/history" element={<TransactionHistory />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
