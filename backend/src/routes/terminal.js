@@ -204,16 +204,27 @@ function executeAction(actionJson) {
 }
 
 router.post('/', async (req, res) => {
-    const { command } = req.body;
+    const { command } = req.body;  // sessionId dibaca dari header (baris bawah), bukan body
     if (!command || typeof command !== 'string') {
         return res.status(400).json({ error: 'INVALID_INPUT: command string required' });
     }
 
+    // Validasi panjang command — cegah token flooding ke AI API
     if (command.length > 500) {
         return res.status(400).json({ error: 'INVALID_INPUT: Command terlalu panjang (maksimal 500 karakter).' });
     }
 
-    const cmd = command.trim();
+    // Validasi sessionId dari body (jika ada) — cegah injeksi karakter aneh ke conversation log
+    // Catatan: sessionId resmi diambil dari header x-session-id (lihat baris di bawah)
+    const bodySessionId = req.body.sessionId;
+    if (bodySessionId && (typeof bodySessionId !== 'string' || bodySessionId.length > 64 || /[^a-zA-Z0-9_\-]/.test(bodySessionId))) {
+        return res.status(400).json({ error: 'INVALID_INPUT: sessionId tidak valid.' });
+    }
+
+    // Sanitasi: hapus null bytes dan karakter kontrol berbahaya (kecuali newline/tab)
+    const cmd = command.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+    if (!cmd) return res.status(400).json({ error: 'INVALID_INPUT: Command kosong setelah sanitasi.' });
+
     const ts = new Date().toISOString();
     const cmdLower = cmd.toLowerCase();
 

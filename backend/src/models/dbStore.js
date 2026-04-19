@@ -58,6 +58,14 @@ betterSqlite.exec(`
     generated_by TEXT DEFAULT 'HERMES_3B',
     timestamp TEXT
   );
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint TEXT UNIQUE NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at TEXT
+  );
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -139,6 +147,20 @@ const stmts = {
   getAllTx: {
     all: () => db.select().from(transactions).orderBy(desc(transactions.timestamp)).limit(20).all()
   },
+  getAllTxPaginated: {
+    // Ambil semua transaksi dengan limit besar untuk halaman History
+    all: (limit = 200, offset = 0) => db.select().from(transactions)
+      .orderBy(desc(transactions.timestamp))
+      .limit(limit)
+      .offset(offset)
+      .all()
+  },
+  countTx: {
+    get: () => {
+      const result = db.select({ cnt: count() }).from(transactions).get();
+      return result?.cnt || 0;
+    }
+  },
   getLastTransaction: {
     get: () => db.select().from(transactions).orderBy(desc(transactions.timestamp)).limit(1).get()
   },
@@ -172,6 +194,27 @@ const stmts = {
       const stmt = betterSqlite.prepare('SELECT * FROM reports ORDER BY id DESC LIMIT 1');
       return stmt.get();
     }
+  },
+  // ─── Push Notifications: Subscriptions ──────────────────────────────────
+  insertPushSub: {
+    run: (endpoint, p256dh, auth, userAgent) => {
+      const stmt = betterSqlite.prepare(
+        'INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth, user_agent, created_at) VALUES (?, ?, ?, ?, ?)'
+      );
+      return stmt.run(endpoint, p256dh, auth, userAgent || '', new Date().toISOString());
+    }
+  },
+  deletePushSub: {
+    run: (endpoint) => {
+      const stmt = betterSqlite.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?');
+      return stmt.run(endpoint);
+    }
+  },
+  getAllPushSubs: {
+    all: () => betterSqlite.prepare('SELECT * FROM push_subscriptions').all()
+  },
+  countPushSubs: {
+    get: () => betterSqlite.prepare('SELECT COUNT(*) as cnt FROM push_subscriptions').get()
   },
 };
 
@@ -209,6 +252,7 @@ const reindexDatabase = betterSqlite.transaction(() => {
 
 module.exports = {
   db,
+  betterSqlite,
   stmts,
   state,
   refreshInventory,

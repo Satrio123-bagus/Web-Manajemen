@@ -67,7 +67,9 @@ async function sendMessage(message) {
  * Kirim laporan harian ke Telegram
  */
 async function sendReport(reportText) {
-    return sendMessage(reportText);
+    // Escape karakter < dan > agar tidak error diparse sebagai HTML oleh Telegram
+    const safeText = reportText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return sendMessage(safeText);
 }
 
 /**

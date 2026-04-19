@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
+const { logAudit } = require('../middleware/auditLogger');
 
 // ─── LOGIN RATE LIMITER ─────────────────────────────────────────
 // Memblokir IP jika gagal login 5 kali berturut-turut dalam 15 menit
@@ -42,6 +43,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     // ─── SECURITY: Compare with bcrypt hash (timing-safe) ───────
     const isValid = await bcrypt.compare(password, passwordHash);
     if (!isValid) {
+        logAudit('LOGIN_FAILED', 'Password salah', req);
         return res.status(401).json({
             error: 'UNAUTHORIZED',
             message: 'Akses Ditolak. Password salah atau tidak dikenali.'
@@ -55,6 +57,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         { expiresIn: '8h' }
     );
 
+    logAudit('LOGIN_SUCCESS', 'Admin login', req);
     res.json({
         success: true,
         message: 'Akses Diberikan. Selamat datang kembali, Administrator.',

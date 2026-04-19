@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { stmts, refreshInventory, insertTransaction, state } = require('../models/dbStore');
 const { validate, sellSchema } = require('../middleware/validation');
+const { sendLowStockPush } = require('../agents/pushNotifier'); // Push saat stok kritis
 
 router.post('/sell', validate(sellSchema), (req, res) => {
     const { id, quantity: qty } = req.body;
@@ -41,11 +42,35 @@ router.post('/sell', validate(sellSchema), (req, res) => {
         transaction: tx,
         remaining_stock: newStock,
     });
+
+    // Kirim push alert jika stok item ini baru saja turun di bawah 5 (non-blocking)
+    if (newStock < 5) {
+        const freshItem = stmts.getItemById.get(id);
+        if (freshItem) sendLowStockPush([freshItem]).catch(() => {});
+    }
 });
 
-router.get('/transactions', (_req, res) => {
-    const recent = stmts.getRecentTx.all();
-    res.json(recent);
+// GET /transactions — Full paginated transaction history untuk halaman History
+router.get('/transactions', (req, res) => {
+    const { page = 1, limit = 100, type } = req.query;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(500, parseInt(limit) || 100);
+    const offset = (pageNum - 1) * limitNum;
+
+    try {
+        let data = stmts.getAllTxPaginated.all(limitNum, offset);
+        const total = stmts.countTx.get();
+
+        // Filter berdasarkan tipe jika ada
+        if (type && type !== 'ALL') {
+            data = data.filter(tx => tx.type === type);
+        }
+
+        res.json({ data, total, page: pageNum, limit: limitNum });
+    } catch (err) {
+        // Fallback ke method lama
+        res.json(stmts.getRecentTx.all());
+    }
 });
 
 module.exports = router;

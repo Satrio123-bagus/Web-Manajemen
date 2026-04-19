@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-    LayoutDashboard, Package, BarChart3, Settings, Bot,
+    LayoutDashboard, Package, BarChart3, Settings, Bot, History,
     ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut
 } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'DASHBOARD', to: '/' },
     { icon: Package, label: 'INVENTORY', to: '/inventory' },
     { icon: BarChart3, label: 'ANALYTICS', to: '/analytics' },
+    { icon: History, label: 'HISTORY', to: '/history' },
     { icon: Bot, label: 'AI MANAGER', to: '/terminal' },
     { icon: Settings, label: 'SETTINGS', to: '/settings' },
 ];
