@@ -38,7 +38,7 @@ async function generateDailyReport() {
     // Kumpulkan data dari database
     refreshInventory();
     const allItems = stmts.getAllItems.all();
-    const recentTx = stmts.getAllTx.all();
+    const allTx = stmts.getAllTxPaginated.all(500, 0);   // Ambil 500 transaksi terakhir untuk analisis
     const topSellers = stmts.getTopSellers.all();
     const revenueStats = stmts.getRevenueTotal.get();
     const dailyTrends = stmts.getDailyTrends.all();
@@ -46,39 +46,111 @@ async function generateDailyReport() {
     const outOfStock = allItems.filter(i => i.stock === 0);
     const totalValue = allItems.reduce((sum, i) => sum + i.price * i.stock, 0);
 
-    // Hitung transaksi hari ini
-    const today = new Date().toISOString().slice(0, 10);
-    const todayTx = recentTx.filter(t => t.timestamp && t.timestamp.startsWith(today));
+    // ─── Hitung window waktu ────────────────────────────────────────────────────
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const date7ago  = new Date(now - 7  * msPerDay).toISOString().slice(0, 10);
+    const date14ago = new Date(now - 14 * msPerDay).toISOString().slice(0, 10);
+
+    // ─── Perbandingan Minggu Ini vs Minggu Lalu ─────────────────────────────────
+    const salesOnly = allTx.filter(t => t.type === 'SALE');
+
+    const thisWeekSales = salesOnly.filter(t => t.timestamp >= date7ago);
+    const lastWeekSales = salesOnly.filter(t => t.timestamp >= date14ago && t.timestamp < date7ago);
+
+    const thisWeekRevenue = thisWeekSales.reduce((s, t) => s + (t.total || 0), 0);
+    const lastWeekRevenue = lastWeekSales.reduce((s, t) => s + (t.total || 0), 0);
+    const thisWeekUnits   = thisWeekSales.reduce((s, t) => s + (t.quantity || 0), 0);
+    const lastWeekUnits   = lastWeekSales.reduce((s, t) => s + (t.quantity || 0), 0);
+
+    const revenueChangePct = lastWeekRevenue > 0
+        ? ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue * 100).toFixed(1)
+        : null;
+    const revenueArrow = revenueChangePct === null ? '—' : (revenueChangePct >= 0 ? `↑ +${revenueChangePct}%` : `↓ ${revenueChangePct}%`);
+
+    // ─── Transaksi Hari Ini ──────────────────────────────────────────────────────
+    const todayTx    = allTx.filter(t => t.timestamp && t.timestamp.startsWith(today));
     const todaySales = todayTx.filter(t => t.type === 'SALE');
     const todayRevenue = todaySales.reduce((sum, t) => sum + (t.total || 0), 0);
 
-    // Buat prompt untuk Hermes
+    // ─── Estimasi Runway Stok (berapa hari sebelum habis) ───────────────────────
+    // Hitung rata-rata penjualan harian per item dari 7 hari terakhir
+    const unitsSoldThisWeek = {};
+    thisWeekSales.forEach(t => {
+        unitsSoldThisWeek[t.item_name] = (unitsSoldThisWeek[t.item_name] || 0) + (t.quantity || 0);
+    });
+
+    const criticalRunway = allItems
+        .filter(i => i.stock > 0 && unitsSoldThisWeek[i.name])
+        .map(i => {
+            const avgPerDay = (unitsSoldThisWeek[i.name] || 0) / 7;
+            const daysLeft  = avgPerDay > 0 ? Math.floor(i.stock / avgPerDay) : null;
+            return { name: i.name, stock: i.stock, daysLeft };
+        })
+        .filter(i => i.daysLeft !== null && i.daysLeft <= 14)  // Hanya yang kritis (≤ 14 hari)
+        .sort((a, b) => a.daysLeft - b.daysLeft)
+        .slice(0, 5);
+
+    // ─── Tren Item: Naik / Turun ─────────────────────────────────────────────────
+    const itemTrendThis = {}, itemTrendLast = {};
+    thisWeekSales.forEach(t => { itemTrendThis[t.item_name] = (itemTrendThis[t.item_name] || 0) + (t.quantity || 0); });
+    lastWeekSales.forEach(t => { itemTrendLast[t.item_name] = (itemTrendLast[t.item_name] || 0) + (t.quantity || 0); });
+
+    const trendingUp = Object.entries(itemTrendThis)
+        .map(([name, qty]) => ({ name, thisWeek: qty, lastWeek: itemTrendLast[name] || 0 }))
+        .filter(i => i.thisWeek > i.lastWeek)
+        .sort((a, b) => (b.thisWeek - b.lastWeek) - (a.thisWeek - a.lastWeek))
+        .slice(0, 3);
+
+    const trendingDown = Object.entries(itemTrendLast)
+        .map(([name, qty]) => ({ name, lastWeek: qty, thisWeek: itemTrendThis[name] || 0 }))
+        .filter(i => i.thisWeek < i.lastWeek)
+        .sort((a, b) => (b.lastWeek - b.thisWeek) - (a.lastWeek - a.thisWeek))
+        .slice(0, 3);
+
+    // ─── Buat prompt untuk Hermes dengan data yang sudah dihitung ───────────────
     const dataPrompt = `DATA INVENTORI INSERT3COINS — ${today}:
 
-RINGKASAN:
-- Total Item: ${allItems.length} produk
-- Total Nilai Stok: Rp ${totalValue.toLocaleString('id-ID')}
-- Stok Habis: ${outOfStock.length} item
-- Stok Rendah (<5): ${lowStock.length} item
+📊 PERBANDINGAN MINGGU INI vs MINGGU LALU:
+- Pendapatan  : Rp ${thisWeekRevenue.toLocaleString('id-ID')} vs Rp ${lastWeekRevenue.toLocaleString('id-ID')} (${revenueArrow})
+- Unit Terjual: ${thisWeekUnits} unit vs ${lastWeekUnits} unit minggu lalu
 
-TRANSAKSI HARI INI:
-- Total Transaksi: ${todayTx.length}
-- Penjualan: ${todaySales.length} transaksi
-- Pendapatan Hari Ini: Rp ${todayRevenue.toLocaleString('id-ID')}
+📋 RINGKASAN HARI INI (${today}):
+- Transaksi   : ${todayTx.length} (${todaySales.length} penjualan)
+- Pendapatan  : Rp ${todayRevenue.toLocaleString('id-ID')}
 
-TOTAL HISTORIS:
-- Total Pendapatan: Rp ${revenueStats.revenue.toLocaleString('id-ID')} dari ${revenueStats.sale_count} penjualan
+🏬 INVENTORI:
+- Total Item  : ${allItems.length} produk
+- Nilai Stok  : Rp ${totalValue.toLocaleString('id-ID')}
+- Stok Habis  : ${outOfStock.length} item
+- Stok Rendah : ${lowStock.length} item (<5 unit)
 
-ITEM STOK RENDAH (KRITIS):
-${lowStock.length > 0 ? lowStock.map(i => `  [${i.id}] ${i.name} — Stok: ${i.stock} | Bab: ${i.bab || i.category}`).join('\n') : '  Tidak ada item stok rendah.'}
+⏳ ESTIMASI RUNWAY STOK (item yang akan habis ≤ 14 hari):
+${criticalRunway.length > 0
+    ? criticalRunway.map(i => `  - ${i.name}: sisa ${i.stock} unit → habis ~${i.daysLeft} hari lagi`).join('\n')
+    : '  Tidak ada item yang terancam habis dalam 14 hari ke depan.'}
 
-ITEM TERLARIS (ALL TIME):
-${topSellers.length > 0 ? topSellers.map((s, i) => `  ${i + 1}. ${s.item_name} — ${s.total_sold} terjual, Rp ${s.total_revenue.toLocaleString('id-ID')}`).join('\n') : '  Belum ada data penjualan.'}
+📈 ITEM TREN NAIK (minggu ini vs lalu):
+${trendingUp.length > 0
+    ? trendingUp.map(i => `  - ${i.name}: ${i.lastWeek} → ${i.thisWeek} unit (+${i.thisWeek - i.lastWeek})`).join('\n')
+    : '  Tidak ada tren kenaikan signifikan.'}
 
-TREN HARIAN (7 HARI TERAKHIR):
-${dailyTrends.length > 0 ? dailyTrends.map(d => `  ${d.day}: ${d.items} item terjual, Rp ${d.revenue.toLocaleString('id-ID')}`).join('\n') : '  Belum ada tren.'}
+📉 ITEM TREN TURUN (minggu ini vs lalu):
+${trendingDown.length > 0
+    ? trendingDown.map(i => `  - ${i.name}: ${i.lastWeek} → ${i.thisWeek} unit (-${i.lastWeek - i.thisWeek})`).join('\n')
+    : '  Tidak ada tren penurunan signifikan.'}
 
-Berdasarkan data di atas, buat laporan harian yang ringkas dengan peringatan dan rekomendasi.`;
+⚠️ ITEM STOK KRITIS:
+${lowStock.length > 0 ? lowStock.map(i => `  [${i.id}] ${i.name} — Stok: ${i.stock}`).join('\n') : '  Tidak ada.'}
+
+🏆 ITEM TERLARIS (ALL TIME):
+${topSellers.length > 0 ? topSellers.map((s, i) => `  ${i + 1}. ${s.item_name} — ${s.total_sold} terjual, Rp ${s.total_revenue.toLocaleString('id-ID')}`).join('\n') : '  Belum ada data.'}
+
+📅 TREN HARIAN (7 HARI TERAKHIR):
+${dailyTrends.length > 0 ? dailyTrends.map(d => `  ${d.day}: ${d.items} unit, Rp ${d.revenue.toLocaleString('id-ID')}`).join('\n') : '  Belum ada tren.'}
+
+Berdasarkan data di atas, buat laporan harian yang ringkas dengan highlight perubahan mingguan, peringatan, dan 2-3 rekomendasi konkret.`;
 
     try {
         const report = await hermes.generate(dataPrompt, {

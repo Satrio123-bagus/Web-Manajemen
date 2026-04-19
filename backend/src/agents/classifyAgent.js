@@ -7,19 +7,18 @@ const hermes = require('./hermesClient');
 
 const CLASSIFY_SYSTEM_PROMPT = `Kamu adalah sistem klasifikasi produk untuk toko elektronik INSERT3COINS yang menjual remote AC/TV dan komponen elektronik.
 
-Tugasmu: Berikan klasifikasi untuk produk berdasarkan NAMA produk.
+Tugasmu: Berikan klasifikasi MERK dan JENIS produk berdasarkan NAMA produk.
 
 Aturan:
 - "bab" = Merk/Brand utama (contoh: "Panasonic", "Daikin", "Samsung", "LG", "Sharp", "Mitsubishi")
 - "sub_bab" = Jenis/Tipe produk (contoh: "Remote AC", "Remote TV", "PCB Power", "Sensor", "Capacitor")
-- "rarity" = HANYA boleh "BIASA" atau "LANGKA"
-  * LANGKA = produk yang sulit dicari, model lama, atau edisi khusus
-  * BIASA = produk standar yang umum ditemukan
 - Jika merk tidak dikenali, gunakan bab = "Lainnya"
 - Jika jenis produk tidak jelas, gunakan sub_bab = "Umum"
 
+⚠️ PENTING: Jangan tentukan rarity. Rarity ditentukan oleh pemilik toko berdasarkan kondisi fisik dan ketersediaan barang di lapangan.
+
 WAJIB jawab dalam format JSON SAJA, tanpa penjelasan:
-{"bab": "...", "sub_bab": "...", "rarity": "BIASA"}`;
+{"bab": "...", "sub_bab": "..."}`;
 
 /**
  * Klasifikasi satu item berdasarkan namanya
@@ -42,7 +41,7 @@ async function classifyItem(itemName) {
         const result = await hermes.generateJSON(prompt, {
             system: CLASSIFY_SYSTEM_PROMPT,
             temperature: 0.1,
-            maxTokens: 100,
+            maxTokens: 80,
         });
 
         if (!result || !result.bab) {
@@ -50,12 +49,10 @@ async function classifyItem(itemName) {
             return null;
         }
 
-        // Validasi rarity
-        if (!['BIASA', 'LANGKA'].includes(result.rarity)) {
-            result.rarity = 'BIASA';
-        }
+        // Hapus rarity dari hasil Hermes jika ada — rarity adalah hak pemilik toko
+        delete result.rarity;
 
-        console.log(`[CLASSIFY] "${itemName}" → Bab: ${result.bab}, Sub: ${result.sub_bab}, Rarity: ${result.rarity}`);
+        console.log(`[CLASSIFY] "${itemName}" → Bab: ${result.bab}, Sub: ${result.sub_bab} (rarity tidak diubah)`);
         return result;
     } catch (err) {
         console.error(`[CLASSIFY] Error saat klasifikasi "${itemName}":`, err.message);
@@ -82,13 +79,14 @@ async function autoClassifyIfNeeded(itemId) {
         const classification = await classifyItem(item.name);
         if (!classification) return;
 
-        // Update item di database
+        // Update item di database — rarity TIDAK disentuh, diambil dari data existing
+        // Rarity hanya boleh diubah oleh pemilik toko secara manual
         stmts.updateItem.run(
             item.name,
-            classification.bab,           // category = bab
+            classification.bab,     // category = bab
             item.price,
             item.stock,
-            classification.rarity,
+            item.rarity,            // ← Pertahankan rarity dari DB, Hermes tidak boleh ubah ini
             item.status,
             classification.bab,
             classification.sub_bab,
@@ -96,7 +94,7 @@ async function autoClassifyIfNeeded(itemId) {
         );
         refreshInventory();
 
-        console.log(`[CLASSIFY] ✓ Item "${item.name}" diklasifikasikan: ${classification.bab} / ${classification.sub_bab}`);
+        console.log(`[CLASSIFY] ✓ "${item.name}" → ${classification.bab} / ${classification.sub_bab} | Rarity tetap: ${item.rarity}`);
     } catch (err) {
         // Non-fatal — jangan crash backend jika klasifikasi gagal
         console.error('[CLASSIFY] Auto-classify error:', err.message);

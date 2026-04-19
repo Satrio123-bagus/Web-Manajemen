@@ -139,6 +139,7 @@ const server = app.listen(PORT, () => {
     // ─── HERMES AGENT: Startup check + Cron scheduler ──────────────────
     const hermes = require('./agents/hermesClient');
     const { generateDailyReport } = require('./agents/reportAgent');
+    const { detectAnomalies } = require('./agents/anomalyAgent');
     const push = require('./agents/pushNotifier');
 
     hermes.isAvailable().then(available => {
@@ -184,6 +185,22 @@ const server = app.listen(PORT, () => {
             }
         } catch (err) {
             console.error('[CRON:STOCK] Error:', err.message);
+        }
+    }, { timezone: 'UTC' });
+
+    // Cron: Deteksi anomali transaksi setiap Senin jam 08:00 WIB (01:00 UTC)
+    // Menganalisis 14 hari terakhir — memberi gambaran performa minggu yang baru selesai
+    cron.schedule('0 1 * * 1', async () => {
+        console.log('[CRON:ANOMALY] Memulai deteksi anomali mingguan...');
+        try {
+            const result = await detectAnomalies();
+            if (result.anomalyCount > 0) {
+                console.log(`[CRON:ANOMALY] ✓ ${result.anomalyCount} anomali ditemukan dan dilaporkan.`);
+            } else {
+                console.log('[CRON:ANOMALY] ✓ Tidak ada anomali signifikan, sistem normal.');
+            }
+        } catch (err) {
+            console.error('[CRON:ANOMALY] Error:', err.message);
         }
     }, { timezone: 'UTC' });
 
