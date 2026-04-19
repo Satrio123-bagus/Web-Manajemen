@@ -4,50 +4,82 @@ import { motion } from 'framer-motion';
 import { Mic, MicOff, Trash2, Volume2, VolumeX, Send, X, Copy, Download, Camera } from 'lucide-react';
 import api from '../api';
 
-/* ── Help command content ── */
-const HELP_LINES = [
-    '╔══════════════════════════════════════════════════════════════╗',
-    '║              CORTEX COMMAND REFERENCE v3.1.0                ║',
-    '╠══════════════════════════════════════════════════════════════╣',
-    '║                                                            ║',
-    '║  [PERINTAH SISTEM]                                         ║',
-    '║    help         — Tampilkan daftar perintah ini             ║',
-    '║    clear        — Bersihkan layar terminal                  ║',
-    '║    retry        — Cek ulang koneksi backend                 ║',
-    '║    system reindex — Re-index database (urutkan A-Z)        ║',
-    '║                                                            ║',
-    '║  [INVENTORI]                                                ║',
-    '║    tampilkan semua stok   — Lihat seluruh inventori         ║',
-    '║    stok rendah            — Item dengan stok < 5            ║',
-    '║    cari [nama]            — Cari item berdasarkan nama      ║',
-    '║                                                            ║',
-    '║  [TRANSAKSI]                                                ║',
-    '║    jual [N] [item]        — Jual N unit item                ║',
-    '║    tambah stok [N] [item] — Restock N unit item             ║',
-    '║    buat [nama]            — Tambah item baru                ║',
-    '║    hapus [item]           — Hapus item dari inventori       ║',
-    '║                                                            ║',
-    '║  [EDIT]                                                     ║',
-    '║    ubah [item] menjadi [nama baru]  — Ganti nama item       ║',
-    '║    stok [item] [N]                  — Set stok ke N         ║',
-    '║    harga [item] [N]                 — Set harga ke N        ║',
-    '║                                                            ║',
-    '║  [ANALITIK]                                                 ║',
-    '║    laporan penjualan      — Ringkasan penjualan             ║',
-    '║    item terlaris          — Top 5 item terlaris             ║',
-    '║    total pendapatan       — Total revenue keseluruhan       ║',
-    '║                                                            ║',
-    '║  [VOICE]                                                    ║',
-    '║    🎤 Klik mic untuk mulai  | "kirim"  = kirim perintah     ║',
-    '║    "batal" = ulangi teks    | "selesai" = akhiri sesi       ║',
-    '║                                                            ║',
-    '║  [SHORTCUT]                                                 ║',
-    '║    ↑ / ↓  — Riwayat perintah sebelumnya                     ║',
-    '║    🔊/🔇  — Toggle respons suara CORTEX                     ║',
-    '║    🗑️     — Hapus memori percakapan                         ║',
-    '║                                                            ║',
-    '╚══════════════════════════════════════════════════════════════╝',
+/* ── Help command: data terstruktur per seksi ── */
+const HELP_SECTIONS = [
+  {
+    icon: '⚙️', label: 'SISTEM',
+    color: 'from-purple-500/20 to-purple-900/10',
+    border: 'border-purple-500/30',
+    badge: 'bg-purple-500/20 text-purple-300',
+    commands: [
+      { cmd: 'help',          desc: 'Tampilkan panduan ini' },
+      { cmd: 'clear',         desc: 'Bersihkan layar terminal' },
+      { cmd: 'retry',         desc: 'Cek ulang koneksi backend' },
+      { cmd: 'system reindex', desc: 'Urutkan ulang database A-Z' },
+    ],
+  },
+  {
+    icon: '📦', label: 'INVENTORI',
+    color: 'from-cyan-500/20 to-cyan-900/10',
+    border: 'border-cyan-500/30',
+    badge: 'bg-cyan-500/20 text-cyan-300',
+    commands: [
+      { cmd: 'tampilkan semua stok', desc: 'Lihat seluruh inventori' },
+      { cmd: 'stok rendah',          desc: 'Item dengan stok < 5 unit' },
+      { cmd: 'cari [nama]',          desc: 'Cari item berdasarkan nama', example: 'cari daikin' },
+    ],
+  },
+  {
+    icon: '💸', label: 'TRANSAKSI',
+    color: 'from-emerald-500/20 to-emerald-900/10',
+    border: 'border-emerald-500/30',
+    badge: 'bg-emerald-500/20 text-emerald-300',
+    commands: [
+      { cmd: 'jual [N] [item]',       desc: 'Jual N unit item', example: 'jual 2 remote daikin' },
+      { cmd: 'tambah stok [N] [item]', desc: 'Restock N unit', example: 'tambah stok 10 sharp' },
+      { cmd: 'buat [nama]',            desc: 'Tambah item baru ke inventori', example: 'buat Remote LG AKB75375604' },
+      { cmd: 'hapus [item]',           desc: 'Hapus item dari inventori', example: 'hapus remote rusak' },
+    ],
+  },
+  {
+    icon: '✏️', label: 'EDIT ITEM',
+    color: 'from-amber-500/20 to-amber-900/10',
+    border: 'border-amber-500/30',
+    badge: 'bg-amber-500/20 text-amber-300',
+    commands: [
+      { cmd: 'ubah [item] menjadi [nama]', desc: 'Ganti nama item', example: 'ubah remote A ke Remote Daikin FT' },
+      { cmd: 'stok [item] [N]',            desc: 'Set stok item ke angka tertentu', example: 'stok remote sharp 15' },
+      { cmd: 'harga [item] [N]',           desc: 'Set harga item', example: 'harga remote daikin 75000' },
+    ],
+  },
+  {
+    icon: '📊', label: 'ANALITIK',
+    color: 'from-violet-500/20 to-violet-900/10',
+    border: 'border-violet-500/30',
+    badge: 'bg-violet-500/20 text-violet-300',
+    commands: [
+      { cmd: 'laporan penjualan', desc: 'Ringkasan penjualan hari ini' },
+      { cmd: 'item terlaris',     desc: 'Top 5 item terlaris sepanjang waktu' },
+      { cmd: 'total pendapatan',  desc: 'Total revenue keseluruhan' },
+    ],
+  },
+  {
+    icon: '🎤', label: 'VOICE & SHORTCUT',
+    color: 'from-rose-500/20 to-rose-900/10',
+    border: 'border-rose-500/30',
+    badge: 'bg-rose-500/20 text-rose-300',
+    commands: [
+      { cmd: 'Tap 🎤',       desc: 'Mulai perintah suara' },
+      { cmd: '"kirim"',      desc: 'Kirim perintah saat voice aktif' },
+      { cmd: '"batal"',      desc: 'Ulangi input suara' },
+      { cmd: '↑ / ↓',        desc: 'Navigasi riwayat perintah' },
+      { cmd: '🗑️ (tombol)',   desc: 'Hapus memori percakapan CORTEX' },
+    ],
+  },
 ];
+
+// Sentinel khusus — satu line yang membawa seluruh data help card
+const HELP_CARD_LINE = { type: 'help_card', text: '__HELP_CARD__', sections: HELP_SECTIONS };
 
 const getTimestamp = () => {
     const now = new Date();
@@ -578,14 +610,9 @@ export default function Terminal() {
             return;
         }
 
-        // Handle help command (client-side)
+        // Handle help command (client-side) — render sebagai help card responsif
         if (trimmed.toLowerCase() === 'help') {
-            const ts = getTimestamp();
-            HELP_LINES.forEach((line, i) => {
-                setTimeout(() => {
-                    addLines({ type: 'help', text: `${ts} ${line}` });
-                }, i * 15);
-            });
+            addLines(HELP_CARD_LINE);
             return;
         }
 
@@ -1027,24 +1054,105 @@ export default function Terminal() {
 
                 {/* Terminal output */}
                 <div className="p-5 font-mono text-sm space-y-0.5 min-h-[400px] relative z-10">
-                    {lines.map((line, i) => (
-                        <div
-                            key={i}
-                            className={`${lineColor(line.type)} whitespace-pre-wrap leading-relaxed group flex items-start gap-1`}
-                        >
-                            <span className="flex-1">{line.type === 'output' ? highlightLine(line.text) : line.text}</span>
-                            {line.text && line.type !== 'system' && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); copyLine(line.text, i); }}
-                                    className={`shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity ${copiedIdx === i ? 'text-emerald-400 opacity-100' : 'text-gray-600'
+                    {lines.map((line, i) => {
+                        // ── Render khusus untuk Help Card (mobile-friendly) ──
+                        if (line.type === 'help_card') {
+                            return (
+                                <div key={i} className="my-3 font-sans">
+                                    {/* Header */}
+                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-cyan-500/20">
+                                        <span className="text-[10px] font-mono tracking-widest text-cyan-500">CORTEX</span>
+                                        <span className="text-[10px] font-mono text-gray-600">COMMAND REFERENCE v3.1.0</span>
+                                        <span className="ml-auto text-[9px] font-mono text-gray-700">Tap perintah untuk mengisi input</span>
+                                    </div>
+
+                                    {/* Grid seksi — 1 kolom di HP, 2 kolom di desktop */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {line.sections.map((section) => (
+                                            <div
+                                                key={section.label}
+                                                className={`rounded-xl border ${section.border} bg-gradient-to-br ${section.color} p-3`}
+                                            >
+                                                {/* Section header */}
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-base">{section.icon}</span>
+                                                    <span className={`text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded ${section.badge}`}>
+                                                        {section.label}
+                                                    </span>
+                                                </div>
+
+                                                {/* Commands */}
+                                                <div className="space-y-1.5">
+                                                    {section.commands.map((c) => (
+                                                        <div
+                                                            key={c.cmd}
+                                                            className="group flex items-start gap-2"
+                                                        >
+                                                            {/* Tombol tap command */}
+                                                            {!c.cmd.startsWith('↑') && !c.cmd.startsWith('Tap') && !c.cmd.startsWith('"') ? (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        // Isi input dengan contoh atau perintah (tanpa placeholder bracket)
+                                                                        const fill = c.example || c.cmd;
+                                                                        setInput(fill);
+                                                                        inputRef.current?.focus();
+                                                                    }}
+                                                                    className={`shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded border ${section.border} hover:ring-1 hover:ring-white/20 transition-all cursor-pointer text-left`}
+                                                                    style={{ color: 'inherit', opacity: 0.9 }}
+                                                                    title={c.example ? `Klik → isi: "${c.example}"` : `Klik → isi perintah`}
+                                                                >
+                                                                    {c.cmd}
+                                                                </button>
+                                                            ) : (
+                                                                <span className={`shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded border ${section.border} opacity-60`}>
+                                                                    {c.cmd}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[11px] text-gray-400 leading-snug pt-0.5">
+                                                                {c.desc}
+                                                                {c.example && (
+                                                                    <span className="block text-[9px] text-gray-600 mt-0.5 font-mono">
+                                                                        contoh: {c.example}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Footer tip */}
+                                    <p className="mt-2 text-[9px] font-mono text-gray-700 text-center">
+                                        Atau ketik perintah bebas dalam bahasa Indonesia — CORTEX akan memahaminya
+                                    </p>
+                                </div>
+                            );
+                        }
+
+                        // ── Render normal untuk semua tipe lain ──
+                        return (
+                            <div
+                                key={i}
+                                className={`${lineColor(line.type)} whitespace-pre-wrap leading-relaxed group flex items-start gap-1`}
+                            >
+                                <span className="flex-1">{line.type === 'output' ? highlightLine(line.text) : line.text}</span>
+                                {line.text && line.type !== 'system' && line.type !== 'help_card' && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); copyLine(line.text, i); }}
+                                        className={`shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity ${
+                                            copiedIdx === i ? 'text-emerald-400 opacity-100' : 'text-gray-600'
                                         }`}
-                                    title="Copy"
-                                >
-                                    <Copy className="w-3 h-3" />
-                                </button>
-                            )}
-                        </div>
-                    ))}
+                                        title="Copy"
+                                    >
+                                        <Copy className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
 
                     {/* Typing indicator */}
                     {isProcessing && (
