@@ -123,12 +123,25 @@ export default function DashboardHome() {
     const logRef = useRef(null);
     const prevLogCount = useRef(0);                          // Simpan jumlah log sebelumnya
 
-    // Fetch analytics, items, dan transaksi
+    // Fetch analytics dan transaksi
     useEffect(() => {
+        // safeFetch dengan timeout 8 detik — agar tidak hang selamanya
         const safeFetch = async (url) => {
-            const r = await api.get(url);
-            if (!r.ok) throw new Error(`${r.status}`);
-            return r.json();
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            try {
+                const r = await api.get(url, { signal: controller.signal });
+                if (r.status === 401) {
+                    // Token expired atau invalid → paksa logout
+                    localStorage.removeItem('cortex_token');
+                    window.location.href = '/';
+                    throw new Error('401');
+                }
+                if (!r.ok) throw new Error(`${r.status}`);
+                return r.json();
+            } finally {
+                clearTimeout(timeout);
+            }
         };
 
         const POLL_INTERVAL = 30; // detik
@@ -139,18 +152,19 @@ export default function DashboardHome() {
                 safeFetch('/api/transactions'),
             ]).then(([a, t]) => {
                 setAnalytics(a);
-                setTerminalLogs(t);
-                // Inisialisasi lastUpdated & prevLogCount sejak pertama kali halaman dimuat
+                setTerminalLogs(Array.isArray(t) ? t : []);
                 setLastUpdated(new Date());
-                prevLogCount.current = t.length;
+                prevLogCount.current = Array.isArray(t) ? t.length : 0;
                 setCountdown(POLL_INTERVAL);
             }).catch(() => {
-                // Set empty defaults so the dashboard still renders
+                // Gagal fetch (network error / timeout) — tampilkan dashboard dengan data kosong
+                // Jangan biarkan analytics tetap null (menyebabkan loading screen selamanya)
                 setAnalytics(prev => prev || {
                     totalStockValue: 0, totalItems: 0, totalStock: 0,
                     lowStockCount: 0, lowStockItems: [], categoryDistribution: [],
                     rarityDistribution: [], stockTrends: [],
                 });
+                setTerminalLogs([]);
             });
         };
 
