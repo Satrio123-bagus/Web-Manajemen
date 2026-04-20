@@ -18,10 +18,10 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'"],           // Tidak ada inline script, tidak ada cdn luar
+            scriptSrc:      ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"],
             styleSrc:       ["'self'", "'unsafe-inline'"],  // Tailwind perlu inline style
             imgSrc:         ["'self'", "data:", "blob:"],   // Untuk gambar base64 Vision
-            connectSrc:     ["'self'"],           // Hanya API dari domain yang sama
+            connectSrc:     ["'self'", "https://static.cloudflareinsights.com", "https://cloudflareinsights.com"],
             fontSrc:        ["'self'", "https://fonts.gstatic.com"],
             objectSrc:      ["'none'"],           // Blokir Flash/plugin lama
             upgradeInsecureRequests: [],          // Paksa HTTP → HTTPS

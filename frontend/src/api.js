@@ -31,6 +31,17 @@ export const fetchApi = async (endpoint, options = {}) => {
         headers,
     });
 
+    // GLOBAL INTERCEPTOR: Jika token kadaluarsa atau tidak valid (401)
+    if (response.status === 401) {
+        console.warn("[SECURITY] Token tidak valid atau kosong. Mengalihkan ke Login...");
+        localStorage.removeItem('cortex_token');
+        
+        // Hanya redirect jika kita tidak sedang berada di halaman login
+        if (window.location.pathname !== '/') {
+            window.location.href = '/';
+        }
+    }
+
     return response;
 };
 
