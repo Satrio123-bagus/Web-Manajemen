@@ -172,13 +172,14 @@ export default function DashboardHome() {
         const fetchLogs = async (showLoader = false) => {
             if (showLoader) setIsRefreshing(true);
             try {
-                const fresh = await safeFetch('/api/transactions');
-                setTerminalLogs(fresh);
+                const freshData = await safeFetch('/api/transactions');
+                const freshList = Array.isArray(freshData) ? freshData : (Array.isArray(freshData?.data) ? freshData.data : []);
+                setTerminalLogs(freshList);
                 setLastUpdated(new Date());
                 // Deteksi apakah ada log baru sejak polling terakhir
-                const added = fresh.length - prevLogCount.current;
+                const added = freshList.length - prevLogCount.current;
                 if (prevLogCount.current > 0 && added > 0) setNewLogCount(added);
-                prevLogCount.current = fresh.length;
+                prevLogCount.current = freshList.length;
             } catch { /* silent */ } finally {
                 if (showLoader) setIsRefreshing(false);
                 setCountdown(POLL_INTERVAL);
