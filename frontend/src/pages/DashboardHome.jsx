@@ -425,7 +425,13 @@ export default function DashboardHome() {
                                     const safeFetch = async (url) => { const r = await api.get(url); if (!r.ok) throw new Error(); return r.json(); };
                                     setIsRefreshing(true);
                                     safeFetch('/api/transactions')
-                                        .then(data => { setTerminalLogs(data); setLastUpdated(new Date()); prevLogCount.current = data.length; })
+                                        .then(data => {
+                                            // Handle paginated format
+                                            const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+                                            setTerminalLogs(list);
+                                            setLastUpdated(new Date());
+                                            prevLogCount.current = list.length;
+                                        })
                                         .catch(() => {})
                                         .finally(() => { setIsRefreshing(false); setCountdown(30); });
                                 }}
