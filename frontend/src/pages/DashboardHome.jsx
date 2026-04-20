@@ -152,9 +152,10 @@ export default function DashboardHome() {
                 safeFetch('/api/transactions'),
             ]).then(([a, t]) => {
                 setAnalytics(a);
-                setTerminalLogs(Array.isArray(t) ? t : []);
+                const txList = Array.isArray(t) ? t : (Array.isArray(t?.data) ? t.data : []);
+                setTerminalLogs(txList);
                 setLastUpdated(new Date());
-                prevLogCount.current = Array.isArray(t) ? t.length : 0;
+                prevLogCount.current = txList.length;
                 setCountdown(POLL_INTERVAL);
             }).catch(() => {
                 // Gagal fetch (network error / timeout) — tampilkan dashboard dengan data kosong
