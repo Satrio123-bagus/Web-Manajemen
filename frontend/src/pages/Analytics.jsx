@@ -103,8 +103,8 @@ export default function Analytics() {
                         <span className="ml-auto text-[9px] font-mono text-gray-600">LAST 7 DAYS</span>
                     </h3>
                     <div className="h-64 relative z-10">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data.stockTrends}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                            <AreaChart data={data?.stockTrends || []}>
                                 <defs>
                                     <linearGradient id="gradCyan" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor={NEON_CYAN} stopOpacity={0.4} />
@@ -137,7 +137,7 @@ export default function Analytics() {
                         <span className="ml-auto text-[9px] font-mono text-gray-600">{data.categoryDistribution.length} CATEGORIES</span>
                     </h3>
                     <div className="h-64 relative z-10 flex items-center">
-                        <ResponsiveContainer width="60%" height="100%">
+                        <ResponsiveContainer width="60%" height="100%" minWidth={1} minHeight={1}>
                             <PieChart>
                                 <Pie
                                     data={data.categoryDistribution}

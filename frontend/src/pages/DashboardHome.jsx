@@ -373,8 +373,8 @@ export default function DashboardHome() {
                         </div>
                     </div>
                     <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={analytics.stockTrends}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                            <AreaChart data={analytics?.stockTrends || []}>
                                 <defs>
                                     <linearGradient id="holoGradCyan" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor={NEON_CYAN} stopOpacity={0.35} />
@@ -465,7 +465,7 @@ export default function DashboardHome() {
                         {terminalLogs.length === 0 ? (
                             <p className="text-gray-600 text-center py-4">LOG_STREAM: <span className="text-[var(--color-neon-cyan)]">AWAITING_DATA</span></p>
                         ) : (
-                            [...terminalLogs].reverse().map((tx, i) => (
+                            (Array.isArray(terminalLogs) ? [...terminalLogs] : []).reverse().map((tx, i) => (
                                 <motion.div
                                     key={tx.transaction_id || i}
                                     initial={{ opacity: 0, x: -8 }}
