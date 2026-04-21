@@ -6,11 +6,37 @@ const { stmts, state, insertTransaction, refreshInventory, reindexDatabase } = r
 const { CORTEX_SYSTEM_PROMPT } = require('../services/cortexPrompt');
 const { autoClassifyIfNeeded } = require('../agents/classifyAgent');
 const hermes = require('../agents/hermesClient');
+const eventEmitter = require('../services/eventEmitter');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const PORT = process.env.PORT || 5000;
+
+// ─── SSE STREAM ENDPOINT ──────────────────────────────────────────────────
+router.get('/stream', (req, res) => {
+    // Standard Headers for Server-Sent Events
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Send initial connection establishment packet
+    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+    // Define the broadcast listener
+    const onTerminalBroadcast = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Attach to global event emitter
+    eventEmitter.on('terminal_broadcast', onTerminalBroadcast);
+
+    // Clean up when client closes connection
+    req.on('close', () => {
+        eventEmitter.removeListener('terminal_broadcast', onTerminalBroadcast);
+    });
+});
+
 
 function parseIndoNumber(val) {
     if (val === undefined || val === null) return 0;

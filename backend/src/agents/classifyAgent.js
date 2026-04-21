@@ -94,7 +94,17 @@ async function autoClassifyIfNeeded(itemId) {
         );
         refreshInventory();
 
+        const successMsg = `[HERMES] Analisis Selesai: "${item.name}" kini disorting ke Rak ${classification.bab} / ${classification.sub_bab}.`;
         console.log(`[CLASSIFY] ✓ "${item.name}" → ${classification.bab} / ${classification.sub_bab} | Rarity tetap: ${item.rarity}`);
+        
+        // Siarkan pembaruan langsung ke layar Terminal AI Manager melalui SSE
+        const eventEmitter = require('../services/eventEmitter');
+        eventEmitter.emit('terminal_broadcast', {
+            type: 'broadcast',
+            timestamp: new Date().toISOString(),
+            output: [successMsg]
+        });
+
     } catch (err) {
         // Non-fatal — jangan crash backend jika klasifikasi gagal
         console.error('[CLASSIFY] Auto-classify error:', err.message);

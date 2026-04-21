@@ -202,6 +202,38 @@ export default function Terminal() {
         })();
     }, []);
 
+    // ─── SSE: Dengarkan siaran langsung dari Backend (Live Terminal Broadcasts) ───
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        // Buka jalur Server-Sent Events dengan melampirkan Token di URL
+        const eventSource = new EventSource(\`/api/terminal/stream?token=\${token}\`);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'broadcast' && data.output) {
+                    data.output.forEach(text => {
+                        addLines({ type: 'system', text });
+                    });
+                }
+            } catch (err) {
+                console.error('[SSE] Gagal mem-parsing paket data:', err);
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            console.error('[SSE] Sambungan terputus atau error:', err);
+            eventSource.close();
+        };
+
+        // Bersihkan sambungan radio saat komponen layar ditutup
+        return () => {
+            eventSource.close();
+        };
+    }, [ttsEnabled]);
+
     // Sync lines to localStorage whenever it changes
     useEffect(() => {
         if (lines.length > 0) {
