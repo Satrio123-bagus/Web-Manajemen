@@ -96,7 +96,7 @@ function executeAction(actionJson) {
                 const target = action.target;
                 const qty = Number(action.quantity) || 1;
                 if (!target) return '[ERROR] JUAL gagal: target tidak ditentukan.';
-                const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
+                const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
                 if (!item) return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
                 if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
                 const newStock = item.stock - qty;
@@ -115,7 +115,7 @@ function executeAction(actionJson) {
                 const target = action.target;
                 const qty = Number(action.quantity) || 1;
                 if (!target) return '[ERROR] RESTOCK gagal: target tidak ditentukan.';
-                const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
+                const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
                 if (!item) return `[ERROR] RESTOCK gagal: item "${target}" tidak ditemukan.`;
                 const newStock = item.stock + qty;
                 const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
@@ -132,7 +132,7 @@ function executeAction(actionJson) {
             case 'EDIT': {
                 const target = action.target;
                 if (!target) return '[ERROR] EDIT gagal: target tidak ditentukan.';
-                const existing = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
+                const existing = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
                 if (!existing) return `[ERROR] EDIT gagal: item "${target}" tidak ditemukan.`;
                 const oldName = existing.name;
                 const edited = {
