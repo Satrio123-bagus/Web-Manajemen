@@ -104,6 +104,14 @@ app.use('/api/notifications', authMiddleware, require('./routes/notifications'))
 app.use('/api/analytics', authMiddleware, require('./routes/analytics'));
 app.use('/api/terminal/history', authMiddleware, require('./routes/history'));
 
+// ─── SSE STREAM: Pisahkan dari aiLimiter agar koneksi radio tidak terblokir ──
+const terminalRouter = require('./routes/terminal');
+app.get('/api/terminal/stream', authMiddleware, (req, res, next) => {
+    // Langsung teruskan ke handler SSE di terminal router
+    // tanpa melewati aiLimiter
+    terminalRouter.handle(req, res, next);
+});
+
 const aiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 10, // Limit each IP to 10 AI requests per minute
@@ -112,7 +120,7 @@ const aiLimiter = rateLimit({
     message: { error: 'RATE_LIMIT_EXCEEDED // AI Engine Cooling Down. Try again in a minute.' },
 });
 
-app.use('/api/terminal', authMiddleware, aiLimiter, require('./routes/terminal'));
+app.use('/api/terminal', authMiddleware, aiLimiter, terminalRouter);
 app.use('/api/terminal/vision', authMiddleware, aiLimiter, require('./routes/vision'));
 app.use('/api/chat', authMiddleware, aiLimiter, require('./routes/chat'));
 app.use('/api/push', authMiddleware, require('./routes/push'));  // Web Push Notifications

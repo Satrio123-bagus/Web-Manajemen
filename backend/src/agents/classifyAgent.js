@@ -72,17 +72,30 @@ async function classifyItem(itemName) {
  */
 async function autoClassifyIfNeeded(itemId) {
     try {
+        console.log(`[CLASSIFY] ── Mulai klasifikasi untuk ID: ${itemId} ──`);
+        
         const item = stmts.getItemById.get(itemId);
-        if (!item) return;
+        if (!item) {
+            console.error(`[CLASSIFY] ✗ Item ${itemId} tidak ditemukan di DB!`);
+            return;
+        }
 
         // Hanya klasifikasi jika bab masih "Unsorted" atau "Uncategorized"
         const needsClassify = !item.bab || item.bab === 'Unsorted' || item.bab === 'Uncategorized';
-        if (!needsClassify) return;
+        if (!needsClassify) {
+            console.log(`[CLASSIFY] ─ Item "${item.name}" sudah terklasifikasi (${item.bab}), skip.`);
+            return;
+        }
 
-        console.log(`[CLASSIFY] Item "${item.name}" perlu klasifikasi (bab: ${item.bab})...`);
+        console.log(`[CLASSIFY] → Mengirim "${item.name}" ke Hermes untuk analisis...`);
 
         const classification = await classifyItem(item.name);
-        if (!classification) return;
+        if (!classification) {
+            console.error(`[CLASSIFY] ✗ Hermes gagal mengklasifikasi "${item.name}" — hasil null.`);
+            return;
+        }
+
+        console.log(`[CLASSIFY] ← Hermes menjawab: bab="${classification.bab}", sub_bab="${classification.sub_bab}"`);
 
         // Update item di database — rarity TIDAK disentuh, diambil dari data existing
         // Rarity hanya boleh diubah oleh pemilik toko secara manual
@@ -104,11 +117,13 @@ async function autoClassifyIfNeeded(itemId) {
         
         // Siarkan pembaruan langsung ke layar Terminal AI Manager melalui SSE
         const eventEmitter = require('../services/eventEmitter');
+        console.log(`[CLASSIFY] 📡 Menyiarkan ke SSE...`);
         eventEmitter.emit('terminal_broadcast', {
             type: 'broadcast',
             timestamp: new Date().toISOString(),
             output: [successMsg]
         });
+        console.log(`[CLASSIFY] ✓ Siaran SSE terkirim.`);
 
     } catch (err) {
         // Non-fatal — jangan crash backend jika klasifikasi gagal
