@@ -79,7 +79,9 @@ function executeAction(actionJson) {
                 refreshInventory();
 
                 // Panggil Hermes Agent di background untuk Auto-Klasifikasi barang baru
-                autoClassifyIfNeeded(newItemId).catch(() => {});
+                autoClassifyIfNeeded(newItemId).catch(err => {
+                    console.error('[CLASSIFY] Background classify gagal:', err.message);
+                });
 
                 return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.bab} / ${item.sub_bab} | Rp${item.price.toLocaleString('id-ID')} | Stok: ${item.stock}`;
             }
