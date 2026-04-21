@@ -4,6 +4,7 @@ const Groq = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { stmts, state, insertTransaction, refreshInventory, reindexDatabase } = require('../models/dbStore');
 const { CORTEX_SYSTEM_PROMPT } = require('../services/cortexPrompt');
+const { autoClassifyIfNeeded } = require('../agents/classifyAgent');
 const hermes = require('../agents/hermesClient');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
@@ -50,6 +51,10 @@ function executeAction(actionJson) {
                     type: 'CREATE', source: 'CORTEX_TERMINAL',
                 });
                 refreshInventory();
+
+                // Panggil Hermes Agent di background untuk Auto-Klasifikasi barang baru
+                autoClassifyIfNeeded(newItemId).catch(() => {});
+
                 return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.bab} / ${item.sub_bab} | Rp${item.price.toLocaleString('id-ID')} | Stok: ${item.stock}`;
             }
             case 'UPDATE': {
