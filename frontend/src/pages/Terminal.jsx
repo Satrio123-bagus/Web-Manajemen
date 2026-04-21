@@ -204,7 +204,7 @@ export default function Terminal() {
 
     // ─── SSE: Dengarkan siaran langsung dari Backend (Live Terminal Broadcasts) ───
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('cortex_token');
         if (!token) return;
 
         // Buka jalur Server-Sent Events dengan melampirkan Token di URL
