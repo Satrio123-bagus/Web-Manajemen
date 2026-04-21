@@ -11,16 +11,18 @@ const authMiddleware = (req, res, next) => {
         });
     }
 
-    // Read JWT Token from headers
+    // Read JWT Token from headers OR query params (for SSE EventSource)
     const authHeader = req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const queryToken = req.query.token;
+    
+    if (!authHeader?.startsWith('Bearer ') && !queryToken) {
         return res.status(401).json({
             error: 'UNAUTHORIZED_ACCESS_BLOCKED',
-            message: 'Akses Ditolak. Membutuhkan Token Autentikasi (Bearer Token).'
+            message: 'Akses Ditolak. Membutuhkan Token Autentikasi.'
         });
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = queryToken || authHeader.replace('Bearer ', '');
 
     try {
         // Verify token
