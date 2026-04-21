@@ -9,6 +9,10 @@ const cron = require('node-cron');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Express berada di balik Nginx reverse proxy (Docker).
+// Tanpa ini, express-rate-limit akan meledak dengan ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+app.set('trust proxy', 1);
+
 // Initialize Database connection on startup
 require('./models/dbStore');
 
