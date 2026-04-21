@@ -29,10 +29,15 @@ async function classifyItem(itemName) {
     if (!itemName || itemName.trim().length < 2) return null;
 
     // Cek ketersediaan Hermes
-    const available = await hermes.isAvailable();
+    let available = await hermes.isAvailable();
     if (!available) {
-        console.warn('[CLASSIFY] Hermes tidak tersedia, skip klasifikasi.');
-        return null;
+        console.warn('[CLASSIFY] Hermes model tidak tersedia. Mencoba pull model...');
+        const pulled = await hermes.pullModel();
+        if (!pulled) {
+            console.error('[CLASSIFY] Gagal pull model. Hermes tidak aktif.');
+            return null;
+        }
+        available = true;
     }
 
     const prompt = `Klasifikasikan produk ini:\nNama: "${itemName}"\n\nJawab dalam JSON: {"bab": "...", "sub_bab": "...", "rarity": "..."}`;
