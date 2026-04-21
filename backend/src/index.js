@@ -113,9 +113,15 @@ app.use('/api/terminal/history', authMiddleware, require('./routes/history'));
 // ─── SSE STREAM: Pisahkan dari aiLimiter agar koneksi radio tidak terblokir ──
 const terminalRouter = require('./routes/terminal');
 app.get('/api/terminal/stream', authMiddleware, (req, res, next) => {
-    // Langsung teruskan ke handler SSE di terminal router
-    // tanpa melewati aiLimiter
-    terminalRouter.handle(req, res, next);
+    // Override URL agar terbaca sebagai '/stream' di dalam terminalRouter
+    const originalUrl = req.url;
+    req.url = '/stream';
+    
+    // Langsung teruskan ke handler SSE di terminal router tanpa melewati aiLimiter
+    terminalRouter(req, res, (err) => {
+        req.url = originalUrl;
+        next(err);
+    });
 });
 
 const aiLimiter = rateLimit({
