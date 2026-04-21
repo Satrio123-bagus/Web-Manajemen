@@ -208,7 +208,7 @@ export default function Terminal() {
         if (!token) return;
 
         // Buka jalur Server-Sent Events dengan melampirkan Token di URL
-        const eventSource = new EventSource(\`/api/terminal/stream?token=\${token}\`);
+        const eventSource = new EventSource(`/api/terminal/stream?token=${token}`);
 
         eventSource.onmessage = (event) => {
             try {
