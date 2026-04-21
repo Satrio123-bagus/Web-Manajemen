@@ -16,6 +16,7 @@ const loginLimiter = rateLimit({
     },
     standardHeaders: true, // Mengembalikan info rate limit di headers `RateLimit-*`
     legacyHeaders: false, // Menonaktifkan headers `X-RateLimit-*` (format lama)
+    validate: false,
 });
 
 router.post('/login', loginLimiter, async (req, res) => {

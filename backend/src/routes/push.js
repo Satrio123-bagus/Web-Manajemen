@@ -13,6 +13,7 @@ const pushTestLimiter = rateLimit({
     max: 3,                     // Maksimal 3 test per 10 menit per IP
     standardHeaders: true,
     legacyHeaders: false,
+    validate: false,
     message: { error: 'RATE_LIMIT: Terlalu banyak test push. Coba lagi dalam 10 menit.' },
 });
 
