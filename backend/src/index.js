@@ -96,7 +96,7 @@ const loginLimiter = rateLimit({
     max: 5, // Max 5 login attempts per 15 minutes per IP
     standardHeaders: true,
     legacyHeaders: false,
-    validate: { xForwardedForHeader: false },
+    validate: false,
     message: { error: 'LOGIN_RATE_LIMIT // Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' },
 });
 
@@ -122,7 +122,7 @@ const aiLimiter = rateLimit({
     max: 10, // Limit each IP to 10 AI requests per minute
     standardHeaders: true,
     legacyHeaders: false,
-    validate: { xForwardedForHeader: false },
+    validate: false,
     message: { error: 'RATE_LIMIT_EXCEEDED // AI Engine Cooling Down. Try again in a minute.' },
 });
 
