@@ -22,7 +22,7 @@ Product/Inventory Rules:
 FUZZY MATCHING (CRITICAL):
 - The user may type SHORT or PARTIAL names. You MUST map them to the closest matching item from the EXISTING ITEMS list in the context.
 - Examples: "arcade" → "Arcade PCB (Retro Edition)", "rtx" → "RTX 5090 Ti (Obsidian)", "panasonic" → matches any item with "Panasonic" in the name, "neural" → "Neural Link v4.5".
-- Also matches partial ID string or model numbers (e.g., "3623" → "A75C3623").
+- WARNING: Do NOT "auto-correct" or fuzzy match ALPHANUMERIC MODEL NUMBERS or IDs if they are completely distinct. If the user asks for "A75C3223" and it does not exist, DO NOT map it to "A75C3225". Only fuzzy match if it is a clear partial substring like "3225" → "A75C3225".
 - Matching is case-insensitive and partial (substring match is fine).
 - ALWAYS use the ITEM ID (if available, e.g., "A75C3225") OR the FULL item name in the "target" field of the action JSON. Using the ID is preferred for absolute accuracy.
 
