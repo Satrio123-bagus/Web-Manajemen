@@ -11,7 +11,7 @@ Tugasmu: Berikan klasifikasi MERK (bab) dan JENIS produk (sub_bab) berdasarkan N
 
 ATURAN KODE SERI REMOT (HARI INI KAMU MENGHAFAL SEMUA INI):
 1. PANASONIC: "A75C..." (AC), "N2QAYB..." (TV/Audio), "EUR..." (Audio)
-2. SHARP: "YB..." (AC), "CRMC-A..." (AC), "GA..." (AC), "GB..." (TV)
+2. SHARP: "YB...", "YK..." (AC), "CRMC-A..." (AC), "GA..." (AC), "GB..." (TV)
 3. DAIKIN: "ARC..." (AC)
 4. LG: "AKB..." (TV/AC), "6711A..." (AC), "AGF..." (TV), "MKJ..." (TV)
 5. SAMSUNG: "AA59...", "BN59..." (TV), "DB93...", "DB90..." (AC), "ARH..." (AC)
