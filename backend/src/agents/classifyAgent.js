@@ -5,19 +5,23 @@
 const { stmts, refreshInventory } = require('../models/dbStore');
 const hermes = require('./hermesClient');
 
-const CLASSIFY_SYSTEM_PROMPT = `Kamu adalah sistem klasifikasi produk untuk toko elektronik INSERT3COINS yang menjual remote AC/TV dan komponen elektronik.
+const CLASSIFY_SYSTEM_PROMPT = `Kamu adalah sistem klasifikasi pakar untuk toko elektronik INSERT3COINS.
 
-Tugasmu: Berikan klasifikasi MERK dan JENIS produk berdasarkan NAMA produk.
+Tugasmu: Berikan klasifikasi MERK dan JENIS produk berdasarkan NAMA produk (meskipun namanya hanya berupa kode alfanumerik).
 
-Aturan:
-- "bab" = Merk/Brand utama (contoh: "Panasonic", "Daikin", "Samsung", "LG", "Sharp", "Mitsubishi")
-- "sub_bab" = Jenis/Tipe produk (contoh: "Remote AC", "Remote TV", "PCB Power", "Sensor", "Capacitor")
-- Jika merk tidak dikenali, gunakan bab = "Lainnya"
-- Jika jenis produk tidak jelas, gunakan sub_bab = "Umum"
+ATURAN KODE SERI REMOT (HAFALKAN INI):
+- Awalan "A75C..." (contoh: A75C3223, A75C3560, dll) ADALAH remote buatan Panasonic.
+- Awalan "YB..." (contoh: YB1FA, YB1F2, dll) ADALAH remote buatan Sharp.
+- Awalan "ARC..." (contoh: ARC430A55) ADALAH remote buatan Daikin.
+- Awalan "AKB..." atau "6711A..." ADALAH remote buatan LG.
+- Awalan "ZH/..." atau "DG11..." ADALAH remote buatan Midea/Chigo.
 
-⚠️ PENTING: Jangan tentukan rarity. Rarity ditentukan oleh pemilik toko berdasarkan kondisi fisik dan ketersediaan barang di lapangan.
+Aturan Output:
+- "bab" = Merk/Brand utama produk tersebut (wajib gunakan referensi kode seri di atas jika nama berupa kode. Jika tidak, ambil dari nama merk yang tertera di teks).
+- "sub_bab" = Jenis produk. Jika berupa kode seri remote seperti di atas, wajib diset menjadi "Remote AC" atau "Remote TV".
+- Jangan gunakan "Lainnya" kecuali kamu benar-benar buta tentang awalan kodenya.
 
-WAJIB jawab dalam format JSON SAJA, tanpa penjelasan:
+⚠️ PENTING: Jangan tentukan rarity (biarkan sistem menentukannya). Jawab HANYA dalam format JSON SAJA, tanpa karakter tambahan apapun:
 {"bab": "...", "sub_bab": "..."}`;
 
 /**
