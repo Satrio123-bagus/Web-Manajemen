@@ -149,7 +149,31 @@ function executeAction(actionJson) {
                 const qty = Number(action.quantity) || 1;
                 if (!target) return '[ERROR] RESTOCK gagal: target tidak ditentukan.';
                 const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
-                if (!item) return `[ERROR] RESTOCK gagal: item "${target}" tidak ditemukan.`;
+                if (!item) {
+                    // AUTO-FALLBACK: Jika CORTEX (LLM) salah mengeluarkan perintah RESTOCK untuk item yang
+                    // sebenarnya belum ada, jangan ditolak. Langsung konversi menjadi proses BUAT BARANG BARU (ADD).
+                    const newItemId = `item_${Date.now()}`;
+                    const newItemName = target.trim();
+                    const newStock = qty;
+                    const newCategory = 'Unsorted';
+                    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    
+                    stmts.insertItem.run(newItemId, newItemName, newCategory, 0, newStock, 'BIASA', newStatus, newCategory, 'Uncategorized');
+                    insertTransaction({
+                        transaction_id: generateTxId(), item_name: newItemName, category: newCategory,
+                        unit_price: 0, quantity: newStock, total: 0, timestamp: new Date().toISOString(),
+                        type: 'CREATE', source: 'CORTEX_AUTO_FALLBACK',
+                    });
+                    refreshInventory();
+                    
+                    // Panggil Hermes Agent di background untuk Auto-Klasifikasi barang baru
+                    autoClassifyIfNeeded(newItemId).catch(err => {
+                        console.error('[CLASSIFY] Background classify gagal:', err.message);
+                    });
+                    
+                    return `[AUTO-CREATE] Barang baru terdeteksi dari perintah restock. Otomatis dibuat (${newItemId}): ${newItemName} | Stok: ${newStock}`;
+                }
+                
                 const newStock = item.stock + qty;
                 const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
