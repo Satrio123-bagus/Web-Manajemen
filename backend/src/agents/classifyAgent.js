@@ -5,23 +5,35 @@
 const { stmts, refreshInventory } = require('../models/dbStore');
 const hermes = require('./hermesClient');
 
-const CLASSIFY_SYSTEM_PROMPT = `Kamu adalah sistem klasifikasi pakar untuk toko elektronik INSERT3COINS.
+const CLASSIFY_SYSTEM_PROMPT = `Kamu adalah sistem pakar klasifikasi untuk toko elektronik INSERT3COINS.
 
-Tugasmu: Berikan klasifikasi MERK dan JENIS produk berdasarkan NAMA produk (meskipun namanya hanya berupa kode alfanumerik).
+Tugasmu: Berikan klasifikasi MERK (bab) dan JENIS produk (sub_bab) berdasarkan NAMA produk, meskipun namanya hanya berupa kode alfanumerik.
 
-ATURAN KODE SERI REMOT (HAFALKAN INI):
-- Awalan "A75C..." (contoh: A75C3223, A75C3560, dll) ADALAH remote buatan Panasonic.
-- Awalan "YB..." (contoh: YB1FA, YB1F2, dll) ADALAH remote buatan Sharp.
-- Awalan "ARC..." (contoh: ARC430A55) ADALAH remote buatan Daikin.
-- Awalan "AKB..." atau "6711A..." ADALAH remote buatan LG.
-- Awalan "ZH/..." atau "DG11..." ADALAH remote buatan Midea/Chigo.
+ATURAN KODE SERI REMOT (HARI INI KAMU MENGHAFAL SEMUA INI):
+1. PANASONIC: "A75C..." (AC), "N2QAYB..." (TV/Audio), "EUR..." (Audio)
+2. SHARP: "YB..." (AC), "CRMC-A..." (AC), "GA..." (AC), "GB..." (TV)
+3. DAIKIN: "ARC..." (AC)
+4. LG: "AKB..." (TV/AC), "6711A..." (AC), "AGF..." (TV), "MKJ..." (TV)
+5. SAMSUNG: "AA59...", "BN59..." (TV), "DB93...", "DB90..." (AC), "ARH..." (AC)
+6. SONY: "RM-...", "RMT-...", "RMF-..." (TV/Audio)
+7. GREE: "YAW...", "YAP...", "YT...", "YAN..." (AC)
+8. MIDEA / CHIGO: "ZH/...", "DG11...", "R51...", "RG..." (AC)
+9. TCL: "RC..." (TV), "GY..." (AC)
+10. CHANGHONG: "K-..." (AC - awalan K sering dipakai Changhong), "RL-...", "CH-..." (TV)
+11. POLYTRON: "PRM...", "81I..." (TV/Audio/AC)
+12. TOSHIBA: "WC-...", "WH-..." (AC), "CT-..." (TV)
+13. AQUA / SANYO: "RCS-..." (AC)
+14. UNIVERSAL / MULTI: Awalan "K-" yang diikuti ribuan (contoh: K-1028E, K-1088E) adalah Remote AC Universal (Chunghop/Joker). "RM-L..." adalah TV Universal.
+
+ATURAN DEDUKSI MEREK CHINA/LOKAL:
+Jika nama produk TIDAK mengandung kode seri jelas tapi hanya ada tipe AC seperti "05CR", "09CR", tebak itu brand China populer (Midea/Changhong/TCL) atau jika terdapat nama merknya langsung (contoh: "Remote AC Beko", "Remote TV Changhong L32"), LANGSUNG tangkap merk tersebut!
 
 Aturan Output:
-- "bab" = Merk/Brand utama produk tersebut (wajib gunakan referensi kode seri di atas jika nama berupa kode. Jika tidak, ambil dari nama merk yang tertera di teks).
-- "sub_bab" = Jenis produk. Jika berupa kode seri remote seperti di atas, wajib diset menjadi "Remote AC" atau "Remote TV".
-- Jangan gunakan "Lainnya" kecuali kamu benar-benar buta tentang awalan kodenya.
+- "bab" = Merk utama (Panasonic, Sharp, LG, Samsung, Gree, Midea, TCL, Changhong, Polytron, Toshiba, Daikin, Universal, dll).
+- "sub_bab" = "Remote AC", "Remote TV", "PCB Power", "Sensor", atau "Kapasitor".
+- Hanya gunakan "Lainnya" jika kode benar-benar tidak bisa ditebak dan tidak ada tulisan merk sama sekali.
 
-⚠️ PENTING: Jangan tentukan rarity (biarkan sistem menentukannya). Jawab HANYA dalam format JSON SAJA, tanpa karakter tambahan apapun:
+⚠️ PENTING: Jangan tentukan rarity (biarkan sistem menentukannya). Jawab HANYA dalam format JSON SAJA:
 {"bab": "...", "sub_bab": "..."}`;
 
 /**
