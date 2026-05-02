@@ -4,7 +4,7 @@ import { Loader, WifiOff, CheckCircle, AlertTriangle } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import Layout from './components/Layout';
-import Dashboard, { InventoryModal } from './pages/Dashboard';
+import Dashboard, { InventoryModal, AssembleModal } from './pages/Dashboard';
 import DashboardHome from './pages/DashboardHome';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
@@ -23,6 +23,7 @@ function AppContent() {
   const [activeDeleteId, setActiveDeleteId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [assemblingItem, setAssemblingItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -118,6 +119,37 @@ function AppContent() {
     saveMutation.mutate({ id: editingItem?.id, data });
   };
 
+  const assembleMutation = useMutation({
+    mutationFn: async (data) => {
+      const res = await api.post(`${API}/assemble`, data);
+      if (!res.ok) {
+        if (res.status === 401) {
+            localStorage.removeItem('cortex_token');
+            setToken(null);
+        }
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || 'ASSEMBLY_FAILED');
+      }
+      return await res.json();
+    },
+    onMutate: () => { playSound('click'); },
+    onSuccess: (data) => {
+      playSound('success');
+      showToast(`ASSEMBLY_SUCCESS: ${data.quantity} units assembled`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      setAssemblingItem(null);
+    },
+    onError: (err) => {
+      console.error(err);
+      playSound('error');
+      showToast(err.message || 'ASSEMBLY_ERROR', 'error');
+    }
+  });
+
+  const handleAssemble = (data) => {
+    assembleMutation.mutate(data);
+  };
+
 
   /* ── Quick Sell (optimistic) ── */
   const showToast = (message, type = 'success') => {
@@ -209,6 +241,7 @@ function AppContent() {
               onEdit={(item) => { setEditingItem(item); setIsModalOpen(true); }}
               onAdd={() => { setEditingItem(null); setIsModalOpen(true); }}
               onSell={handleQuickSell}
+              onAssemble={(item) => setAssemblingItem(item)}
               isDeleting={activeDeleteId}
             />
           } />
@@ -225,6 +258,14 @@ function AppContent() {
         onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
         onSave={handleSave}
         initialData={editingItem}
+      />
+
+      <AssembleModal
+        isOpen={!!assemblingItem}
+        onClose={() => setAssemblingItem(null)}
+        onSave={handleAssemble}
+        sourceItem={assemblingItem}
+        allItems={items}
       />
 
       {/* ═══ TOAST NOTIFICATION ═══ */}

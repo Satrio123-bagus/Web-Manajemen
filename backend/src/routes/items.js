@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { stmts, state, refreshInventory, insertTransaction } = require('../models/dbStore');
-const { validate, itemSchema } = require('../middleware/validation');
+const { stmts, state, refreshInventory, insertTransaction, betterSqlite } = require('../models/dbStore');
+const { validate, itemSchema, assembleSchema } = require('../middleware/validation');
 const { autoClassifyIfNeeded } = require('../agents/classifyAgent'); // Hermes auto-classifier
 const { logAudit } = require('../middleware/auditLogger');
 
@@ -68,6 +68,70 @@ router.post('/', validate(itemSchema), (req, res) => {
     // Jalankan auto-klasifikasi Hermes di background (non-blocking)
     // Hermes akan mengisi bab/sub_bab/rarity jika item belum punya kategori
     autoClassifyIfNeeded(newItemId).catch(() => {});
+});
+
+// ─── ASSEMBLE ITEMS ──────────────────────────────────────
+router.post('/assemble', validate(assembleSchema), (req, res) => {
+    const { targetItemId, quantity, materials } = req.body;
+    
+    const target = stmts.getItemById.get(targetItemId);
+    if (!target) {
+        return res.status(404).json({ error: 'ITEM_NOT_FOUND', message: 'Remote/Target tidak ditemukan.' });
+    }
+
+    // Prepare materials and validate stock
+    const materialItems = [];
+    for (const mat of materials) {
+        const item = stmts.getItemById.get(mat.id);
+        if (!item) {
+            return res.status(404).json({ error: 'ITEM_NOT_FOUND', message: `Bahan baku dengan ID ${mat.id} tidak ditemukan.` });
+        }
+        if (item.stock < mat.qty) {
+            return res.status(400).json({ error: 'INSUFFICIENT_STOCK', message: `Stok ${item.name} tidak mencukupi untuk dirakit.` });
+        }
+        materialItems.push({ item, qty: mat.qty });
+    }
+
+    const runAssembly = betterSqlite.transaction(() => {
+        const ts = new Date().toISOString();
+
+        // 1. Kurangi stok bahan & Catat transaksi
+        let sourceNames = [];
+        for (const { item, qty } of materialItems) {
+            const newStock = item.stock - qty;
+            const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+            stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab, item.sub_bab, item.id);
+            
+            insertTransaction({
+                transaction_id: `TX-ASM-OUT-${Date.now()}-${item.id}`, item_name: item.name, category: item.bab,
+                unit_price: item.price, quantity: -qty, total: 0,
+                timestamp: ts, type: 'ASSEMBLY_OUT', source: 'WEB_UI'
+            });
+            sourceNames.push(item.name);
+        }
+
+        // 2. Tambah stok hasil rakitan & Catat transaksi
+        const newTargetStock = target.stock + quantity;
+        const newTargetStatus = newTargetStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+        stmts.updateItem.run(target.name, target.category, target.price, newTargetStock, target.rarity, newTargetStatus, target.bab, target.sub_bab, target.id);
+
+        insertTransaction({
+            transaction_id: `TX-ASM-IN-${Date.now()}`, item_name: target.name, category: target.bab,
+            unit_price: target.price, quantity: quantity, total: 0,
+            timestamp: ts, type: 'ASSEMBLY_IN', source: 'WEB_UI'
+        });
+        
+        return sourceNames.join(', ');
+    });
+
+    try {
+        const sources = runAssembly();
+        refreshInventory();
+        logAudit('ITEM_ASSEMBLED', `Rakit ${quantity} ${target.name} dari: ${sources}`, req);
+        res.json({ message: 'ASSEMBLY_SUCCESS', targetId: target.id, quantity });
+    } catch (err) {
+        res.status(500).json({ error: 'ASSEMBLY_FAILED', message: err.message });
+    }
 });
 
 router.put('/:id', validate(itemSchema), (req, res) => {
