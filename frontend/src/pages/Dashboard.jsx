@@ -63,7 +63,7 @@ function StatCard({ icon: Icon, label, value, suffix, accent, delay = 0 }) {
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD (exported)
    ═══════════════════════════════════════════════════════════ */
-export default function Dashboard({ items, meta, onPageChange, limit, onLimitChange, onDelete, onEdit, onAdd, onSell, isDeleting, onSearch }) {
+export default function Dashboard({ items, meta, onPageChange, limit, onLimitChange, onDelete, onEdit, onAdd, onSell, onAssemble, isDeleting, onSearch }) {
     const [search, setSearch] = useState('');
 
     // Debounce search
@@ -289,19 +289,33 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                                     <td className="px-5 py-4">
                                                         <div className="flex gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                                                             {/* Quick Sell */}
-                                                            <motion.button
-                                                                whileHover={item.stock > 0 ? { scale: 1.1 } : {}} whileTap={item.stock > 0 ? { scale: 0.9 } : {}}
-                                                                onClick={() => item.stock > 0 && onSell(item.id)}
-                                                                disabled={item.stock <= 0}
-                                                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border ${item.stock > 0
-                                                                    ? 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(251,191,36,0.2)]'
-                                                                    : 'text-gray-600 border-gray-700/30 bg-gray-800/30 cursor-not-allowed'
-                                                                    }`}
-                                                                title={item.stock > 0 ? `Sell 1x ${item.name}` : 'Out of stock'}
-                                                            >
-                                                                <DollarSign className="w-3 h-3" />
-                                                                {item.stock > 0 ? 'SELL' : 'EMPTY'}
-                                                            </motion.button>
+                                                            {item.price > 0 && (
+                                                                <motion.button
+                                                                    whileHover={item.stock > 0 ? { scale: 1.1 } : {}} whileTap={item.stock > 0 ? { scale: 0.9 } : {}}
+                                                                    onClick={() => item.stock > 0 && onSell(item.id)}
+                                                                    disabled={item.stock <= 0}
+                                                                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border ${item.stock > 0
+                                                                        ? 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(251,191,36,0.2)]'
+                                                                        : 'text-gray-600 border-gray-700/30 bg-gray-800/30 cursor-not-allowed'
+                                                                        }`}
+                                                                    title={item.stock > 0 ? `Sell 1x ${item.name}` : 'Out of stock'}
+                                                                >
+                                                                    <DollarSign className="w-3 h-3" />
+                                                                    {item.stock > 0 ? 'SELL' : 'EMPTY'}
+                                                                </motion.button>
+                                                            )}
+                                                            {/* Assemble */}
+                                                            {(item.bab === 'WIP' || item.category === 'WIP' || item.bab === 'SPARE_PART' || item.category === 'SPARE_PART' || item.name.toLowerCase().includes('casing') || item.name.toLowerCase().includes('bahan')) && (
+                                                                <motion.button
+                                                                    whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                                                    onClick={() => onAssemble(item)}
+                                                                    className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border text-[var(--color-neon-purple)] border-[var(--color-neon-purple)]/30 hover:bg-[var(--color-neon-purple)]/10 hover:border-[var(--color-neon-purple)]/60 hover:shadow-[0_0_12px_rgba(188,19,254,0.2)]"
+                                                                    title="Rakit / Assemble"
+                                                                >
+                                                                    <Package className="w-3 h-3" />
+                                                                    RAKIT
+                                                                </motion.button>
+                                                            )}
                                                             {/* Edit */}
                                                             <motion.button
                                                                 whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
@@ -489,5 +503,189 @@ function FieldInput({ label, type = 'text', value, onChange, placeholder }) {
                 className="w-full bg-white/5 border-b border-white/10 p-3 text-white placeholder-gray-600 focus:outline-none focus:border-[var(--color-neon-cyan)] focus:bg-[var(--color-neon-cyan)]/5 transition-all font-mono text-sm rounded-t-sm" />
             <div className="absolute bottom-0 left-0 w-0 h-[1px] bg-[var(--color-neon-purple)] group-focus-within:w-full transition-all duration-500" />
         </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ASSEMBLE MODAL (exported for App.jsx)
+   ═══════════════════════════════════════════════════════════ */
+export function AssembleModal({ isOpen, onClose, onSave, sourceItem, allItems }) {
+    const [targetItemId, setTargetItemId] = useState('');
+    const [quantity, setQuantity] = useState('');
+    const [materials, setMaterials] = useState([]);
+
+    // Initialize materials with the clicked source item
+    useEffect(() => {
+        if (isOpen && sourceItem) {
+            setMaterials([{ id: sourceItem.id, qty: 1 }]);
+            setTargetItemId('');
+            setQuantity('');
+        }
+    }, [isOpen, sourceItem]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!targetItemId || !quantity || materials.length === 0) return;
+        
+        // Validate materials
+        const hasInvalid = materials.some(m => !m.id || m.qty <= 0);
+        if (hasInvalid) return;
+
+        onSave({ targetItemId, quantity: Number(quantity), materials });
+    };
+
+    const addMaterial = () => {
+        setMaterials([...materials, { id: '', qty: 1 }]);
+    };
+
+    const removeMaterial = (index) => {
+        setMaterials(materials.filter((_, i) => i !== index));
+    };
+
+    const updateMaterial = (index, field, value) => {
+        const newMaterials = [...materials];
+        newMaterials[index][field] = field === 'qty' ? Number(value) : value;
+        setMaterials(newMaterials);
+    };
+
+    const materialIds = materials.map(m => m.id);
+    const validTargets = allItems ? allItems.filter(i => !materialIds.includes(i.id)) : [];
+    const availableMaterials = allItems ? allItems.filter(i => i.stock > 0) : [];
+
+    // Check stock errors
+    const checkStockError = (mat) => {
+        if (!mat.id) return false;
+        const item = allItems.find(i => i.id === mat.id);
+        return item && mat.qty > item.stock;
+    };
+    
+    const hasAnyStockError = materials.some(checkStockError);
+
+    return (
+        <AnimatePresence>
+            {isOpen && sourceItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+                        className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+                    <motion.div
+                        initial={{ scale: 0.85, opacity: 0, y: 30 }}
+                        animate={{ scale: 1, opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 25 } }}
+                        exit={{ scale: 0.85, opacity: 0, y: 30 }}
+                        className="relative w-full max-w-lg bg-[#0a0a0c] border border-[var(--color-neon-purple)]/30 rounded-2xl p-8 shadow-[0_0_60px_rgba(188,19,254,0.15)] overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
+                    >
+                        <div className="flex justify-between items-center mb-6 relative z-20">
+                            <h2 className="text-2xl font-bold font-mono text-[var(--color-neon-purple)]">
+                                &gt;&gt; MULTI_ASSEMBLY
+                            </h2>
+                            <button type="button" onClick={onClose} className="text-gray-500 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-6 relative z-20">
+                            
+                            {/* TARGET ITEM */}
+                            <div className="p-4 rounded-xl border border-[var(--color-neon-cyan)]/20 bg-[var(--color-neon-cyan)]/5">
+                                <h3 className="text-xs font-mono text-[var(--color-neon-cyan)] mb-3 flex items-center gap-2">
+                                    <Package className="w-4 h-4" /> 1. HASIL RAKITAN (TARGET)
+                                </h3>
+                                <div className="space-y-4">
+                                    <select 
+                                        value={targetItemId} 
+                                        onChange={e => setTargetItemId(e.target.value)}
+                                        className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)] transition-all font-mono text-sm rounded cursor-pointer"
+                                        required
+                                    >
+                                        <option value="" disabled>Pilih Target Remote...</option>
+                                        {validTargets.map(target => (
+                                            <option key={target.id} value={target.id}>
+                                                {target.name} (Stok: {target.stock})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <FieldInput 
+                                        label="JUMLAH YANG DIBUAT (TARGET QTY)" 
+                                        type="number" 
+                                        value={quantity} 
+                                        onChange={e => setQuantity(e.target.value)} 
+                                        placeholder="Misal: 5" 
+                                    />
+                                </div>
+                            </div>
+
+                            {/* MATERIALS */}
+                            <div className="p-4 rounded-xl border border-[var(--color-neon-purple)]/20 bg-[var(--color-neon-purple)]/5">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-xs font-mono text-[var(--color-neon-purple)] flex items-center gap-2">
+                                        <Plus className="w-4 h-4" /> 2. BAHAN BAKU (MATERIALS)
+                                    </h3>
+                                    <button 
+                                        type="button" 
+                                        onClick={addMaterial}
+                                        className="text-[10px] font-mono text-[var(--color-neon-purple)] border border-[var(--color-neon-purple)]/50 px-2 py-1 rounded hover:bg-[var(--color-neon-purple)]/20 transition-colors"
+                                    >
+                                        + TAMBAH PART
+                                    </button>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    {materials.map((mat, index) => {
+                                        const stockErr = checkStockError(mat);
+                                        return (
+                                            <div key={index} className="flex gap-2 items-start">
+                                                <div className="flex-1">
+                                                    <select 
+                                                        value={mat.id} 
+                                                        onChange={e => updateMaterial(index, 'id', e.target.value)}
+                                                        className={`w-full bg-[#0a0a0c] border ${stockErr ? 'border-red-500/50' : 'border-white/10'} p-2.5 text-white focus:outline-none focus:border-[var(--color-neon-purple)] transition-all font-mono text-xs rounded cursor-pointer`}
+                                                        required
+                                                    >
+                                                        <option value="" disabled>Pilih Part...</option>
+                                                        {availableMaterials.map(av => (
+                                                            <option key={av.id} value={av.id}>
+                                                                {av.name} (Stok: {av.stock})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {stockErr && <p className="text-[10px] text-red-400 mt-1 font-mono">Stok tidak cukup</p>}
+                                                </div>
+                                                <div className="w-24">
+                                                    <input 
+                                                        type="number" 
+                                                        value={mat.qty} 
+                                                        onChange={e => updateMaterial(index, 'qty', e.target.value)}
+                                                        className={`w-full bg-[#0a0a0c] border ${stockErr ? 'border-red-500/50' : 'border-white/10'} p-2.5 text-white focus:outline-none focus:border-[var(--color-neon-purple)] transition-all font-mono text-xs rounded`}
+                                                        placeholder="Qty"
+                                                        min="1"
+                                                        required
+                                                    />
+                                                </div>
+                                                {materials.length > 1 && (
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => removeMaterial(index)}
+                                                        className="p-2.5 text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <motion.button 
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} 
+                                type="submit"
+                                disabled={!targetItemId || !quantity || hasAnyStockError || materials.some(m => !m.id)}
+                                className="w-full h-12 bg-gradient-to-r from-[var(--color-neon-purple)] to-[var(--color-neon-cyan)] rounded-lg font-bold text-black flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(188,19,254,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-shadow relative overflow-hidden"
+                            >
+                                <Package className="w-5 h-5 relative z-10" />
+                                <span className="relative z-10">EKSEKUSI PERAKITAN</span>
+                            </motion.button>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
 }
