@@ -1,0 +1,24 @@
+{
+  "rules": [
+    { "prefix": "A75C",   "brand": "Panasonic", "type": "Remote AC",    "confidence": "low" },
+    { "prefix": "YV1B",   "brand": "Sharp",     "type": "Remote AC",    "confidence": "low" },
+    { "prefix": "N2QAYB", "brand": "Panasonic", "type": "Remote TV",    "confidence": "high" },
+    { "prefix": "EUR",    "brand": "Panasonic", "type": "Remote Audio",  "confidence": "high" },
+    { "prefix": "ARC",    "brand": "Daikin",    "type": "Remote AC",    "confidence": "high" },
+    { "prefix": "AKB",    "brand": "LG",        "type": "Remote TV/AC", "confidence": "high" },
+    { "prefix": "6711A",  "brand": "LG",        "type": "Remote AC",    "confidence": "high" },
+    { "prefix": "AA59",   "brand": "Samsung",   "type": "Remote TV",    "confidence": "high" },
+    { "prefix": "BN59",   "brand": "Samsung",   "type": "Remote TV",    "confidence": "high" },
+    { "prefix": "DB93",   "brand": "Samsung",   "type": "Remote AC",    "confidence": "high" },
+    { "prefix": "RM-",    "brand": "Sony",      "type": "Remote TV",    "confidence": "high" },
+    { "prefix": "RMT-",   "brand": "Sony",      "type": "Remote TV",    "confidence": "high" },
+    { "prefix": "YAW",    "brand": "Gree",      "type": "Remote AC",    "confidence": "high" },
+    { "prefix": "RC",     "brand": "TCL",       "type": "Remote TV",    "confidence": "high" },
+    { "prefix": "WC-",    "brand": "Toshiba",   "type": "Remote AC",    "confidence": "high" },
+    { "prefix": "RCS-",   "brand": "Aqua",      "type": "Remote AC",    "confidence": "high" },
+    { "prefix": "YB",     "brand": "Sharp",     "type": "Remote AC",    "confidence": "medium" },
+    { "prefix": "CRMC-A", "brand": "Sharp",     "type": "Remote AC",    "confidence": "medium" },
+    { "prefix": "RG",     "brand": "Midea",     "type": "Remote AC",    "confidence": "medium" },
+    { "prefix": "R51",    "brand": "Midea",     "type": "Remote AC",    "confidence": "medium" }
+  ]
+}

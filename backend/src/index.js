@@ -107,6 +107,7 @@ app.use('/api/items', authMiddleware, require('./routes/items'));
 app.use('/api/barang', authMiddleware, require('./routes/barang'));
 app.use('/api', authMiddleware, require('./routes/sales')); // covers /api/sell and /api/transactions
 app.use('/api/notifications', authMiddleware, require('./routes/notifications'));
+app.use('/api/settings/prefixes', authMiddleware, require('./routes/prefixes'));
 app.use('/api/analytics', authMiddleware, require('./routes/analytics'));
 app.use('/api/terminal/history', authMiddleware, require('./routes/history'));
 

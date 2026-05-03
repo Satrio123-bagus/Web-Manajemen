@@ -1,29 +1,48 @@
-// ─── CLASSIFY AGENT ─────────────────────────────────────────────────────────
-// Agen klasifikasi produk otomatis. Saat item baru ditambahkan tanpa kategori
-// (bab = "Unsorted"), Hermes otomatis menentukan bab, sub_bab, dan rarity.
-
 const { stmts, refreshInventory } = require('../models/dbStore');
 const hermes = require('./hermesClient');
+const fs = require('fs');
+const path = require('path');
 
-const CLASSIFY_SYSTEM_PROMPT = `Kamu adalah sistem pakar klasifikasi untuk toko elektronik INSERT3COINS.
+const RULES_FILE = path.join(__dirname, '..', 'data', 'prefixRules.json');
+
+/**
+ * Membaca prefix rules dari file JSON (dinamis, bisa diubah dari Settings)
+ */
+function loadPrefixRules() {
+    try {
+        const raw = fs.readFileSync(RULES_FILE, 'utf-8');
+        return JSON.parse(raw).rules || [];
+    } catch (err) {
+        console.warn('[CLASSIFY] Gagal membaca prefixRules.json, gunakan fallback kosong.');
+        return [];
+    }
+}
+
+/**
+ * Membangun system prompt klasifikasi secara dinamis dari prefixRules.json
+ */
+function buildClassifyPrompt() {
+    const rules = loadPrefixRules();
+    const highRules = rules.filter(r => r.confidence === 'high');
+    const mediumRules = rules.filter(r => r.confidence === 'medium');
+    const lowRules = rules.filter(r => r.confidence === 'low');
+
+    const formatList = (arr) => arr.map((r, i) => `${i+1}. ${r.brand}: "${r.prefix}..." (${r.type})`).join('\n');
+
+    return `Kamu adalah sistem pakar klasifikasi untuk toko elektronik INSERT3COINS.
 
 Tugasmu: Berikan klasifikasi MERK (bab) dan JENIS produk (sub_bab) berdasarkan NAMA produk, meskipun namanya hanya berupa kode alfanumerik.
 
-ATURAN KODE SERI REMOT (HARI INI KAMU MENGHAFAL SEMUA INI):
-1. PANASONIC: "A75C..." (AC), "N2QAYB..." (TV/Audio), "EUR..." (Audio)
-2. SHARP: "YB...", "YK..." (AC), "CRMC-A..." (AC), "GA..." (AC), "GB..." (TV)
-3. DAIKIN: "ARC..." (AC)
-4. LG: "AKB..." (TV/AC), "6711A..." (AC), "AGF..." (TV), "MKJ..." (TV)
-5. SAMSUNG: "AA59...", "BN59..." (TV), "DB93...", "DB90..." (AC), "ARH..." (AC)
-6. SONY: "RM-...", "RMT-...", "RMF-..." (TV/Audio)
-7. GREE: "YAW...", "YAP...", "YT...", "YAN..." (AC)
-8. MIDEA / CHIGO: "ZH/...", "DG11...", "R51...", "RG..." (AC)
-9. TCL: "RC..." (TV), "GY..." (AC)
-10. CHANGHONG: "K-..." (AC - awalan K sering dipakai Changhong), "RL-...", "CH-..." (TV)
-11. POLYTRON: "PRM...", "81I..." (TV/Audio/AC)
-12. TOSHIBA: "WC-...", "WH-..." (AC), "CT-..." (TV)
-13. AQUA / SANYO: "RCS-..." (AC)
-14. UNIVERSAL / MULTI: Awalan "K-" yang diikuti ribuan (contoh: K-1028E, K-1088E) adalah Remote AC Universal (Chunghop/Joker). "RM-L..." adalah TV Universal.
+ATURAN KODE SERI REMOT:
+
+--- PREFIX YANG BISA DIPASTIKAN (100% akurat, langsung klasifikasi) ---
+${highRules.length > 0 ? formatList(highRules) : '(Tidak ada)'}
+
+--- PREFIX CUKUP YAKIN (auto-klasifikasi, tapi tandai medium) ---
+${mediumRules.length > 0 ? formatList(mediumRules) : '(Tidak ada)'}
+
+--- PREFIX AMBIGU (JANGAN langsung diasumsikan, tandai "confidence": "low") ---
+${lowRules.length > 0 ? lowRules.map((r, i) => `${i+1}. "${r.prefix}..." → Kemungkinan ${r.brand} (${r.type}), tapi BISA brand lain. Tandai "confidence": "low".`).join('\n') : '(Tidak ada)'}
 
 ATURAN DEDUKSI MEREK CHINA/LOKAL:
 Jika nama produk TIDAK mengandung kode seri jelas tapi hanya ada tipe AC seperti "05CR", "09CR", tebak itu brand China populer (Midea/Changhong/TCL) atau jika terdapat nama merknya langsung (contoh: "Remote AC Beko", "Remote TV Changhong L32"), LANGSUNG tangkap merk tersebut!
@@ -31,10 +50,12 @@ Jika nama produk TIDAK mengandung kode seri jelas tapi hanya ada tipe AC seperti
 Aturan Output:
 - "bab" = Merk utama (Panasonic, Sharp, LG, Samsung, Gree, Midea, TCL, Changhong, Polytron, Toshiba, Daikin, Universal, dll).
 - "sub_bab" = "Remote AC", "Remote TV", "PCB Power", "Sensor", atau "Kapasitor".
+- "confidence" = "high" (pasti benar), "medium" (cukup yakin), "low" (ambigu, perlu konfirmasi user).
 - Hanya gunakan "Lainnya" jika kode benar-benar tidak bisa ditebak dan tidak ada tulisan merk sama sekali.
 
 ⚠️ PENTING: Jangan tentukan rarity (biarkan sistem menentukannya). Jawab HANYA dalam format JSON SAJA:
-{"bab": "...", "sub_bab": "..."}`;
+{"bab": "...", "sub_bab": "...", "confidence": "high|medium|low"}`;
+}
 
 /**
  * Klasifikasi satu item berdasarkan namanya
@@ -60,7 +81,7 @@ async function classifyItem(itemName) {
 
     try {
         const result = await hermes.generateJSON(prompt, {
-            system: CLASSIFY_SYSTEM_PROMPT,
+            system: buildClassifyPrompt(),
             temperature: 0.1,
             maxTokens: 80,
         });
@@ -73,8 +94,11 @@ async function classifyItem(itemName) {
         // Hapus rarity dari hasil Hermes jika ada — rarity adalah hak pemilik toko
         delete result.rarity;
 
-        console.log(`[CLASSIFY] "${itemName}" → Bab: ${result.bab}, Sub: ${result.sub_bab} (rarity tidak diubah)`);
-        return result;
+        const confidence = result.confidence || 'high';
+        delete result.confidence; // Jangan simpan confidence ke DB
+
+        console.log(`[CLASSIFY] "${itemName}" → Bab: ${result.bab}, Sub: ${result.sub_bab}, Confidence: ${confidence} (rarity tidak diubah)`);
+        return { ...result, confidence };
     } catch (err) {
         console.error(`[CLASSIFY] Error saat klasifikasi "${itemName}":`, err.message);
         return null;
@@ -111,7 +135,21 @@ async function autoClassifyIfNeeded(itemId) {
             return;
         }
 
-        console.log(`[CLASSIFY] ← Hermes menjawab: bab="${classification.bab}", sub_bab="${classification.sub_bab}"`);
+        // Jika confidence rendah, JANGAN auto-klasifikasi. Biarkan user konfirmasi.
+        if (classification.confidence === 'low') {
+            const warnMsg = `[HERMES] ⚠️ Prefix ambigu terdeteksi untuk "${item.name}". Kemungkinan: ${classification.bab} (${classification.sub_bab}). Silakan konfirmasi atau ubah manual jika salah.`;
+            console.log(`[CLASSIFY] ⚠️ Confidence LOW untuk "${item.name}" — SKIP auto-classify, broadcast peringatan.`);
+            
+            const eventEmitter = require('../services/eventEmitter');
+            eventEmitter.emit('terminal_broadcast', {
+                type: 'broadcast',
+                timestamp: new Date().toISOString(),
+                output: [warnMsg]
+            });
+            return; // Tidak mengubah database — user harus konfirmasi manual
+        }
+
+        console.log(`[CLASSIFY] ← Hermes menjawab: bab="${classification.bab}", sub_bab="${classification.sub_bab}", confidence="${classification.confidence}"`);
 
         // Update item di database — rarity TIDAK disentuh, diambil dari data existing
         // Rarity hanya boleh diubah oleh pemilik toko secara manual
@@ -124,7 +162,8 @@ async function autoClassifyIfNeeded(itemId) {
             item.status,
             classification.bab,
             classification.sub_bab,
-            item.id
+            item.id,
+            item.location || 'Belum Ditentukan'  // ← Pertahankan lokasi dari DB
         );
         refreshInventory();
 

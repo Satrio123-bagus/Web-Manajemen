@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Settings as SettingsIcon, Palette, Volume2, VolumeX,
-    Monitor, Info, Cpu, ShieldCheck, Zap, Check, Bell, BellOff, Send
+    Monitor, Info, Cpu, ShieldCheck, Zap, Check, Bell, BellOff, Send,
+    ScanLine, Plus, Trash2, Save, RefreshCw
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import { usePushNotification } from '../hooks/usePushNotification';
+import api from '../api';
 
 /* ─── Accent color palette ─── */
 const ACCENT_THEMES = [
@@ -23,10 +25,79 @@ export default function Settings() {
     const [hoveredAccent, setHoveredAccent] = useState(null);
     const push = usePushNotification();
 
+    // ─── Prefix Rules State ─────────────────────────────────────────────────
+    const [prefixRules, setPrefixRules] = useState([]);
+    const [prefixLoading, setPrefixLoading] = useState(true);
+    const [prefixSaving, setPrefixSaving] = useState(false);
+    const [prefixDirty, setPrefixDirty] = useState(false);
+    const [prefixToast, setPrefixToast] = useState(null);
+    const [newPrefix, setNewPrefix] = useState({ prefix: '', brand: '', type: 'Remote AC', confidence: 'high' });
+
+    // Fetch prefix rules saat pertama kali
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api.get('/settings/prefixes');
+                if (res.ok) {
+                    const data = await res.json();
+                    setPrefixRules(data.rules || []);
+                }
+            } catch (e) { console.error(e); }
+            finally { setPrefixLoading(false); }
+        })();
+    }, []);
+
+    const savePrefixRules = async (rules) => {
+        setPrefixSaving(true);
+        try {
+            const res = await api.put('/settings/prefixes', { rules });
+            if (res.ok) {
+                setPrefixDirty(false);
+                setPrefixToast({ msg: 'Prefix rules tersimpan!', type: 'success' });
+            } else {
+                const err = await res.json();
+                setPrefixToast({ msg: err.error || 'Gagal menyimpan', type: 'error' });
+            }
+        } catch (e) {
+            setPrefixToast({ msg: 'Network error', type: 'error' });
+        }
+        setPrefixSaving(false);
+        setTimeout(() => setPrefixToast(null), 3000);
+    };
+
+    const addPrefixRule = () => {
+        if (!newPrefix.prefix.trim() || !newPrefix.brand.trim()) return;
+        const updated = [...prefixRules, { ...newPrefix, prefix: newPrefix.prefix.trim().toUpperCase(), brand: newPrefix.brand.trim() }];
+        setPrefixRules(updated);
+        setPrefixDirty(true);
+        setNewPrefix({ prefix: '', brand: '', type: 'Remote AC', confidence: 'high' });
+    };
+
+    const removePrefixRule = (index) => {
+        const updated = prefixRules.filter((_, i) => i !== index);
+        setPrefixRules(updated);
+        setPrefixDirty(true);
+    };
+
+    const togglePrefixConfidence = (index) => {
+        const updated = [...prefixRules];
+        const current = updated[index].confidence;
+        // Cycle: high → medium → low → high
+        updated[index].confidence = current === 'high' ? 'medium' : current === 'medium' ? 'low' : 'high';
+        setPrefixRules(updated);
+        setPrefixDirty(true);
+    };
+
     const toggle    = (key)         => toggleSetting(key);
     const setAccent = (theme)       => setSetting('accentTheme', theme);
 
     const activeAccent = ACCENT_THEMES.find(t => t.id === settings.accentTheme) ?? ACCENT_THEMES[0];
+
+    const confidenceColors = {
+        high:   { label: 'AUTO',   color: '#22c55e', desc: 'Langsung klasifikasi otomatis' },
+        medium: { label: 'MEDIUM', color: '#f59e0b', desc: 'Auto-klasifikasi dengan peringatan' },
+        low:    { label: 'TANYA',  color: '#f43f5e', desc: 'Hermes tidak auto-klasifikasi, minta konfirmasi Anda' },
+    };
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pb-10">
@@ -218,8 +289,170 @@ export default function Settings() {
                 )}
             </Section>
 
+            {/* ── Section: Prefix Manager (Hermes Logic) ── */}
+            <Section label="PREFIX CLASSIFICATION MANAGER" icon={ScanLine} delay={0.25}>
+                <div className="p-5 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="text-sm font-bold text-white">Smart Prefix Rules</h4>
+                            <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase tracking-wider">
+                                Mengatur cara Hermes mengklasifikasikan item baru berdasarkan awalan kode
+                            </p>
+                        </div>
+                        {prefixDirty && (
+                            <motion.button
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                onClick={() => savePrefixRules(prefixRules)}
+                                disabled={prefixSaving}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-black text-xs font-bold hover:bg-emerald-400 transition-colors shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                            >
+                                {prefixSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                SIMPAN PERUBAHAN
+                            </motion.button>
+                        )}
+                    </div>
+
+                    {/* Rules Table */}
+                    <div className="border border-white/5 rounded-xl overflow-hidden bg-black/20">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-white/[0.03] text-[10px] font-mono text-gray-500 uppercase tracking-widest border-b border-white/5">
+                                    <th className="px-4 py-3 font-medium">Prefix</th>
+                                    <th className="px-4 py-3 font-medium">Dugaan Merk</th>
+                                    <th className="px-4 py-3 font-medium">Mode</th>
+                                    <th className="px-4 py-3 font-medium text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/[0.03]">
+                                {prefixLoading ? (
+                                    <tr>
+                                        <td colSpan="4" className="px-4 py-10 text-center text-xs font-mono text-gray-600">
+                                            <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2" />
+                                            MENGUNDUH DATA DARI MAINFRAME...
+                                        </td>
+                                    </tr>
+                                ) : prefixRules.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="4" className="px-4 py-10 text-center text-xs font-mono text-gray-600">
+                                            TIDAK ADA ATURAN PREFIX TERDAFTAR
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    prefixRules.map((rule, idx) => (
+                                        <tr key={idx} className="group hover:bg-white/[0.01] transition-colors">
+                                            <td className="px-4 py-3 text-xs font-mono font-bold text-[#00f3ff]">{rule.prefix}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="text-xs font-bold text-white">{rule.brand}</div>
+                                                <div className="text-[10px] text-gray-600 font-mono">{rule.type}</div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <button
+                                                    onClick={() => togglePrefixConfidence(idx)}
+                                                    className="flex flex-col items-start gap-1 group/btn text-left"
+                                                >
+                                                    <span
+                                                        className="text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded border transition-colors"
+                                                        style={{
+                                                            color: confidenceColors[rule.confidence].color,
+                                                            borderColor: confidenceColors[rule.confidence].color + '40',
+                                                            backgroundColor: confidenceColors[rule.confidence].color + '10'
+                                                        }}
+                                                    >
+                                                        {confidenceColors[rule.confidence].label}
+                                                    </span>
+                                                    <span className="text-[8px] text-gray-600 hidden group-hover/btn:block">
+                                                        {confidenceColors[rule.confidence].desc}
+                                                    </span>
+                                                </button>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <button
+                                                    onClick={() => removePrefixRule(idx)}
+                                                    className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Add New Rule Form */}
+                    <div className="p-4 rounded-xl border border-dashed border-white/10 bg-white/[0.01] space-y-4">
+                        <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                            <Plus className="w-3 h-3" /> Tambah Aturan Baru
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">Prefix</label>
+                                <input
+                                    type="text"
+                                    placeholder="Contoh: A75C"
+                                    value={newPrefix.prefix}
+                                    onChange={e => setNewPrefix({ ...newPrefix, prefix: e.target.value })}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#00f3ff]/50 outline-none font-mono"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">Merk</label>
+                                <input
+                                    type="text"
+                                    placeholder="Panasonic"
+                                    value={newPrefix.brand}
+                                    onChange={e => setNewPrefix({ ...newPrefix, brand: e.target.value })}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#00f3ff]/50 outline-none"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">Jenis</label>
+                                <select
+                                    value={newPrefix.type}
+                                    onChange={e => setNewPrefix({ ...newPrefix, type: e.target.value })}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-2 text-xs text-white focus:border-[#00f3ff]/50 outline-none"
+                                >
+                                    <option>Remote AC</option>
+                                    <option>Remote TV</option>
+                                    <option>Remote Audio</option>
+                                    <option>PCB Power</option>
+                                    <option>Sensor</option>
+                                </select>
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    onClick={addPrefixRule}
+                                    disabled={!newPrefix.prefix || !newPrefix.brand}
+                                    className="w-full h-[34px] flex items-center justify-center gap-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> TAMBAH
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Toast notification inside section */}
+                    <AnimatePresence>
+                        {prefixToast && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                className={`p-3 rounded-lg text-[10px] font-mono text-center border ${
+                                    prefixToast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+                                }`}
+                            >
+                                {prefixToast.msg}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </Section>
+
             {/* ── Section: System Info ── */}
-            <Section label="SYSTEM INFORMATION" icon={Info} delay={0.25}>
+            <Section label="SYSTEM INFORMATION" icon={Info} delay={0.3}>
                 <div className="p-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
                         {[
