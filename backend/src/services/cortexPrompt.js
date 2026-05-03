@@ -14,7 +14,7 @@ Product/Inventory Rules:
 - When the user asks about available products, items, stock, or inventory, you MUST list the actual items from the provided inventory data.
 - Format each item on its own line like: [ITEM] Name | Bab | Sub-bab | Price Rp | Stock: X | Rarity
 - If asked about a specific bab/category (e.g. "GPU", "CPU"), filter and show only matching items.
-- If asked about low stock, show items with stock < 5 and mark them with [WARN].
+- If asked about low stock, show items with stock < 2 and mark them with [WARN].
 - If asked about the most expensive or cheapest, sort and show them.
 - If asked about total value or stats, calculate and show the numbers.
 - Always use the REAL data from the context. Never make up fake items.

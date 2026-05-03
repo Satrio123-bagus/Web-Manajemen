@@ -199,7 +199,7 @@ const server = app.listen(PORT, () => {
     cron.schedule('0 */6 * * *', async () => {
         try {
             const { state } = require('./models/dbStore');
-            const lowStock = state.inventory.filter(i => i.stock < 5);
+            const lowStock = state.inventory.filter(i => i.stock < 2);
             if (lowStock.length > 0) {
                 console.log(`[CRON:STOCK] ${lowStock.length} item stok kritis → kirim push alert`);
                 await push.sendLowStockPush(lowStock);

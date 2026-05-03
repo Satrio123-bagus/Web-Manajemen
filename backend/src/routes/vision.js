@@ -42,7 +42,7 @@ function executeAction(actionJson) {
 
                 const item = {
                     id: newItemId, name: name.trim(), category: babVal, price: priceVal,
-                    stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
+                    stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
                     bab: babVal, sub_bab: subBabVal,
                 };
 
@@ -63,7 +63,7 @@ function executeAction(actionJson) {
                 if (!item) return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
                 if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit.`;
                 const newStock = item.stock - qty;
-                const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                 const saleTx = {
                     transaction_id: generateTxId(), item_name: item.name, category: item.category,
@@ -81,7 +81,7 @@ function executeAction(actionJson) {
                 const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
                 if (!item) return `[ERROR] RESTOCK gagal: item "${target}" tidak ditemukan.`;
                 const newStock = item.stock + qty;
-                const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: item.name, category: item.category,
@@ -107,7 +107,7 @@ function executeAction(actionJson) {
                     sub_bab: data.sub_bab !== undefined ? String(data.sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                 };
                 updated.category = updated.bab;
-                updated.status = updated.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, existing.id);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: updated.name, category: updated.bab,
@@ -146,7 +146,7 @@ function executeAction(actionJson) {
                     sub_bab: action.new_sub_bab ? String(action.new_sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                 };
                 edited.category = edited.bab;
-                edited.status = edited.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: edited.name, category: edited.bab,
@@ -265,7 +265,7 @@ async function processCortexWithOCR(ocrText, command, sessionId) {
     const conversationHistory = stmts.getConversation.all(sessionId).reverse();
 
     // Build a compact inventory context (same as terminal.js)
-    const lowStock = state.inventory.filter(i => i.stock < 5);
+    const lowStock = state.inventory.filter(i => i.stock < 2);
     const sample = state.inventory.slice(0, 15);
     const combinedItems = [...new Map([...lowStock, ...sample].map(item => [item.id, item])).values()].slice(0, 25);
 

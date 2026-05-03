@@ -17,7 +17,7 @@ const RARITY_STYLE = {
 
 function stockStatus(stock) {
     if (stock <= 0) return { label: 'OUT_OF_STOCK', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30', dot: 'bg-red-500' };
-    if (stock < 5) return { label: 'LOW_STOCK', color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/30', dot: 'bg-amber-400' };
+    if (stock < 2) return { label: 'LOW_STOCK', color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/30', dot: 'bg-amber-400' };
     return { label: 'IN_STOCK', color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/30', dot: 'bg-emerald-400' };
 }
 
@@ -80,7 +80,7 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
     const stats = useMemo(() => {
         const totalAssets = items.reduce((s, i) => s + i.price * i.stock, 0);
         const totalItems = items.length;
-        const lowStock = items.filter(i => i.stock < 5).length;
+        const lowStock = items.filter(i => i.stock < 2).length;
         return { totalAssets, totalItems, lowStock };
     }, [items]);
 
@@ -264,13 +264,13 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                                     {/* STOCK */}
                                                     <td className="px-5 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <span className={`font-mono font-bold tabular-nums ${item.stock < 5 ? 'text-amber-400' : 'text-white'}`}>
+                                                            <span className={`font-mono font-bold tabular-nums ${item.stock < 2 ? 'text-amber-400' : 'text-white'}`}>
                                                                 {item.stock}
                                                             </span>
                                                             {/* Mini bar */}
                                                             <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
                                                                 <div
-                                                                    className={`h-full rounded-full transition-all duration-500 ${item.stock < 5 ? 'bg-amber-400' : 'bg-[var(--color-neon-cyan)]'}`}
+                                                                    className={`h-full rounded-full transition-all duration-500 ${item.stock < 2 ? 'bg-amber-400' : 'bg-[var(--color-neon-cyan)]'}`}
                                                                     style={{ width: `${Math.min(100, (item.stock / 50) * 100)}%` }}
                                                                 />
                                                             </div>
@@ -280,7 +280,7 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                                     {/* STATUS */}
                                                     <td className="px-5 py-4">
                                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest border ${status.color} ${status.bg} ${status.border}`}>
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot} ${item.stock < 5 ? 'animate-pulse' : ''}`} />
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot} ${item.stock < 2 ? 'animate-pulse' : ''}`} />
                                                             {status.label}
                                                         </span>
                                                     </td>

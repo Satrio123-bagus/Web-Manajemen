@@ -50,7 +50,7 @@ router.post('/', validate(itemSchema), (req, res) => {
 
     const item = {
         id: newItemId, name: name.trim(), category: babVal, price: Number(price) || 0,
-        stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
+        stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
         bab: babVal, sub_bab: subBabVal
     };
 
@@ -99,7 +99,7 @@ router.post('/assemble', validate(assembleSchema), (req, res) => {
         let sourceNames = [];
         for (const { item, qty } of materialItems) {
             const newStock = item.stock - qty;
-            const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+            const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
             stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab, item.sub_bab, item.id);
             
             insertTransaction({
@@ -112,7 +112,7 @@ router.post('/assemble', validate(assembleSchema), (req, res) => {
 
         // 2. Tambah stok hasil rakitan & Catat transaksi
         const newTargetStock = target.stock + quantity;
-        const newTargetStatus = newTargetStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+        const newTargetStatus = newTargetStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
         stmts.updateItem.run(target.name, target.category, target.price, newTargetStock, target.rarity, newTargetStatus, target.bab, target.sub_bab, target.id);
 
         insertTransaction({
@@ -150,7 +150,7 @@ router.put('/:id', validate(itemSchema), (req, res) => {
         sub_bab: (sub_bab !== undefined ? sub_bab.trim() : existing.sub_bab),
     };
     updated.category = updated.bab;
-    updated.status = updated.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+    updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
 
     stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, id);
     refreshInventory();
