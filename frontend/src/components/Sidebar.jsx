@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Package, BarChart3, Settings, Bot, History,
-    ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut
+    ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut, QrCode, ScanLine
 } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
 import api from '../api';
@@ -13,6 +13,8 @@ const NAV_ITEMS = [
     { icon: BarChart3, label: 'ANALYTICS', to: '/analytics' },
     { icon: History, label: 'HISTORY', to: '/history' },
     { icon: Bot, label: 'AI MANAGER', to: '/terminal' },
+    { icon: QrCode, label: 'QR STUDIO', to: '/barcode-studio' },
+    { icon: ScanLine, label: 'SCANNER', to: '/scanner' },
     { icon: Settings, label: 'SETTINGS', to: '/settings' },
 ];
 

@@ -10,6 +10,7 @@ const items = sqliteTable('items', {
     status: text('status').default('IN_STOCK'),
     bab: text('bab').notNull().default('Uncategorized'),
     sub_bab: text('sub_bab').notNull().default('Uncategorized'),
+    location: text('location').notNull().default('Belum Ditentukan'),
 });
 
 const transactions = sqliteTable('transactions', {

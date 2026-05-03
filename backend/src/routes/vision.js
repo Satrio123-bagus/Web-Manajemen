@@ -46,7 +46,7 @@ function executeAction(actionJson) {
                     bab: babVal, sub_bab: subBabVal,
                 };
 
-                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab);
+                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, 'Belum Ditentukan');
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: item.name, category: item.bab,
                     unit_price: item.price, quantity: item.stock, total: 0, timestamp: new Date().toISOString(),
@@ -64,7 +64,7 @@ function executeAction(actionJson) {
                 if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit.`;
                 const newStock = item.stock - qty;
                 const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
+                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id, item.location || 'Belum Ditentukan');
                 const saleTx = {
                     transaction_id: generateTxId(), item_name: item.name, category: item.category,
                     unit_price: item.price, quantity: qty, total: item.price * qty, timestamp: new Date().toISOString(),
@@ -82,7 +82,7 @@ function executeAction(actionJson) {
                 if (!item) return `[ERROR] RESTOCK gagal: item "${target}" tidak ditemukan.`;
                 const newStock = item.stock + qty;
                 const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
+                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id, item.location || 'Belum Ditentukan');
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: item.name, category: item.category,
                     unit_price: item.price, quantity: qty, total: item.price * qty, timestamp: new Date().toISOString(),
@@ -108,7 +108,7 @@ function executeAction(actionJson) {
                 };
                 updated.category = updated.bab;
                 updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, existing.id);
+                stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, existing.id, existing.location || 'Belum Ditentukan');
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: updated.name, category: updated.bab,
                     unit_price: updated.price, quantity: updated.stock, total: 0, timestamp: new Date().toISOString(),
@@ -147,7 +147,7 @@ function executeAction(actionJson) {
                 };
                 edited.category = edited.bab;
                 edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id);
+                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, existing.location || 'Belum Ditentukan');
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: edited.name, category: edited.bab,
                     unit_price: edited.price, quantity: edited.stock, total: 0, timestamp: new Date().toISOString(),

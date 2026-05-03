@@ -21,7 +21,7 @@ router.post('/sell', validate(sellSchema), (req, res) => {
 
     const newStock = item.stock - qty;
     const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', id);
+    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', id, item.location || 'Belum Ditentukan');
 
     const tx = {
         transaction_id: `TX-${Date.now()}`,
