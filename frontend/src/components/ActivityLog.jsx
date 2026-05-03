@@ -34,12 +34,17 @@ export default function ActivityLog() {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const res = await api.get('/transactions/recent');
+                const res = await api.get('/transactions?limit=50');
                 if (!res.ok) {
                     throw new Error(`Network response was not ok: ${res.statusText}`);
                 }
-                const data = await res.json();
-                setLogs(data);
+                const responseData = await res.json();
+                
+                // Mendukung respons paginasi {data: [...]} atau array langsung
+                const txData = Array.isArray(responseData) ? responseData : responseData.data || [];
+                
+                setLogs(txData);
+                setError(null); // Hapus pesan error jika berhasil
             } catch (err) {
                 setError(err.message);
                 console.error("Failed to fetch logs:", err);
