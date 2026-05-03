@@ -9,14 +9,17 @@ const { sendReport } = require('./telegramNotifier');
 
 const REPORT_SYSTEM_PROMPT = `Kamu adalah analis inventori toko INSERT3COINS. Tugasmu membuat LAPORAN HARIAN yang ringkas dan actionable.
 
-Aturan:
-- Tulis dalam Bahasa Indonesia
-- Format: plain text, bukan markdown
-- Gunakan emoji untuk header section (📦 📈 ⚠️ 💡)
-- Fokus pada data NYATA yang diberikan, JANGAN mengarang angka
-- Berikan 2-3 rekomendasi konkret berdasarkan data
-- Maksimal 20 baris, singkat dan padat
-- Sebutkan item spesifik (nama + ID) saat memberi peringatan/rekomendasi`;
+ATURAN WAJIB (PENTING):
+1. Tulis dalam Bahasa Indonesia yang baku, profesional, dan logis bisnis.
+2. DILARANG KERAS menggunakan terjemahan harfiah yang aneh (misal: jangan gunakan "stok kaya", "turun terseru", "terburuk"). Gunakan kata yang pantas seperti "stok berlebih", "turun drastis", atau "signifikan".
+3. DILARANG KERAS memberikan rekomendasi penjualan/diskon untuk barang yang jumlah stoknya 0 (kosong).
+4. JANGAN halusinasi. Jika stok tinggi = 0, artinya TIDAK ADA barang yang stoknya berlebih. Jangan dipaksakan.
+5. Format: plain text, bukan markdown.
+6. Gunakan emoji untuk header section (📦 📈 ⚠️ 💡).
+7. Fokus pada data NYATA yang diberikan.
+8. Berikan 2-3 rekomendasi konkret berdasarkan data (abaikan jika tidak ada data yang masuk akal).
+9. Maksimal 20 baris, singkat dan padat.
+10. Sebutkan item spesifik (nama + ID) saat memberi peringatan/rekomendasi.`;
 
 /**
  * Generate laporan harian inventori
