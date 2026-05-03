@@ -177,7 +177,7 @@ function AppContent() {
       const previousData = queryClient.getQueryData(['items', { q: searchQuery, page }]);
       queryClient.setQueryData(['items', { q: searchQuery, page }], (old) => {
         if (!old) return old;
-        const processItem = (i) => i.id === id ? { ...i, stock: i.stock - 1, status: (i.stock - 1) < 5 ? 'LOW_STOCK' : 'IN_STOCK' } : i;
+        const processItem = (i) => i.id === id ? { ...i, stock: i.stock - 1, status: (i.stock - 1) < 2 ? 'LOW_STOCK' : 'IN_STOCK' } : i;
         if (old.data) return { ...old, data: old.data.map(processItem) };
         return old.map(processItem);
       });

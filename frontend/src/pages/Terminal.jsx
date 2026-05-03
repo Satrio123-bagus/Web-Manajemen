@@ -25,7 +25,7 @@ const HELP_SECTIONS = [
     badge: 'bg-cyan-500/20 text-cyan-300',
     commands: [
       { cmd: 'tampilkan semua stok', desc: 'Lihat seluruh inventori' },
-      { cmd: 'stok rendah',          desc: 'Item dengan stok < 5 unit' },
+      { cmd: 'stok rendah',          desc: 'Item dengan stok < 2 unit' },
       { cmd: 'cari [nama]',          desc: 'Cari item berdasarkan nama', example: 'cari daikin' },
     ],
   },

@@ -101,7 +101,7 @@ async function sendLowStockPush(lowStockItems) {
     if (!isConfigured || lowStockItems.length === 0) return;
 
     const outOfStock = lowStockItems.filter(i => i.stock === 0);
-    const critical = lowStockItems.filter(i => i.stock > 0 && i.stock < 5);
+    const critical = lowStockItems.filter(i => i.stock > 0 && i.stock < 2);
 
     let body = '';
     if (outOfStock.length > 0) {

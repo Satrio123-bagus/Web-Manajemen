@@ -20,7 +20,7 @@ router.post('/sell', validate(sellSchema), (req, res) => {
     }
 
     const newStock = item.stock - qty;
-    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
     stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', id);
 
     const tx = {
@@ -44,7 +44,7 @@ router.post('/sell', validate(sellSchema), (req, res) => {
     });
 
     // Kirim push alert jika stok item ini baru saja turun di bawah 5 (non-blocking)
-    if (newStock < 5) {
+    if (newStock < 2) {
         const freshItem = stmts.getItemById.get(id);
         if (freshItem) sendLowStockPush([freshItem]).catch(() => {});
     }

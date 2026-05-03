@@ -15,7 +15,7 @@ router.get('/', (_req, res) => {
         totalStockValue += i.price * i.stock;
         totalStock += i.stock;
 
-        if (i.stock < 5) {
+        if (i.stock < 2) {
             lowStockCount++;
             lowStockItems.push({
                 id: i.id, name: i.name, category: i.category,

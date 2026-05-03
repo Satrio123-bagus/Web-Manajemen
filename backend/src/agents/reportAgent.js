@@ -45,7 +45,7 @@ async function generateDailyReport() {
     const topSellers = stmts.getTopSellers.all();
     const revenueStats = stmts.getRevenueTotal.get();
     const dailyTrends = stmts.getDailyTrends.all();
-    const lowStock = allItems.filter(i => i.stock < 5);
+    const lowStock = allItems.filter(i => i.stock < 2);
     const outOfStock = allItems.filter(i => i.stock === 0);
     const totalValue = allItems.reduce((sum, i) => sum + i.price * i.stock, 0);
 
@@ -127,7 +127,7 @@ async function generateDailyReport() {
 - Total Item  : ${allItems.length} produk
 - Nilai Stok  : Rp ${totalValue.toLocaleString('id-ID')}
 - Stok Habis  : ${outOfStock.length} item
-- Stok Rendah : ${lowStock.length} item (<5 unit)
+- Stok Rendah : ${lowStock.length} item (<2 unit)
 
 ⏳ ESTIMASI RUNWAY STOK (item yang akan habis ≤ 14 hari):
 ${criticalRunway.length > 0

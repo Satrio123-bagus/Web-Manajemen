@@ -18,7 +18,7 @@ router.get('/', (_req, res) => {
     });
 
     // Warning: items with stock 1-4
-    state.inventory.filter(i => i.stock > 0 && i.stock < 5).forEach(item => {
+    state.inventory.filter(i => i.stock > 0 && i.stock < 2).forEach(item => {
         const id = `warning_${item.id}`;
         notifications.push({
             id, type: 'warning', title: 'LOW_STOCK',

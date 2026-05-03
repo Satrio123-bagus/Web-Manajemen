@@ -66,7 +66,7 @@ try {
                 Number(item.price) || 0,
                 Number(item.stock) || 0,
                 item.rarity || 'COMMON',
-                item.status || (Number(item.stock) < 5 ? 'LOW_STOCK' : 'IN_STOCK')
+                item.status || (Number(item.stock) < 2 ? 'LOW_STOCK' : 'IN_STOCK')
             );
         }
     });

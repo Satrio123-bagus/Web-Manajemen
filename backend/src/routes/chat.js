@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
         
         // If no specific match or everything matched, just send top/recent items + low stock
         if (relevantItems.length === 0 || relevantItems.length > 50) {
-             const lowStock = allItems.filter(i => i.stock < 5).slice(0, 10);
+             const lowStock = allItems.filter(i => i.stock < 2).slice(0, 10);
              const general = allItems.slice(0, 20); // Just a sample
              relevantItems = [...new Map([...lowStock, ...general].map(item => [item.id, item])).values()];
         }

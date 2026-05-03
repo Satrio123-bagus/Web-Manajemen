@@ -53,7 +53,7 @@ router.post('/subscribe', (req, res) => {
         return res.status(400).json({ error: 'Data subscription tidak lengkap.' });
     }
 
-    // Validasi panjang endpoint — endpoint valid biasanya < 500 karakter
+    // Validasi panjang endpoint — endpoint valid biasanya < 200 karakter
     if (typeof endpoint !== 'string' || endpoint.length > 500 || !endpoint.startsWith('https://')) {
         return res.status(400).json({ error: 'Endpoint subscription tidak valid.' });
     }

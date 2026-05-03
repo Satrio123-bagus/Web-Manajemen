@@ -66,7 +66,7 @@ function executeAction(actionJson) {
 
                 const item = {
                     id: newItemId, name: name.trim(), category: babVal, price: priceVal,
-                    stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 5 ? 'LOW_STOCK' : 'IN_STOCK',
+                    stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
                     bab: babVal, sub_bab: subBabVal,
                 };
 
@@ -101,7 +101,7 @@ function executeAction(actionJson) {
                     sub_bab: data.sub_bab !== undefined ? String(data.sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                 };
                 updated.category = updated.bab;
-                updated.status = updated.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, existing.id);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: updated.name, category: updated.bab,
@@ -133,7 +133,7 @@ function executeAction(actionJson) {
                 if (!item) return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
                 if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
                 const newStock = item.stock - qty;
-                const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                 const saleTx = {
                     transaction_id: generateTxId(), item_name: item.name, category: item.category,
@@ -156,7 +156,7 @@ function executeAction(actionJson) {
                     const newItemName = target.trim();
                     const newStock = qty;
                     const newCategory = 'Unsorted';
-                    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                     
                     stmts.insertItem.run(newItemId, newItemName, newCategory, 0, newStock, 'BIASA', newStatus, newCategory, 'Uncategorized');
                     insertTransaction({
@@ -175,7 +175,7 @@ function executeAction(actionJson) {
                 }
                 
                 const newStock = item.stock + qty;
-                const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                 const restockTx = {
                     transaction_id: generateTxId(), item_name: item.name, category: item.category,
@@ -202,7 +202,7 @@ function executeAction(actionJson) {
                     sub_bab: action.new_sub_bab ? String(action.new_sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                 };
                 edited.category = edited.bab;
-                edited.status = edited.stock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: edited.name, category: edited.bab,
@@ -243,7 +243,7 @@ function executeAction(actionJson) {
                     // 1. Kurangi stok bahan
                     for (const { item, qty } of materialItems) {
                         const newStock = item.stock - qty;
-                        const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                        const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                         stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab, item.sub_bab, item.id);
                         
                         insertTransaction({
@@ -256,7 +256,7 @@ function executeAction(actionJson) {
 
                     // 2. Tambah stok hasil rakitan
                     const newTargetStock = targetItem.stock + Number(quantity);
-                    const newTargetStatus = newTargetStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    const newTargetStatus = newTargetStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                     stmts.updateItem.run(targetItem.name, targetItem.category, targetItem.price, newTargetStock, targetItem.rarity, newTargetStatus, targetItem.bab, targetItem.sub_bab, targetItem.id);
 
                     insertTransaction({
@@ -285,7 +285,7 @@ function executeAction(actionJson) {
                 if (lastTx.type === 'SALE') {
                     if (!item) return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
                     const newStock = item.stock + lastTx.quantity;
-                    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                     stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                     stmts.deleteTx.run(lastTx.transaction_id);
                     refreshInventory();
@@ -293,7 +293,7 @@ function executeAction(actionJson) {
                 } else if (lastTx.type === 'RESTOCK') {
                     if (!item) return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
                     const newStock = Math.max(0, item.stock - lastTx.quantity);
-                    const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                     stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id);
                     stmts.deleteTx.run(lastTx.transaction_id);
                     refreshInventory();
@@ -379,7 +379,7 @@ router.post('/', async (req, res) => {
     const m = Math.floor((uptimeSec % 3600) / 60);
     const s = uptimeSec % 60;
     const totalValue = state.inventory.reduce((sum, i) => sum + i.price * i.stock, 0);
-    const lowStock = state.inventory.filter(i => i.stock < 5);
+    const lowStock = state.inventory.filter(i => i.stock < 2);
 
     // --- SMART CONTEXT INJECTION (KEYWORD FILTER) ---
     const words = cmd.toLowerCase().split(/\s+/).filter(w => w.length > 2);
@@ -418,7 +418,7 @@ LIVE SYSTEM CONTEXT:
 - Bab (Main Categories): ${[...new Set(state.inventory.map(i => i.bab || i.category))].join(', ')}
 
 RELEVANT ITEMS (Filtered Context, Max 25):
-${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity} ${item.stock < 5 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
+${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity} ${item.stock < 2 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
 
 ANALYTICS DATA:
 - Total Revenue: Rp${revenueStats.revenue.toLocaleString('id-ID')} from ${revenueStats.sale_count} sale(s)

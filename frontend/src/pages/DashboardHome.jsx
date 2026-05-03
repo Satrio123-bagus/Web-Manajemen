@@ -470,7 +470,7 @@ export default function DashboardHome() {
                                     key={tx.transaction_id || i}
                                     initial={{ opacity: 0, x: -8 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i < 5 ? i * 0.06 : 0 }}
+                                    transition={{ delay: i < 2 ? i * 0.06 : 0 }}
                                     className="flex gap-3"
                                 >
                                     <span className="text-gray-600 shrink-0">{formatLogTime(tx.timestamp)}</span>
