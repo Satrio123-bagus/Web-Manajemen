@@ -1,17 +1,15 @@
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { QRCodeCanvas } from 'qrcode.react';
-import html2canvas from 'html2canvas';
 import { Download, Printer, Box, Layers, RefreshCw } from 'lucide-react';
 import api from '../api';
 
 export default function BarcodeStudio() {
-    // Fetch all items to group them by location (sub_bab)
     const { data, isLoading } = useQuery({
         queryKey: ['items', 'all_for_barcode'],
         queryFn: async () => {
-            const res = await api.get('/items?limit=5000'); // Get all items
+            const res = await api.get('/items?limit=5000');
             if (!res.ok) throw new Error('Gagal memuat inventori');
             const result = await res.json();
             return result.data || result;
@@ -28,7 +26,6 @@ export default function BarcodeStudio() {
         );
     }
 
-    // Group items by sub_bab (which acts as Location/Kotak)
     const items = data || [];
     const locationGroups = items.reduce((acc, item) => {
         const loc = item.location && item.location.trim() !== '' && item.location !== 'Belum Ditentukan' ? item.location.toUpperCase() : 'BELUM DITENTUKAN';
@@ -39,28 +36,69 @@ export default function BarcodeStudio() {
 
     const locations = Object.keys(locationGroups).sort();
 
-    const handleDownload = async (locName) => {
-        const element = document.getElementById(`qr-card-${locName}`);
-        if (!element) return;
-        
-        // Temporarily adjust styles for a clean capture
-        const originalStyle = element.getAttribute('style');
-        element.style.background = '#ffffff';
-        element.style.color = '#000000';
-        element.style.padding = '40px';
-        element.style.borderRadius = '0';
-        
-        try {
-            const canvas = await html2canvas(element, { scale: 3, backgroundColor: '#ffffff' });
-            const dataUrl = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.download = `QR_${locName.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
-            link.href = dataUrl;
-            link.click();
-        } finally {
-            if (originalStyle) element.setAttribute('style', originalStyle);
-            else element.removeAttribute('style');
-        }
+    // ─── Download QR menggunakan Canvas API murni (tanpa html2canvas) ────────
+    const handleDownload = (locName, skuCount, totalStock) => {
+        // Ambil elemen <canvas> QR Code yang sudah dirender oleh qrcode.react
+        const cardEl = document.getElementById(`qr-card-${locName}`);
+        if (!cardEl) return;
+        const qrCanvas = cardEl.querySelector('canvas');
+        if (!qrCanvas) return;
+
+        // Buat kanvas baru untuk menggambar stiker bersih berlatar putih
+        const padding = 40;
+        const qrSize = 250;
+        const titleHeight = 60;
+        const infoHeight = 50;
+        const totalWidth = qrSize + padding * 2;
+        const totalHeight = titleHeight + qrSize + infoHeight + padding * 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = totalWidth * 2; // 2x resolusi untuk ketajaman cetak
+        canvas.height = totalHeight * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+
+        // Latar putih
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+        // Border tipis
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(4, 4, totalWidth - 8, totalHeight - 8);
+
+        // Judul lokasi (teks hitam tebal)
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 22px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(locName, totalWidth / 2, padding + 30);
+
+        // Garis pemisah
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding, titleHeight + padding - 10);
+        ctx.lineTo(totalWidth - padding, titleHeight + padding - 10);
+        ctx.stroke();
+
+        // Gambar QR Code dari canvas asli
+        const qrX = (totalWidth - qrSize) / 2;
+        const qrY = titleHeight + padding;
+        ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+
+        // Info SKU dan total stok
+        ctx.fillStyle = '#333333';
+        ctx.font = '13px monospace';
+        ctx.textAlign = 'center';
+        const infoY = qrY + qrSize + 25;
+        ctx.fillText(`${skuCount} Jenis  •  ${totalStock} Unit`, totalWidth / 2, infoY);
+
+        // Unduh file PNG
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `QR_${locName.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+        link.href = dataUrl;
+        link.click();
     };
 
     const handlePrint = () => {
@@ -145,7 +183,7 @@ export default function BarcodeStudio() {
                             </div>
 
                             <button
-                                onClick={() => handleDownload(loc)}
+                                onClick={() => handleDownload(loc, boxItems.length, totalStock)}
                                 className="w-full py-2 bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 border border-[var(--color-neon-cyan)]/30 text-[var(--color-neon-cyan)] rounded-lg font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 no-print"
                             >
                                 <Download className="w-4 h-4" />
