@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, CameraOff, Box, Package, ArrowRightLeft, X, CheckCircle, RefreshCw, ScanLine } from 'lucide-react';
+import { Camera, CameraOff, Box, Package, ArrowRightLeft, X, CheckCircle, RefreshCw, ScanLine, AlertTriangle, Keyboard } from 'lucide-react';
 import api from '../api';
 
 export default function MobileScanner() {
     const [scannedLocation, setScannedLocation] = useState(null);
-    const [mode, setMode] = useState('SELL'); // 'SELL' | 'MOVE'
+    const [mode, setMode] = useState('SELL');
     const [selectedItemToMove, setSelectedItemToMove] = useState(null);
     const [isScanningDestination, setIsScanningDestination] = useState(false);
-    const [cameraActive, setCameraActive] = useState(false); // Kamera mati default
+    const [cameraActive, setCameraActive] = useState(false);
+    const [cameraError, setCameraError] = useState(null); // Pesan error kamera
+    const [manualInput, setManualInput] = useState(''); // Fallback input manual
+    const [showManualInput, setShowManualInput] = useState(false);
     const [toast, setToast] = useState(null);
     
     const scannerRef = useRef(null);
@@ -54,7 +57,7 @@ export default function MobileScanner() {
             setSelectedItemToMove(null);
             setIsScanningDestination(false);
             setScannedLocation(null);
-            setCameraActive(false); // Matikan kamera setelah pindah selesai
+            setCameraActive(false);
         },
         onError: () => showToast('Gagal memindah barang', 'error')
     });
@@ -69,46 +72,89 @@ export default function MobileScanner() {
         (i.location || 'BELUM DITENTUKAN').toUpperCase() === scannedLocation
     );
 
-    // ─── Kamera hanya menyala jika cameraActive === true ────────────────────
-    const startScanner = useCallback(() => {
+    // ─── Menyalakan kamera dengan izin eksplisit ────────────────────────────
+    const startScanner = useCallback(async () => {
         if (scannerRef.current) return;
+        setCameraError(null);
 
-        // Beri waktu DOM untuk render container #reader
-        setTimeout(() => {
-            const readerEl = document.getElementById('reader');
-            if (!readerEl) return;
-
-            const scanner = new Html5QrcodeScanner("reader", { 
-                fps: 10, 
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
-                showTorchButtonIfSupported: true
-            }, false);
-
-            scanner.render((decodedText) => {
-                const cleanLoc = decodedText.trim().toUpperCase();
-
-                // Matikan kamera segera setelah scan berhasil
-                scanner.clear().catch(() => {});
-                scannerRef.current = null;
-                setCameraActive(false);
-
-                if (isScanningDestination && selectedItemToMove) {
-                    moveMutation.mutate({ id: selectedItemToMove.id, newLocation: cleanLoc });
-                } else {
-                    setScannedLocation(cleanLoc);
-                }
-            }, () => {
-                // Ignore — belum ada QR terdeteksi
+        // LANGKAH 1: Minta izin kamera secara eksplisit ke browser
+        // Ini yang memicu pop-up "Izinkan kamera?" di HP
+        try {
+            const testStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' } 
             });
+            // Matikan stream tes setelah izin diberikan
+            testStream.getTracks().forEach(track => track.stop());
+        } catch (err) {
+            // Izin ditolak atau kamera tidak tersedia
+            if (err.name === 'NotAllowedError') {
+                setCameraError('BLOCKED');
+            } else if (err.name === 'NotFoundError') {
+                setCameraError('NOT_FOUND');
+            } else if (err.name === 'NotReadableError') {
+                setCameraError('IN_USE');
+            } else {
+                setCameraError('UNKNOWN');
+            }
+            setCameraActive(false);
+            return;
+        }
 
-            scannerRef.current = scanner;
-        }, 100);
+        // LANGKAH 2: Izin diberikan, mulai scanner QR
+        // Beri waktu DOM untuk render container
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        const readerEl = document.getElementById('reader');
+        if (!readerEl) {
+            setCameraError('DOM_ERROR');
+            setCameraActive(false);
+            return;
+        }
+
+        try {
+            const html5Qr = new Html5Qrcode("reader");
+            
+            await html5Qr.start(
+                { facingMode: "environment" }, // Kamera belakang HP
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                },
+                (decodedText) => {
+                    const cleanLoc = decodedText.trim().toUpperCase();
+
+                    // Matikan kamera segera setelah scan berhasil
+                    html5Qr.stop().catch(() => {});
+                    scannerRef.current = null;
+                    setCameraActive(false);
+
+                    if (isScanningDestination && selectedItemToMove) {
+                        moveMutation.mutate({ id: selectedItemToMove.id, newLocation: cleanLoc });
+                    } else {
+                        setScannedLocation(cleanLoc);
+                    }
+                },
+                () => {
+                    // Ignore — belum ada QR terdeteksi
+                }
+            );
+
+            scannerRef.current = html5Qr;
+        } catch (err) {
+            console.error('Scanner start error:', err);
+            setCameraError('START_FAILED');
+            setCameraActive(false);
+        }
     }, [isScanningDestination, selectedItemToMove, moveMutation]);
 
-    const stopScanner = useCallback(() => {
+    const stopScanner = useCallback(async () => {
         if (scannerRef.current) {
-            scannerRef.current.clear().catch(console.error);
+            try {
+                await scannerRef.current.stop();
+            } catch (e) {
+                console.error('Stop scanner error:', e);
+            }
             scannerRef.current = null;
         }
     }, []);
@@ -120,23 +166,40 @@ export default function MobileScanner() {
         } else {
             stopScanner();
         }
-        return () => stopScanner();
+        return () => { stopScanner(); };
     }, [cameraActive, startScanner, stopScanner]);
 
     // Deteksi layar mati/tab berpindah → matikan kamera otomatis
     useEffect(() => {
         const handleVisibility = () => {
-            if (document.hidden) {
+            if (document.hidden && cameraActive) {
                 stopScanner();
                 setCameraActive(false);
             }
         };
         document.addEventListener('visibilitychange', handleVisibility);
         return () => document.removeEventListener('visibilitychange', handleVisibility);
-    }, [stopScanner]);
+    }, [stopScanner, cameraActive]);
 
     const handleActivateCamera = () => {
+        setCameraError(null);
+        setShowManualInput(false);
         setCameraActive(true);
+    };
+
+    // ─── Fallback: Input Manual ─────────────────────────────────────────────
+    const handleManualSubmit = (e) => {
+        e.preventDefault();
+        const cleanLoc = manualInput.trim().toUpperCase();
+        if (!cleanLoc) return;
+
+        if (isScanningDestination && selectedItemToMove) {
+            moveMutation.mutate({ id: selectedItemToMove.id, newLocation: cleanLoc });
+        } else {
+            setScannedLocation(cleanLoc);
+        }
+        setManualInput('');
+        setShowManualInput(false);
     };
 
     const handleItemTap = (item) => {
@@ -149,7 +212,7 @@ export default function MobileScanner() {
         } else if (mode === 'MOVE') {
             setSelectedItemToMove(item);
             setIsScanningDestination(true);
-            setCameraActive(true); // Nyalakan kamera untuk scan tujuan
+            setCameraActive(true);
         }
     };
 
@@ -157,7 +220,7 @@ export default function MobileScanner() {
         setScannedLocation(null);
         setSelectedItemToMove(null);
         setIsScanningDestination(false);
-        setCameraActive(true); // Nyalakan kamera
+        setCameraActive(true);
     };
 
     const resetScan = () => {
@@ -166,11 +229,39 @@ export default function MobileScanner() {
         setSelectedItemToMove(null);
         setIsScanningDestination(false);
         setCameraActive(false);
+        setCameraError(null);
+        setShowManualInput(false);
+    };
+
+    // ─── Pesan error kamera ─────────────────────────────────────────────────
+    const cameraErrorMessages = {
+        BLOCKED: 'Izin kamera diblokir. Buka Settings browser → Site permissions → Camera → Izinkan.',
+        NOT_FOUND: 'Kamera tidak ditemukan di perangkat ini.',
+        IN_USE: 'Kamera sedang digunakan oleh aplikasi lain.',
+        UNKNOWN: 'Gagal mengakses kamera. Pastikan tidak ada aplikasi lain yang menggunakan kamera.',
+        START_FAILED: 'Gagal memulai scanner. Coba refresh halaman.',
+        DOM_ERROR: 'Elemen scanner tidak ditemukan. Coba refresh halaman.',
     };
 
     // ─── Tampilan saat kamera belum dinyalakan (Idle State) ─────────────────
     const renderIdleState = () => (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            {/* Error Display */}
+            {cameraError && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-left w-full max-w-[300px]"
+                >
+                    <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-xs font-mono text-red-400 leading-relaxed">
+                            {cameraErrorMessages[cameraError] || 'Error tidak dikenal.'}
+                        </p>
+                    </div>
+                </motion.div>
+            )}
+
             <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -182,21 +273,63 @@ export default function MobileScanner() {
             </motion.div>
             <h3 className="font-mono text-sm text-gray-400 mb-2">KAMERA TIDAK AKTIF</h3>
             <p className="text-xs text-gray-600 font-mono mb-6 max-w-[250px]">
-                Tekan tombol di bawah untuk menyalakan kamera dan mulai memindai QR Code lokasi.
+                Tekan tombol di bawah untuk menyalakan kamera dan memindai QR Code lokasi.
             </p>
-            <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleActivateCamera}
-                className={`px-6 py-4 rounded-2xl font-mono font-bold text-sm flex items-center gap-3 transition-all border shadow-lg
-                    ${mode === 'SELL'
-                        ? 'text-[var(--color-neon-cyan)] border-[var(--color-neon-cyan)]/40 bg-[var(--color-neon-cyan)]/10 hover:shadow-[0_0_30px_rgba(0,243,255,0.3)]'
-                        : 'text-[var(--color-neon-purple)] border-[var(--color-neon-purple)]/40 bg-[var(--color-neon-purple)]/10 hover:shadow-[0_0_30px_rgba(188,19,254,0.3)]'
-                    }`}
-            >
-                <Camera className="w-5 h-5" />
-                📷 AKTIFKAN KAMERA
-            </motion.button>
+
+            <div className="flex flex-col gap-3 w-full max-w-[280px]">
+                <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleActivateCamera}
+                    className={`px-6 py-4 rounded-2xl font-mono font-bold text-sm flex items-center justify-center gap-3 transition-all border shadow-lg w-full
+                        ${mode === 'SELL'
+                            ? 'text-[var(--color-neon-cyan)] border-[var(--color-neon-cyan)]/40 bg-[var(--color-neon-cyan)]/10 hover:shadow-[0_0_30px_rgba(0,243,255,0.3)]'
+                            : 'text-[var(--color-neon-purple)] border-[var(--color-neon-purple)]/40 bg-[var(--color-neon-purple)]/10 hover:shadow-[0_0_30px_rgba(188,19,254,0.3)]'
+                        }`}
+                >
+                    <Camera className="w-5 h-5" />
+                    📷 AKTIFKAN KAMERA
+                </motion.button>
+
+                <button
+                    onClick={() => setShowManualInput(!showManualInput)}
+                    className="px-4 py-3 rounded-xl font-mono text-xs text-gray-400 border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                    <Keyboard className="w-4 h-4" />
+                    KETIK LOKASI MANUAL
+                </button>
+            </div>
+
+            {/* Fallback Manual Input */}
+            <AnimatePresence>
+                {showManualInput && (
+                    <motion.form
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        onSubmit={handleManualSubmit}
+                        className="mt-4 w-full max-w-[280px]"
+                    >
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={manualInput}
+                                onChange={e => setManualInput(e.target.value)}
+                                placeholder="Ketik nama lokasi..."
+                                autoFocus
+                                className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[var(--color-neon-cyan)]/50"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!manualInput.trim()}
+                                className="px-4 py-3 bg-[var(--color-neon-cyan)]/20 border border-[var(--color-neon-cyan)]/40 rounded-lg text-[var(--color-neon-cyan)] font-mono font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                GO
+                            </button>
+                        </div>
+                    </motion.form>
+                )}
+            </AnimatePresence>
         </div>
     );
 
@@ -223,8 +356,8 @@ export default function MobileScanner() {
                     <CameraOff className="w-4 h-4 text-gray-400 hover:text-red-400" />
                 </button>
             </div>
-            <div className="flex-1 p-2 bg-black flex items-center justify-center relative">
-                <div id="reader" className="w-full max-w-[300px] border-2 border-[var(--color-neon-cyan)] rounded-xl overflow-hidden shadow-[0_0_15px_rgba(0,243,255,0.2)]"></div>
+            <div className="flex-1 p-2 bg-black flex items-center justify-center relative min-h-[300px]">
+                <div id="reader" className="w-full max-w-[320px]" style={{ minHeight: '300px' }}></div>
             </div>
         </div>
     );
