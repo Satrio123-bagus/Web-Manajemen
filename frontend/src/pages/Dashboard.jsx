@@ -179,6 +179,7 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                             { key: 'name', label: 'ITEM NAME' },
                                             { key: 'bab', label: 'BAB' },
                                             { key: 'sub_bab', label: 'SUB BAB' },
+                                            { key: 'location', label: 'LOKASI' },
                                             { key: 'rarity', label: 'RARITY' },
                                             { key: 'price', label: 'UNIT PRICE' },
                                             { key: 'stock', label: 'STOCK LEVEL' },
@@ -242,6 +243,13 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                                     <td className="px-5 py-4">
                                                         <span className="px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest text-[var(--color-neon-cyan)] bg-[var(--color-neon-cyan)]/10 border border-[var(--color-neon-cyan)]/20 uppercase">
                                                             {item.sub_bab || 'N/A'}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* LOKASI */}
+                                                    <td className="px-5 py-4">
+                                                        <span className="px-2.5 py-1 rounded-md text-[10px] font-mono tracking-widest text-[var(--color-neon-purple)] bg-[var(--color-neon-purple)]/10 border border-[var(--color-neon-purple)]/20 uppercase">
+                                                            {item.location || 'Belum Ditentukan'}
                                                         </span>
                                                     </td>
 
@@ -412,12 +420,12 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
    MODAL (exported for App.jsx)
    ═══════════════════════════════════════════════════════════ */
 export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
-    const empty = { name: '', bab: '', sub_bab: '', price: '', stock: '', rarity: 'BIASA' };
+    const empty = { name: '', bab: '', sub_bab: '', location: '', price: '', stock: '', rarity: 'BIASA' };
     const [form, setForm] = useState(empty);
 
     // Sync form with modal open/close
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    const formData = isOpen ? (initialData ? { ...initialData, price: String(initialData.price), stock: String(initialData.stock), bab: initialData.bab || initialData.category || '', sub_bab: initialData.sub_bab || '' } : empty) : null;
+    const formData = isOpen ? (initialData ? { ...initialData, price: String(initialData.price), stock: String(initialData.stock), bab: initialData.bab || initialData.category || '', sub_bab: initialData.sub_bab || '', location: initialData.location || '' } : empty) : null;
 
     // Use effect equivalent inline
     if (isOpen && formData && form._synced !== (initialData?.id || 'new')) {
@@ -470,6 +478,7 @@ export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
                                 <FieldInput label="BAB" value={form.bab} onChange={e => setForm({ ...form, bab: e.target.value })} placeholder="Main category..." />
                                 <FieldInput label="SUB_BAB" value={form.sub_bab} onChange={e => setForm({ ...form, sub_bab: e.target.value })} placeholder="Sub category..." />
                             </div>
+                            <FieldInput label="LOKASI_GUDANG" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Kotak A, Rak B, Laci C..." />
                             <div className="grid grid-cols-2 gap-4">
                                 <FieldInput label="UNIT_COST" type="text" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="0" />
                                 <FieldInput label="STOCK_LEVEL" type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} placeholder="0" />

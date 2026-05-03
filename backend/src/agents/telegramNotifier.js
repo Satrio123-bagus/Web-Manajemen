@@ -11,13 +11,14 @@
 //    TELEGRAM_CHAT_ID=123456789
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+const CHAT_ID_STR = process.env.TELEGRAM_CHAT_ID || '';
+const CHAT_IDS = CHAT_ID_STR.split(',').map(id => id.trim()).filter(id => id.length > 0);
 
 /**
  * Cek apakah Telegram notifier dikonfigurasi
  */
 function isConfigured() {
-    return BOT_TOKEN.length > 10 && CHAT_ID.length > 0;
+    return BOT_TOKEN.length > 10 && CHAT_IDS.length > 0;
 }
 
 /**
@@ -37,26 +38,35 @@ async function sendMessage(message) {
             ? message.slice(0, 4000) + '\n\n... [dipotong karena terlalu panjang]'
             : message;
 
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: CHAT_ID,
-                text: truncated,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true,
-            }),
-            signal: AbortSignal.timeout(10000),
+        // Loop untuk setiap ID yang didaftarkan
+        const promises = CHAT_IDS.map(async (chatId) => {
+            const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: truncated,
+                    parse_mode: 'HTML',
+                    disable_web_page_preview: true,
+                }),
+                signal: AbortSignal.timeout(10000),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.warn(`[TELEGRAM] Send failed to ${chatId}: ${res.status}`, errData.description || '');
+                return false;
+            }
+            return true;
         });
 
-        if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            console.warn(`[TELEGRAM] Send failed: ${res.status}`, errData.description || '');
-            return false;
-        }
+        const results = await Promise.all(promises);
+        const successCount = results.filter(r => r).length;
 
-        console.log('[TELEGRAM] Pesan terkirim.');
-        return true;
+        if (successCount > 0) {
+            console.log(`[TELEGRAM] Pesan terkirim ke ${successCount} akun.`);
+        }
+        return successCount > 0;
     } catch (err) {
         console.warn('[TELEGRAM] Error:', err.message);
         return false;
