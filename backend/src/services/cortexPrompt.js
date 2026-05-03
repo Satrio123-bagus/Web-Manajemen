@@ -39,6 +39,7 @@ Language Triggers (English + Indonesian):
 - EDIT: "ubah", "ganti", "edit", "rename", "change name", "ganti nama", "ubah nama", "modify", "menjadi", "jadi", "ke"
 - REDUCE: "kurangi", "reduce", "decrease" → treat as SELL
 - ROLLBACK: "undo", "batal", "cancel", "kembalikan", "rollback", "revert"
+- ASSEMBLE: "rakit", "assemble", "gabungkan", "bikin", "produksi"
 
 SMART INFERENCE RULES (for minimalist/vague commands):
 - "Ubah [A] menjadi [B]" → EDIT: target=[A], new_name=[B]
@@ -47,6 +48,7 @@ SMART INFERENCE RULES (for minimalist/vague commands):
 - "Harga [A] jadi [N]" → EDIT: target=[A], new_price=[N]
 - "Kurangi [A] [N]" → SELL: target=[A], quantity=[N]
 - "Jual [N] [A]" or "[N] [A] terjual" or "[A] [N] terjual" or "[A] laku [N]" → SELL: target=[A], quantity=[N]
+- "Rakit [N] [A] pakai [M1] [B] dan [M2] [C]" → ASSEMBLE: target=[A], quantity=[N], materials=[{"name": [B], "qty": [M1]}, {"name": [C], "qty": [M2]}]
 - The words "menjadi", "jadi", "ke" always indicate a rename or field change.
 - If only a number follows an item name with no other context, assume it refers to stock.
 - If a command consists of [Number] [TriggerWord] (e.g., "3271 terjual"), and [Number] matches an item ID or partial name, treat [Number] as the TARGET and assume quantity = 1.
@@ -99,6 +101,12 @@ Supported actions:
 <<<ACTION>>>
 {"type":"ROLLBACK"}
 <<<END_ACTION>>>
+
+8. ASSEMBLE items (RAKIT — deduct multiple materials and produce a target item):
+<<<ACTION>>>
+{"type":"ASSEMBLE","target":"Nama Barang Jadi","quantity":5,"materials":[{"name":"Bahan 1","qty":5},{"name":"Bahan 2","qty":5}]}
+<<<END_ACTION>>>
+
 
 CONTOH RESPON (Contoh dari percakapan sebelumnya, pelajari polanya, SEMUA respons CORTEX HARUS dalam Bahasa Indonesia):
 

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Groq = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { stmts, state, insertTransaction, refreshInventory, reindexDatabase } = require('../models/dbStore');
+const { stmts, state, insertTransaction, refreshInventory, reindexDatabase, betterSqlite } = require('../models/dbStore');
 const { CORTEX_SYSTEM_PROMPT } = require('../services/cortexPrompt');
 const { autoClassifyIfNeeded } = require('../agents/classifyAgent');
 const hermes = require('../agents/hermesClient');
@@ -217,6 +217,64 @@ function executeAction(actionJson) {
                 if (edited.category !== existing.category) changes.push(`Kategori: ${existing.category} → ${edited.category}`);
                 if (edited.rarity !== existing.rarity) changes.push(`Raritas: ${existing.rarity} → ${edited.rarity}`);
                 return `[EDITED] ${existing.id} | ${changes.join(' | ')}`;
+            }
+            case 'ASSEMBLE': {
+                const { target, quantity, materials } = action;
+                if (!target || !quantity || !materials || !Array.isArray(materials)) {
+                    return '[ERROR] ASSEMBLE gagal: Format payload tidak valid.';
+                }
+                
+                const targetItem = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
+                if (!targetItem) return `[ERROR] ASSEMBLE gagal: Barang target "${target}" tidak ditemukan.`;
+
+                // Prepare and validate materials
+                const materialItems = [];
+                for (const mat of materials) {
+                    const item = state.inventory.find(i => i.name.toLowerCase().includes(mat.name.toLowerCase()) || i.id.toLowerCase() === mat.name.toLowerCase());
+                    if (!item) return `[ERROR] ASSEMBLE gagal: Bahan baku "${mat.name}" tidak ditemukan.`;
+                    if (item.stock < mat.qty) return `[ERROR] STOK_KURANG: Stok ${item.name} hanya sisa ${item.stock}, tidak cukup untuk dirakit.`;
+                    materialItems.push({ item, qty: mat.qty });
+                }
+
+                const runAssembly = betterSqlite.transaction(() => {
+                    const ts = new Date().toISOString();
+                    let sourceNames = [];
+
+                    // 1. Kurangi stok bahan
+                    for (const { item, qty } of materialItems) {
+                        const newStock = item.stock - qty;
+                        const newStatus = newStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                        stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab, item.sub_bab, item.id);
+                        
+                        insertTransaction({
+                            transaction_id: generateTxId(), item_name: item.name, category: item.category,
+                            unit_price: item.price, quantity: -qty, total: 0,
+                            timestamp: ts, type: 'ASSEMBLY_OUT', source: 'CORTEX_TERMINAL'
+                        });
+                        sourceNames.push(`${qty}x ${item.name}`);
+                    }
+
+                    // 2. Tambah stok hasil rakitan
+                    const newTargetStock = targetItem.stock + Number(quantity);
+                    const newTargetStatus = newTargetStock < 5 ? 'LOW_STOCK' : 'IN_STOCK';
+                    stmts.updateItem.run(targetItem.name, targetItem.category, targetItem.price, newTargetStock, targetItem.rarity, newTargetStatus, targetItem.bab, targetItem.sub_bab, targetItem.id);
+
+                    insertTransaction({
+                        transaction_id: generateTxId(), item_name: targetItem.name, category: targetItem.category,
+                        unit_price: targetItem.price, quantity: Number(quantity), total: 0,
+                        timestamp: ts, type: 'ASSEMBLY_IN', source: 'CORTEX_TERMINAL'
+                    });
+                    
+                    return sourceNames.join(', ');
+                });
+
+                try {
+                    const sources = runAssembly();
+                    refreshInventory();
+                    return `[RAKIT_BERHASIL] Merakit ${quantity} ${targetItem.name} dari: ${sources}.`;
+                } catch (err) {
+                    return `[ERROR] ASSEMBLE gagal: ${err.message}`;
+                }
             }
             case 'ROLLBACK': {
                 const lastTx = stmts.getLastTransaction.get();

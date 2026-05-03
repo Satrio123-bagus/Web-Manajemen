@@ -523,6 +523,13 @@ export function AssembleModal({ isOpen, onClose, onSave, sourceItem, allItems })
         }
     }, [isOpen, sourceItem]);
 
+    const handleQuantityChange = (e) => {
+        const val = e.target.value;
+        setQuantity(val);
+        const numVal = Number(val) || 1;
+        setMaterials(prev => prev.map(m => ({ ...m, qty: numVal })));
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!targetItemId || !quantity || materials.length === 0) return;
@@ -535,7 +542,8 @@ export function AssembleModal({ isOpen, onClose, onSave, sourceItem, allItems })
     };
 
     const addMaterial = () => {
-        setMaterials([...materials, { id: '', qty: 1 }]);
+        const currentQty = Number(quantity) || 1;
+        setMaterials([...materials, { id: '', qty: currentQty }]);
     };
 
     const removeMaterial = (index) => {
@@ -605,7 +613,7 @@ export function AssembleModal({ isOpen, onClose, onSave, sourceItem, allItems })
                                         label="JUMLAH YANG DIBUAT (TARGET QTY)" 
                                         type="number" 
                                         value={quantity} 
-                                        onChange={e => setQuantity(e.target.value)} 
+                                        onChange={handleQuantityChange} 
                                         placeholder="Misal: 5" 
                                     />
                                 </div>
