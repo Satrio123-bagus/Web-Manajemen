@@ -3,7 +3,7 @@
 // Digunakan oleh agent scripts (report, classify, dll).
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://ollama:11434';
-const MODEL_NAME = 'hermes3:3b';
+const MODEL_NAME = 'llama3.2:3b';
 const TIMEOUT_MS = 120_000; // 2 menit — model 3B di CPU perlu waktu loading
 
 /**
@@ -16,7 +16,7 @@ async function isAvailable() {
         if (!res.ok) return false;
         const data = await res.json();
         const models = data.models || [];
-        return models.some(m => m.name === MODEL_NAME || m.name.startsWith('hermes3'));
+        return models.some(m => m.name === MODEL_NAME || m.name.startsWith('llama3.2'));
     } catch {
         return false;
     }
