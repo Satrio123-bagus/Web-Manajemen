@@ -5,7 +5,7 @@ import {
     Coins, Package, AlertTriangle, TrendingUp, Trash2,
     Edit3, Plus, X, Save, Search, ChevronDown, DollarSign
 } from 'lucide-react';
-import ActivityLog from '../components/ActivityLog';
+import CortexActionCenter from '../components/CortexActionCenter';
 
 /* ═══════════════════════════════════════════════════════════
    RARITY CONFIG
@@ -401,8 +401,8 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                     </div>
                 </motion.div>
 
-                {/* ═══ ACTIVITY LOG ═══ */}
-                <ActivityLog />
+                {/* ═══ CORTEX ACTION CENTER ═══ */}
+                <CortexActionCenter onAssemble={onAssemble} />
             </div>
         </div>
     );
