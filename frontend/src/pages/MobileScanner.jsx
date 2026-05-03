@@ -33,7 +33,7 @@ export default function MobileScanner() {
     // Sell Mutation
     const sellMutation = useMutation({
         mutationFn: async (id) => {
-            const res = await api.post('/sales/sell', { id, quantity: 1 });
+            const res = await api.post('/sell', { id, quantity: 1 });
             if (!res.ok) throw new Error('Gagal menjual barang');
             return await res.json();
         },
