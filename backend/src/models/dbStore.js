@@ -146,6 +146,93 @@ const stmts = {
       items: sql`SUM(${transactions.quantity})`.mapWith(Number)
     }).from(transactions).where(eq(transactions.type, 'SALE')).groupBy(sql`strftime('%Y-%m-%d', ${transactions.timestamp})`).orderBy(desc(sql`strftime('%Y-%m-%d', ${transactions.timestamp})`)).limit(7).all()
   },
+  getSalesTrends: {
+    // period: 'daily' (24h/hours), 'weekly' (7 days), 'monthly' (30 days), 'yearly' (12 months)
+    all: (period) => {
+      let groupSql, orderSql, limit, whereSql;
+      if (period === 'daily') {
+        // Last 24 hours grouped by hour
+        whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 day', 'localtime')`;
+        groupSql = sql`strftime('%H:00', ${transactions.timestamp})`;
+        orderSql = desc(sql`strftime('%Y-%m-%d %H:00', ${transactions.timestamp})`);
+        limit = 24;
+      } else if (period === 'weekly') {
+        whereSql = sql`${transactions.timestamp} >= datetime('now', '-7 days', 'localtime')`;
+        groupSql = sql`strftime('%Y-%m-%d', ${transactions.timestamp})`;
+        orderSql = desc(sql`strftime('%Y-%m-%d', ${transactions.timestamp})`);
+        limit = 7;
+      } else if (period === 'yearly') {
+        whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 year', 'localtime')`;
+        groupSql = sql`strftime('%Y-%m', ${transactions.timestamp})`;
+        orderSql = desc(sql`strftime('%Y-%m', ${transactions.timestamp})`);
+        limit = 12;
+      } else { // monthly (default)
+        whereSql = sql`${transactions.timestamp} >= datetime('now', '-30 days', 'localtime')`;
+        groupSql = sql`strftime('%Y-%m-%d', ${transactions.timestamp})`;
+        orderSql = desc(sql`strftime('%Y-%m-%d', ${transactions.timestamp})`);
+        limit = 30;
+      }
+
+      return db.select({
+        time_label: groupSql,
+        revenue: sql`SUM(${transactions.total})`.mapWith(Number),
+        items: sql`SUM(${transactions.quantity})`.mapWith(Number)
+      }).from(transactions)
+        .where(sql`${transactions.type} = 'SALE' AND ${whereSql}`)
+        .groupBy(groupSql)
+        .orderBy(orderSql)
+        .limit(limit)
+        .all();
+    }
+  },
+  getSalesStats: {
+    get: (period) => {
+      let whereSql;
+      if (period === 'daily') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 day', 'localtime')`;
+      else if (period === 'weekly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-7 days', 'localtime')`;
+      else if (period === 'yearly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 year', 'localtime')`;
+      else whereSql = sql`${transactions.timestamp} >= datetime('now', '-30 days', 'localtime')`; // monthly default
+
+      const res = db.select({
+        total_revenue: sql`COALESCE(SUM(${transactions.total}), 0)`.mapWith(Number),
+        total_items: sql`COALESCE(SUM(${transactions.quantity}), 0)`.mapWith(Number),
+        tx_count: count()
+      }).from(transactions).where(sql`${transactions.type} = 'SALE' AND ${whereSql}`).get();
+      return res || { total_revenue: 0, total_items: 0, tx_count: 0 };
+    }
+  },
+  getTopSellersPeriod: {
+    all: (period) => {
+      let whereSql;
+      if (period === 'daily') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 day', 'localtime')`;
+      else if (period === 'weekly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-7 days', 'localtime')`;
+      else if (period === 'yearly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 year', 'localtime')`;
+      else whereSql = sql`${transactions.timestamp} >= datetime('now', '-30 days', 'localtime')`;
+
+      return db.select({
+        item_name: transactions.item_name,
+        total_sold: sql`SUM(${transactions.quantity})`.mapWith(Number),
+        total_revenue: sql`SUM(${transactions.total})`.mapWith(Number)
+      }).from(transactions).where(sql`${transactions.type} = 'SALE' AND ${whereSql}`)
+      .groupBy(transactions.item_name).orderBy(desc(sql`SUM(${transactions.total})`)).limit(5).all()
+    }
+  },
+  getDeadStock: {
+    all: () => {
+      // Items with stock > 0 but not in transactions table in the last 30 days
+      return db.select({
+        id: items.id,
+        name: items.name,
+        stock: items.stock,
+        price: items.price,
+        value: sql`${items.stock} * ${items.price}`.mapWith(Number)
+      }).from(items)
+      .where(sql`${items.stock} > 0 AND ${items.name} NOT IN (SELECT ${transactions.item_name} FROM ${transactions} WHERE ${transactions.timestamp} >= datetime('now', '-30 days', 'localtime'))`)
+      .orderBy(desc(sql`${items.stock} * ${items.price}`))
+      .limit(5)
+      .all();
+    }
+  },
   getAllTx: {
     all: () => db.select().from(transactions).orderBy(desc(transactions.timestamp)).limit(20).all()
   },
