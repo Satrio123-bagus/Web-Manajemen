@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { Loader, WifiOff, CheckCircle, AlertTriangle } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import Dashboard, { InventoryModal, AssembleModal } from './pages/Dashboard';
 import DashboardHome from './pages/DashboardHome';
@@ -296,10 +297,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
 }

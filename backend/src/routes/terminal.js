@@ -200,10 +200,11 @@ function executeAction(actionJson) {
                     rarity: action.new_rarity ? action.new_rarity : existing.rarity,
                     bab: action.new_bab ? String(action.new_bab).trim() : (action.new_category ? String(action.new_category).trim() : existing.bab || existing.category),
                     sub_bab: action.new_sub_bab ? String(action.new_sub_bab).trim() : existing.sub_bab || 'Uncategorized',
+                    location: action.new_location ? String(action.new_location).trim() : existing.location || 'Belum Ditentukan',
                 };
                 edited.category = edited.bab;
                 edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, existing.location || 'Belum Ditentukan');
+                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, edited.location);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: edited.name, category: edited.bab,
                     unit_price: edited.price, quantity: edited.stock, total: 0, timestamp: new Date().toISOString(),
@@ -216,6 +217,7 @@ function executeAction(actionJson) {
                 if (edited.price !== existing.price) changes.push(`Harga: Rp${existing.price.toLocaleString('id-ID')} → Rp${edited.price.toLocaleString('id-ID')}`);
                 if (edited.category !== existing.category) changes.push(`Kategori: ${existing.category} → ${edited.category}`);
                 if (edited.rarity !== existing.rarity) changes.push(`Raritas: ${existing.rarity} → ${edited.rarity}`);
+                if (edited.location !== (existing.location || 'Belum Ditentukan')) changes.push(`Lokasi: ${existing.location || 'Belum Ditentukan'} → ${edited.location}`);
                 return `[EDITED] ${existing.id} | ${changes.join(' | ')}`;
             }
             case 'ASSEMBLE': {

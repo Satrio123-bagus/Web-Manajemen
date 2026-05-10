@@ -356,8 +356,8 @@ export default function MobileScanner() {
                     <CameraOff className="w-4 h-4 text-gray-400 hover:text-red-400" />
                 </button>
             </div>
-            <div className="flex-1 p-2 bg-black flex items-center justify-center relative min-h-[300px]">
-                <div id="reader" className="w-full max-w-[320px]" style={{ minHeight: '300px' }}></div>
+            <div className="flex-1 p-2 bg-black flex items-center justify-center relative min-h-[300px] overflow-hidden">
+                <div id="reader" className="w-full max-w-[320px] scale-125 md:scale-100 origin-center transition-transform" style={{ minHeight: '300px' }}></div>
             </div>
         </div>
     );

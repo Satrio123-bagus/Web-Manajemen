@@ -47,9 +47,21 @@ ${lowRules.length > 0 ? lowRules.map((r, i) => `${i+1}. "${r.prefix}..." → Kem
 ATURAN DEDUKSI MEREK CHINA/LOKAL:
 Jika nama produk TIDAK mengandung kode seri jelas tapi hanya ada tipe AC seperti "05CR", "09CR", tebak itu brand China populer (Midea/Changhong/TCL) atau jika terdapat nama merknya langsung (contoh: "Remote AC Beko", "Remote TV Changhong L32"), LANGSUNG tangkap merk tersebut!
 
+ATURAN SPARE PART (PENTING):
+Jika nama produk mengandung kata deskriptif komponen seperti "Casing", "Sensor", "PCB", "Kapasitor", "Motor", "Fan", "Kompresor", "Thermistor", "Relay", "Trafo", "Board", "Display", "Panel":
+- bab HARUS = "Spare Part" (BUKAN nama merk).
+- sub_bab = tentukan jenis komponen berdasarkan konteks:
+  * Jika terkait remote (ada kode remote seperti A75C, ARC, AKB, dll.) → sub_bab = "Remote AC" atau "Remote TV"
+  * Jika terkait unit indoor → sub_bab = "AC Indoor"
+  * Jika terkait unit outdoor → sub_bab = "AC Outdoor"
+  * Jika tidak jelas → sub_bab = nama komponen (misal "Sensor", "Kapasitor")
+- Contoh: "Casing A75C3568" → {"bab": "Spare Part", "sub_bab": "Remote AC", "confidence": "high"}
+- Contoh: "Sensor Thermistor Daikin" → {"bab": "Spare Part", "sub_bab": "AC Indoor", "confidence": "high"}
+- JANGAN klasifikasikan spare part dengan bab = nama merk. Spare part selalu bab = "Spare Part".
+
 Aturan Output:
-- "bab" = Merk utama (Panasonic, Sharp, LG, Samsung, Gree, Midea, TCL, Changhong, Polytron, Toshiba, Daikin, Universal, dll).
-- "sub_bab" = "Remote AC", "Remote TV", "PCB Power", "Sensor", atau "Kapasitor".
+- "bab" = Merk utama (Panasonic, Sharp, LG, Samsung, Gree, Midea, TCL, Changhong, Polytron, Toshiba, Daikin, Universal, dll) ATAU "Spare Part" jika item adalah komponen/spare part.
+- "sub_bab" = "Remote AC", "Remote TV", "PCB Power", "Sensor", "Kapasitor", "AC Indoor", "AC Outdoor", atau jenis komponen lainnya.
 - "confidence" = "high" (pasti benar), "medium" (cukup yakin), "low" (ambigu, perlu konfirmasi user).
 - Hanya gunakan "Lainnya" jika kode benar-benar tidak bisa ditebak dan tidak ada tulisan merk sama sekali.
 
