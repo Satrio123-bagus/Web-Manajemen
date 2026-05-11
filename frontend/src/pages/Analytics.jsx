@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     AreaChart, Area, ResponsiveContainer,
+    PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip
 } from 'recharts';
 import {
     TrendingUp, Activity, Target, AlertTriangle,
-    BarChart3, Calendar, Cpu, ShoppingBag, PackageX, DollarSign
+    BarChart3, Calendar, Cpu, ShoppingBag, PackageX, DollarSign,
+    PieChart as PieIcon
 } from 'lucide-react';
 import api from '../api';
 
 const NEON_CYAN = '#00f3ff';
 const NEON_PURPLE = '#bc13fe';
+const COLORS = [NEON_CYAN, NEON_PURPLE, '#facc15', '#f97316', '#22d3ee', '#a855f7', '#ef4444', '#10b981'];
 
 /* Custom Tooltip */
 function CyberTooltip({ active, payload, label }) {
@@ -152,11 +155,13 @@ export default function Analytics() {
                             <MiniStat icon={Target} label="Avg Order Value" value={data.salesStats.avg_order_value.toLocaleString('id-ID')} prefix="Rp " accent="#22d3ee" />
                         </div>
 
-                        {/* ─── SALES REVENUE CHART ─── */}
-                        <motion.div
-                            whileHover={{ boxShadow: "0 0 30px rgba(0, 243, 255, 0.05)" }}
-                            className="bg-[rgba(8,8,12,0.7)] backdrop-blur-xl border border-white/5 rounded-2xl p-6 overflow-hidden relative transition-shadow duration-500"
-                        >
+                        {/* ─── CHARTS ROW ─── */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* ─── SALES REVENUE CHART ─── */}
+                            <motion.div
+                                whileHover={{ boxShadow: "0 0 30px rgba(0, 243, 255, 0.05)" }}
+                                className="bg-[rgba(8,8,12,0.7)] backdrop-blur-xl border border-white/5 rounded-2xl p-6 overflow-hidden relative transition-shadow duration-500 lg:col-span-2"
+                            >
                             <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.12)_50%)] bg-[length:100%_2px] opacity-20 rounded-2xl" />
                             <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-6 relative z-10">
                                 <TrendingUp className="w-4 h-4 text-[var(--color-neon-cyan)]" />
@@ -187,8 +192,66 @@ export default function Analytics() {
                                         <Area yAxisId="right" type="monotone" dataKey="items" name="Units Sold" stroke={NEON_PURPLE} strokeWidth={3} fill="url(#gradPurple)" dot={false} activeDot={{ r: 6, fill: '#000', stroke: NEON_PURPLE, strokeWidth: 2 }} />
                                     </AreaChart>
                                 </ResponsiveContainer>
+                                </ResponsiveContainer>
                             </div>
                         </motion.div>
+
+                        {/* ─── PIE CHART — SALES CATEGORY DISTRIBUTION ─── */}
+                        <motion.div
+                            whileHover={{ boxShadow: "0 0 30px rgba(188, 19, 254, 0.05)" }}
+                            className="bg-[rgba(8,8,12,0.7)] backdrop-blur-xl border border-white/5 rounded-2xl p-6 overflow-hidden relative transition-shadow duration-500 lg:col-span-1 flex flex-col"
+                        >
+                            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.12)_50%)] bg-[length:100%_2px] opacity-20 rounded-2xl" />
+                            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-2 relative z-10">
+                                <PieIcon className="w-4 h-4 text-[var(--color-neon-purple)]" />
+                                Top Categories Sold
+                            </h3>
+                            <p className="text-[10px] font-mono text-gray-500 mb-6 relative z-10">BERDASARKAN UNIT TERJUAL</p>
+                            
+                            <div className="flex-1 relative z-10 flex flex-col justify-center">
+                                {data.categoryDistribution && data.categoryDistribution.length > 0 ? (
+                                    <>
+                                        <div className="h-[200px] w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={data.categoryDistribution}
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        cx="50%" cy="50%"
+                                                        innerRadius={40} outerRadius={70}
+                                                        stroke="rgba(0,0,0,0.5)"
+                                                        strokeWidth={2}
+                                                    >
+                                                        {data.categoryDistribution.map((_, i) => (
+                                                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip content={<CyberTooltip />} />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        {/* Legend / Breakdown */}
+                                        <div className="mt-4 space-y-2 max-h-[100px] overflow-y-auto scrollbar-hide">
+                                            {data.categoryDistribution.map((item, i) => (
+                                                <div key={item.name} className="flex items-center justify-between text-xs font-mono bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 hover:bg-white/10 transition-colors">
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                                                        <span className="text-gray-300 truncate">{item.name}</span>
+                                                    </div>
+                                                    <span className="text-white font-bold shrink-0">{item.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-xs font-mono text-gray-500">
+                                        BELUM ADA PENJUALAN
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                        </div>
 
                         {/* ─── TABLES ROW ─── */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

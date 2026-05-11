@@ -217,6 +217,22 @@ const stmts = {
       .groupBy(transactions.item_name).orderBy(desc(sql`SUM(${transactions.total})`)).limit(5).all()
     }
   },
+  getSalesCategoryDistribution: {
+    all: (period) => {
+      let whereSql;
+      if (period === 'daily') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 day', 'localtime')`;
+      else if (period === 'weekly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-7 days', 'localtime')`;
+      else if (period === 'yearly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 year', 'localtime')`;
+      else whereSql = sql`${transactions.timestamp} >= datetime('now', '-30 days', 'localtime')`;
+
+      return db.select({
+        name: sql`COALESCE(${transactions.category}, 'Uncategorized')`,
+        count: sql`SUM(${transactions.quantity})`.mapWith(Number)
+      }).from(transactions).where(sql`${transactions.type} = 'SALE' AND ${whereSql}`)
+      .groupBy(sql`COALESCE(${transactions.category}, 'Uncategorized')`)
+      .orderBy(desc(sql`SUM(${transactions.quantity})`)).all()
+    }
+  },
   getDeadStock: {
     all: () => {
       // Items with stock > 0 but not in transactions table in the last 30 days
