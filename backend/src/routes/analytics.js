@@ -24,14 +24,14 @@ router.get('/', async (req, res) => {
                 bab: i.bab
             });
         }
-
-        const babKey = i.bab || i.category || 'Uncategorized';
-        categoryMap[babKey] = (categoryMap[babKey] || 0) + 1;
     }
 
-    const totalItems = state.inventory.length;
-    const categoryDistribution = Object.entries(categoryMap).map(([name, count]) => ({
-        name, count, value: Math.round((count / totalItems) * 100),
+    // Fetch Category Distribution based on Sales
+    const rawCategoryDist = stmts.getSalesCategoryDistribution.all(period);
+    const categoryDistribution = rawCategoryDist.map(d => ({
+        name: d.name,
+        count: d.count,
+        value: d.count // Used by Recharts Pie
     }));
 
     // ─── NEW: Sales specific analytics ────────────────────────
