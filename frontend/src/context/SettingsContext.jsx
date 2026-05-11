@@ -21,12 +21,12 @@ export function SettingsProvider({ children }) {
         const root = document.documentElement;
         // Map setiap pilihan tema ke pasangan warna primer & sekunder
         const themeMap = {
-            cyan:   { primary: '#00f3ff', secondary: '#bc13fe' },
-            green:  { primary: '#22c55e', secondary: '#10b981' },
-            purple: { primary: '#a855f7', secondary: '#7c3aed' },
-            amber:  { primary: '#f59e0b', secondary: '#d97706' },
-            rose:   { primary: '#f43f5e', secondary: '#e11d48' },
-            sky:    { primary: '#38bdf8', secondary: '#0ea5e9' },
+            cyan:      { primary: '#00f3ff', secondary: '#bc13fe' }, // Default
+            synthwave: { primary: '#ec4899', secondary: '#f97316' }, // Hot Pink & Orange
+            matrix:    { primary: '#22c55e', secondary: '#14b8a6' }, // Neon Green & Teal
+            imperial:  { primary: '#fbbf24', secondary: '#ef4444' }, // Cyber Gold & Crimson
+            void:      { primary: '#3b82f6', secondary: '#6366f1' }, // Royal Blue & Indigo
+            sith:      { primary: '#dc2626', secondary: '#ea580c' }, // Blood Red & Fiery Orange
         };
         const chosen = themeMap[settings.accentTheme] ?? themeMap.cyan;
         root.style.setProperty('--color-neon-cyan',   chosen.primary);
