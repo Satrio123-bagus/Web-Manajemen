@@ -12,12 +12,12 @@ import api from '../api';
 
 /* ─── Accent color palette ─── */
 const ACCENT_THEMES = [
-    { id: 'cyan',   label: 'CYBER CYAN',  color: '#00f3ff', bg: 'rgba(0,243,255,0.08)'   },
-    { id: 'green',  label: 'MATRIX GRN',  color: '#22c55e', bg: 'rgba(34,197,94,0.08)'   },
-    { id: 'purple', label: 'NEON VIOLET', color: '#a855f7', bg: 'rgba(168,85,247,0.08)'  },
-    { id: 'amber',  label: 'GOLD RUSH',   color: '#f59e0b', bg: 'rgba(245,158,11,0.08)'  },
-    { id: 'rose',   label: 'ROSE WAVE',   color: '#f43f5e', bg: 'rgba(244,63,94,0.08)'   },
-    { id: 'sky',    label: 'SKY BLUE',    color: '#38bdf8', bg: 'rgba(56,189,248,0.08)'  },
+    { id: 'cyan',      label: 'DEFAULT',     color: '#00f3ff', color2: '#bc13fe', bg: 'rgba(0,243,255,0.08)' },
+    { id: 'synthwave', label: 'SYNTHWAVE',   color: '#ec4899', color2: '#f97316', bg: 'rgba(236,72,153,0.08)' },
+    { id: 'matrix',    label: 'BIO-MATRIX',  color: '#22c55e', color2: '#14b8a6', bg: 'rgba(34,197,94,0.08)' },
+    { id: 'imperial',  label: 'IMPERIAL',    color: '#fbbf24', color2: '#ef4444', bg: 'rgba(251,191,36,0.08)' },
+    { id: 'void',      label: 'DEEP VOID',   color: '#3b82f6', color2: '#6366f1', bg: 'rgba(59,130,246,0.08)' },
+    { id: 'sith',      label: 'DANGER',      color: '#dc2626', color2: '#ea580c', bg: 'rgba(220,38,38,0.08)' },
 ];
 
 export default function Settings() {
@@ -195,8 +195,8 @@ export default function Settings() {
                                     <div
                                         className="w-6 h-6 rounded-full transition-all duration-200"
                                         style={{
-                                            backgroundColor: theme.color,
-                                            boxShadow: isActive ? `0 0 12px ${theme.color}` : 'none',
+                                            background: `linear-gradient(135deg, ${theme.color}, ${theme.color2})`,
+                                            boxShadow: isActive ? `0 0 15px ${theme.color}80` : 'none',
                                             transform: isActive ? 'scale(1.15)' : 'scale(1)',
                                         }}
                                     />
