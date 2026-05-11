@@ -192,7 +192,6 @@ export default function Analytics() {
                                         <Area yAxisId="right" type="monotone" dataKey="items" name="Units Sold" stroke={NEON_PURPLE} strokeWidth={3} fill="url(#gradPurple)" dot={false} activeDot={{ r: 6, fill: '#000', stroke: NEON_PURPLE, strokeWidth: 2 }} />
                                     </AreaChart>
                                 </ResponsiveContainer>
-                                </ResponsiveContainer>
                             </div>
                         </motion.div>
 
