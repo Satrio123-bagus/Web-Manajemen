@@ -58,12 +58,15 @@ router.get('/transactions', (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     try {
-        let data = stmts.getAllTxPaginated.all(limitNum, offset);
-        const total = stmts.countTx.get();
-
-        // Filter berdasarkan tipe jika ada
+        // Filter berdasarkan tipe langsung di SQL (lebih efisien daripada filter di JS)
+        let data;
+        let total;
         if (type && type !== 'ALL') {
-            data = data.filter(tx => tx.type === type);
+            data = stmts.getAllTxPaginatedByType.all(type, limitNum, offset);
+            total = stmts.countTxByType.get(type);
+        } else {
+            data = stmts.getAllTxPaginated.all(limitNum, offset);
+            total = stmts.countTx.get();
         }
 
         res.json({ data, total, page: pageNum, limit: limitNum });

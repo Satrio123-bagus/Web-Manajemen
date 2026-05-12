@@ -50,50 +50,52 @@ export default function TransactionHistory() {
     const [allTx, setAllTx] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [serverTotal, setServerTotal] = useState(0);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Fetch transactions
+    // Fetch transactions — server-side paging + type filter
     const fetchTx = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await api.get('/transactions?limit=500');
+            const typeParam = typeFilter !== 'ALL' ? `&type=${typeFilter}` : '';
+            const res = await api.get(`/transactions?limit=${PAGE_SIZE}&page=${currentPage}${typeParam}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             // Support both {data:[]} and array format
             setAllTx(Array.isArray(json) ? json : (json.data || []));
+            setServerTotal(json.total || 0);
         } catch (err) {
             setError('Gagal memuat riwayat transaksi.');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [currentPage, typeFilter]);
 
     useEffect(() => { fetchTx(); }, [fetchTx]);
 
-    // Filter logic (client-side for snappiness)
-    const filtered = allTx.filter(tx => {
-        const matchType = typeFilter === 'ALL' || tx.type === typeFilter;
-        const q = searchQuery.toLowerCase();
-        const matchSearch = !q ||
-            (tx.item_name || '').toLowerCase().includes(q) ||
-            (tx.category || '').toLowerCase().includes(q) ||
-            (tx.transaction_id || '').toLowerCase().includes(q);
-        return matchType && matchSearch;
-    });
+    // Reset page when type filter changes
+    useEffect(() => setCurrentPage(1), [typeFilter]);
 
-    // Pagination
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    // Client-side text search only (type filtering is now server-side)
+    const filtered = searchQuery
+        ? allTx.filter(tx => {
+            const q = searchQuery.toLowerCase();
+            return (tx.item_name || '').toLowerCase().includes(q) ||
+                (tx.category || '').toLowerCase().includes(q) ||
+                (tx.transaction_id || '').toLowerCase().includes(q);
+        })
+        : allTx;
 
-    // Reset page when filters change
-    useEffect(() => setCurrentPage(1), [searchQuery, typeFilter]);
+    // Pagination — driven by server total, not filtered length
+    const totalPages = Math.max(1, Math.ceil(serverTotal / PAGE_SIZE));
+    const paginated = filtered; // Already paginated by server
 
-    // Summary stats
+    // Summary stats (from current page data — approximate for display)
     const salesTotal = allTx.filter(t => t.type === 'SALE').reduce((s, t) => s + (t.total || 0), 0);
     const salesCount = allTx.filter(t => t.type === 'SALE').length;
     const restockCount = allTx.filter(t => t.type === 'RESTOCK').length;

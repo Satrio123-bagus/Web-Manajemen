@@ -1,30 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { stmts, state } = require('../models/dbStore');
+const { stmts } = require('../models/dbStore');
 
 router.get('/', async (req, res) => {
     const period = req.query.period || 'monthly'; // daily, weekly, monthly, yearly
 
-    // ─── OPTIMIZED: Single-pass inventory aggregation (Kept for compatibility) ────────
-    let totalStockValue = 0;
-    let totalStock = 0;
-    let lowStockCount = 0;
-    const lowStockItems = [];
-    const categoryMap = {};
-
-    for (const i of state.inventory) {
-        totalStockValue += i.price * i.stock;
-        totalStock += i.stock;
-
-        if (i.stock < 2) {
-            lowStockCount++;
-            lowStockItems.push({
-                id: i.id, name: i.name, category: i.category,
-                price: i.price, stock: i.stock, rarity: i.rarity,
-                bab: i.bab
-            });
-        }
-    }
+    // ─── OPTIMIZED: Single SQL query menggantikan loop JS ────────────────
+    const invStats = stmts.getInventoryStats.get();
+    const totalItems = invStats.totalItems;
+    const totalStockValue = invStats.totalStockValue;
+    const totalStock = invStats.totalStock;
+    const lowStockCount = invStats.lowStockCount;
+    const lowStockItems = stmts.getLowStockItems.all();
 
     // Fetch Category Distribution based on Sales
     const rawCategoryDist = stmts.getSalesCategoryDistribution.all(period);
