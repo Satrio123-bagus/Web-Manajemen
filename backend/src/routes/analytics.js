@@ -54,13 +54,26 @@ router.get('/', async (req, res) => {
     const topSellers = stmts.getTopSellersPeriod.all(period);
     const deadStock = stmts.getDeadStock.all();
 
-    // ─── AI Insights (Hermes Anomaly) ────────────────────────
+    res.json({
+        totalItems, totalStockValue, totalStock, lowStockCount,
+        lowStockItems, categoryDistribution, 
+        stockTrends, // overrides the old one with dynamic
+        salesStats, topSellers, deadStock,
+        currentPeriod: period
+    });
+});
+
+// ─── NEW: Separate Endpoint for Slow AI Insights ────────────────────────
+router.get('/insight', async (req, res) => {
+    const period = req.query.period || 'monthly';
+    const salesStats = stmts.getSalesStats.get(period);
+    const topSellers = stmts.getTopSellersPeriod.all(period);
+
     let aiInsights = null;
     try {
         const { hermes } = require('../agents/hermesClient');
         const available = await hermes.isAvailable();
         if (available && salesStats.tx_count > 0) {
-            // Very simple insight prompt
             const prompt = `Buat 2 kalimat singkat gaya cyberpunk tentang penjualan ${period} toko. 
 Revenue: Rp${salesStats.total_revenue.toLocaleString('id-ID')}, Items: ${salesStats.total_items}. 
 Top item: ${topSellers.length > 0 ? topSellers[0].item_name : '-'}.
@@ -74,13 +87,7 @@ Beri satu pujian atau peringatan stok mati.`;
         aiInsights = "Gagal terhubung ke neural network Hermes.";
     }
 
-    res.json({
-        totalItems, totalStockValue, totalStock, lowStockCount,
-        lowStockItems, categoryDistribution, 
-        stockTrends, // overrides the old one with dynamic
-        salesStats, topSellers, deadStock, aiInsights,
-        currentPeriod: period
-    });
+    res.json({ aiInsights });
 });
 
 module.exports = router;
