@@ -66,6 +66,7 @@ betterSqlite.exec(`
     user_agent TEXT,
     created_at TEXT
   );
+  CREATE INDEX IF NOT EXISTS idx_tx_type_time ON transactions(type, timestamp);
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -260,6 +261,21 @@ const stmts = {
       .offset(offset)
       .all()
   },
+  getAllTxPaginatedByType: {
+    // Ambil transaksi yang sudah difilter berdasarkan tipe (lebih efisien daripada filter di JS)
+    all: (type, limit = 200, offset = 0) => db.select().from(transactions)
+      .where(eq(transactions.type, type))
+      .orderBy(desc(transactions.timestamp))
+      .limit(limit)
+      .offset(offset)
+      .all()
+  },
+  countTxByType: {
+    get: (type) => {
+      const result = db.select({ cnt: count() }).from(transactions).where(eq(transactions.type, type)).get();
+      return result?.cnt || 0;
+    }
+  },
   countTx: {
     get: () => {
       const result = db.select({ cnt: count() }).from(transactions).get();
@@ -320,6 +336,24 @@ const stmts = {
   },
   countPushSubs: {
     get: () => betterSqlite.prepare('SELECT COUNT(*) as cnt FROM push_subscriptions').get()
+  },
+  // ─── Optimized Inventory Stats (menggantikan loop JS di analytics) ──────
+  getInventoryStats: {
+    get: () => {
+      const res = db.select({
+        totalItems: count(),
+        totalStock: sql`COALESCE(SUM(${items.stock}), 0)`.mapWith(Number),
+        totalStockValue: sql`COALESCE(SUM(${items.price} * ${items.stock}), 0)`.mapWith(Number),
+        lowStockCount: sql`COALESCE(SUM(CASE WHEN ${items.stock} < 2 THEN 1 ELSE 0 END), 0)`.mapWith(Number),
+      }).from(items).get();
+      return res || { totalItems: 0, totalStock: 0, totalStockValue: 0, lowStockCount: 0 };
+    }
+  },
+  getLowStockItems: {
+    all: () => db.select({
+      id: items.id, name: items.name, category: items.category,
+      price: items.price, stock: items.stock, rarity: items.rarity, bab: items.bab
+    }).from(items).where(sql`${items.stock} < 2`).orderBy(items.name).all()
   },
 };
 
