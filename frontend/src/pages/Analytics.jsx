@@ -59,6 +59,8 @@ export default function Analytics() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState('monthly'); // daily, weekly, monthly, yearly
+    const [aiInsight, setAiInsight] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -73,7 +75,24 @@ export default function Analytics() {
                 setLoading(false);
             }
         };
+
+        const fetchAiInsight = async () => {
+            setAiLoading(true);
+            setAiInsight(null);
+            try {
+                const res = await api.get(`/analytics/insight?period=${period}`);
+                const jsonData = await res.json();
+                setAiInsight(jsonData.aiInsights);
+            } catch (error) {
+                console.error(error);
+                setAiInsight("Gagal terhubung ke neural network Hermes.");
+            } finally {
+                setAiLoading(false);
+            }
+        };
+
         fetchData();
+        fetchAiInsight();
     }, [period]);
 
     return (
@@ -122,30 +141,36 @@ export default function Analytics() {
                         className="space-y-8"
                     >
                         {/* ─── AI INSIGHTS PANEL ─── */}
-                        {data.aiInsights && (
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-                                className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[rgba(188,19,254,0.1)] to-[rgba(0,243,255,0.05)] border border-[var(--color-neon-purple)]/30 p-6"
-                            >
-                                {/* Background grid effect */}
-                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50" />
-                                
-                                <div className="relative z-10 flex items-start gap-4">
-                                    <div className="p-3 bg-black/40 rounded-xl border border-[var(--color-neon-purple)]/50 backdrop-blur-md">
-                                        <Cpu className="w-6 h-6 text-[var(--color-neon-purple)] animate-pulse" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs font-mono font-bold text-[var(--color-neon-purple)] tracking-widest uppercase mb-2 flex items-center gap-2">
-                                            Hermes AI Analysis
-                                            <span className="w-2 h-2 rounded-full bg-[var(--color-neon-cyan)] animate-ping" />
-                                        </h3>
-                                        <p className="text-sm md:text-base text-gray-300 font-mono leading-relaxed">
-                                            "{data.aiInsights}"
-                                        </p>
-                                    </div>
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+                            className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[rgba(188,19,254,0.1)] to-[rgba(0,243,255,0.05)] border border-[var(--color-neon-purple)]/30 p-6"
+                        >
+                            {/* Background grid effect */}
+                            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50" />
+                            
+                            <div className="relative z-10 flex items-start gap-4">
+                                <div className="p-3 bg-black/40 rounded-xl border border-[var(--color-neon-purple)]/50 backdrop-blur-md">
+                                    <Cpu className={`w-6 h-6 text-[var(--color-neon-purple)] ${aiLoading ? 'animate-spin' : 'animate-pulse'}`} />
                                 </div>
-                            </motion.div>
-                        )}
+                                <div>
+                                    <h3 className="text-xs font-mono font-bold text-[var(--color-neon-purple)] tracking-widest uppercase mb-2 flex items-center gap-2">
+                                        Hermes AI Analysis
+                                        <span className={`w-2 h-2 rounded-full bg-[var(--color-neon-cyan)] ${aiLoading ? 'animate-ping' : ''}`} />
+                                    </h3>
+                                    {aiLoading ? (
+                                        <div className="flex flex-col gap-2 mt-2">
+                                            <div className="h-4 bg-white/10 rounded w-3/4 animate-pulse"></div>
+                                            <div className="h-4 bg-white/10 rounded w-1/2 animate-pulse"></div>
+                                            <p className="text-[10px] font-mono text-[var(--color-neon-cyan)] mt-1 animate-pulse">Menyambung ke Neural Network...</p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm md:text-base text-gray-300 font-mono leading-relaxed">
+                                            "{aiInsight || 'Sistem AI Hermes sedang memantau. Menunggu volume data yang memadai.'}"
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
 
                         {/* ─── MINI STATS ROW ─── */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
