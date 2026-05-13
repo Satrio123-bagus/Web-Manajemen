@@ -51,6 +51,9 @@ jobs:
             echo "📁 Navigating to project directory..."
             cd ${{ secrets.VPS_PATH }}
 
+            echo "🧹 Membersihkan perubahan lokal yang menghalangi pull..."
+            git checkout -- .
+
             echo "⬇️  Pulling latest code from GitHub..."
             git pull origin main
 
