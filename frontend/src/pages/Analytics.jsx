@@ -63,36 +63,41 @@ export default function Analytics() {
     const [aiLoading, setAiLoading] = useState(false);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchAll = async () => {
             setLoading(true);
+            setAiLoading(true);
+            setAiInsight(null);
+
             try {
+                // 1. Fetch data analytics utama
                 const res = await api.get(`/analytics?period=${period}`);
                 const jsonData = await res.json();
                 setData(jsonData);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
+                setLoading(false); // Data utama sudah siap — render chart & stats
 
-        const fetchAiInsight = async () => {
-            setAiLoading(true);
-            setAiInsight(null);
-            try {
-                const res = await api.get(`/analytics/insight?period=${period}`);
-                const jsonData = await res.json();
-                setAiInsight(jsonData.aiInsights);
+                // 2. Fetch AI insight — kirim ringkasan data via query params
+                //    agar backend tidak perlu query database lagi (eliminasi duplikasi)
+                const { salesStats, topSellers } = jsonData;
+                const insightParams = new URLSearchParams({
+                    period,
+                    total_revenue: salesStats?.total_revenue || 0,
+                    total_items: salesStats?.total_items || 0,
+                    tx_count: salesStats?.tx_count || 0,
+                    top_item: topSellers?.[0]?.item_name || '-',
+                });
+                const aiRes = await api.get(`/analytics/insight?${insightParams}`);
+                const aiData = await aiRes.json();
+                setAiInsight(aiData.aiInsights);
             } catch (error) {
                 console.error(error);
+                if (!data) setLoading(false); // Fallback jika fetch utama gagal
                 setAiInsight("Gagal terhubung ke neural network Hermes.");
             } finally {
                 setAiLoading(false);
             }
         };
 
-        fetchData();
-        fetchAiInsight();
+        fetchAll();
     }, [period]);
 
     return (

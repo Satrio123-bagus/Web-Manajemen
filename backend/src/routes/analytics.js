@@ -1,6 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const { stmts } = require('../models/dbStore');
+// ─── FIX: Import hermesClient di top-level, bukan di dalam handler ──────────
+const hermesClient = require('../agents/hermesClient');
+
+// ─── AI Insight Cache (TTL 10 menit) ────────────────────────────────────────
+const insightCache = new Map(); // key: period, value: { text, timestamp }
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
+
+function getCachedInsight(period) {
+    const cached = insightCache.get(period);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
+        return cached.text;
+    }
+    return null;
+}
+
+function setCachedInsight(period, text) {
+    insightCache.set(period, { text, timestamp: Date.now() });
+}
 
 router.get('/', async (req, res) => {
     const period = req.query.period || 'monthly'; // daily, weekly, monthly, yearly
@@ -21,7 +39,7 @@ router.get('/', async (req, res) => {
         value: d.count // Used by Recharts Pie
     }));
 
-    // ─── NEW: Sales specific analytics ────────────────────────
+    // ─── Sales specific analytics ────────────────────────────────────────
     const salesStats = stmts.getSalesStats.get(period);
     
     // Calculate AOV (Average Order Value)
@@ -50,22 +68,36 @@ router.get('/', async (req, res) => {
     });
 });
 
-// ─── NEW: Separate Endpoint for Slow AI Insights ────────────────────────
+// ─── Separate Endpoint for AI Insights (with caching) ───────────────────────
+// Frontend mengirim ringkasan data via query params agar endpoint ini
+// tidak perlu query database lagi (menghilangkan duplikasi query).
 router.get('/insight', async (req, res) => {
     const period = req.query.period || 'monthly';
-    const salesStats = stmts.getSalesStats.get(period);
-    const topSellers = stmts.getTopSellersPeriod.all(period);
+
+    // Cek cache dulu — jika masih valid, langsung return
+    const cached = getCachedInsight(period);
+    if (cached) {
+        return res.json({ aiInsights: cached, cached: true });
+    }
+
+    // Ambil data dari query params (dikirim oleh frontend dari response /analytics)
+    const totalRevenue = parseInt(req.query.total_revenue) || 0;
+    const totalItems = parseInt(req.query.total_items) || 0;
+    const txCount = parseInt(req.query.tx_count) || 0;
+    const topItem = req.query.top_item || '-';
 
     let aiInsights = null;
     try {
-        const { hermes } = require('../agents/hermesClient');
-        const available = await hermes.isAvailable();
-        if (available && salesStats.tx_count > 0) {
+        // ─── FIX: Gunakan hermesClient.isAvailable() dan .generate() ────
+        const available = await hermesClient.isAvailable();
+        if (available && txCount > 0) {
             const prompt = `Buat 2 kalimat singkat gaya cyberpunk tentang penjualan ${period} toko. 
-Revenue: Rp${salesStats.total_revenue.toLocaleString('id-ID')}, Items: ${salesStats.total_items}. 
-Top item: ${topSellers.length > 0 ? topSellers[0].item_name : '-'}.
+Revenue: Rp${totalRevenue.toLocaleString('id-ID')}, Items: ${totalItems}. 
+Top item: ${topItem}.
 Beri satu pujian atau peringatan stok mati.`;
-            aiInsights = await hermes.ask(prompt);
+            aiInsights = await hermesClient.generate(prompt);
+            // Simpan ke cache setelah berhasil generate
+            setCachedInsight(period, aiInsights);
         } else {
             aiInsights = "Sistem AI Hermes sedang memantau. Menunggu volume data yang memadai untuk menghasilkan Insight Penjualan.";
         }

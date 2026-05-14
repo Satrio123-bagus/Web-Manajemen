@@ -67,6 +67,7 @@ betterSqlite.exec(`
     created_at TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_tx_type_time ON transactions(type, timestamp);
+  CREATE INDEX IF NOT EXISTS idx_tx_item_name ON transactions(item_name);
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -236,7 +237,10 @@ const stmts = {
   },
   getDeadStock: {
     all: () => {
-      // Items with stock > 0 but not in transactions table in the last 30 days
+      // Items with stock > 0 but no sales in the last 30 days
+      // ─── OPTIMIZED: NOT EXISTS lebih efisien dari NOT IN ──────────────
+      // NOT EXISTS berhenti mencari begitu menemukan 1 match,
+      // sedangkan NOT IN harus evaluate seluruh subquery result.
       return db.select({
         id: items.id,
         name: items.name,
@@ -244,7 +248,7 @@ const stmts = {
         price: items.price,
         value: sql`${items.stock} * ${items.price}`.mapWith(Number)
       }).from(items)
-      .where(sql`${items.stock} > 0 AND ${items.name} NOT IN (SELECT ${transactions.item_name} FROM ${transactions} WHERE ${transactions.timestamp} >= datetime('now', '-30 days', 'localtime'))`)
+      .where(sql`${items.stock} > 0 AND NOT EXISTS (SELECT 1 FROM ${transactions} WHERE ${transactions.item_name} = ${items.name} AND ${transactions.timestamp} >= datetime('now', '-30 days', 'localtime'))`)
       .orderBy(desc(sql`${items.stock} * ${items.price}`))
       .limit(5)
       .all();
