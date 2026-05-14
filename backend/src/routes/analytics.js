@@ -21,51 +21,56 @@ function setCachedInsight(period, text) {
 }
 
 router.get('/', async (req, res) => {
-    const period = req.query.period || 'monthly'; // daily, weekly, monthly, yearly
+    try {
+        const period = req.query.period || 'monthly'; // daily, weekly, monthly, yearly
 
-    // ─── OPTIMIZED: Single SQL query menggantikan loop JS ────────────────
-    const invStats = stmts.getInventoryStats.get();
-    const totalItems = invStats.totalItems;
-    const totalStockValue = invStats.totalStockValue;
-    const totalStock = invStats.totalStock;
-    const lowStockCount = invStats.lowStockCount;
-    const lowStockItems = stmts.getLowStockItems.all();
+        // ─── OPTIMIZED: Single SQL query menggantikan loop JS ────────────────
+        const invStats = stmts.getInventoryStats.get();
+        const totalItems = invStats?.totalItems || 0;
+        const totalStockValue = invStats?.totalStockValue || 0;
+        const totalStock = invStats?.totalStock || 0;
+        const lowStockCount = invStats?.lowStockCount || 0;
+        const lowStockItems = stmts.getLowStockItems.all();
 
-    // Fetch Category Distribution based on Sales
-    const rawCategoryDist = stmts.getSalesCategoryDistribution.all(period);
-    const categoryDistribution = rawCategoryDist.map(d => ({
-        name: d.name,
-        count: d.count,
-        value: d.count // Used by Recharts Pie
-    }));
+        // Fetch Category Distribution based on Sales
+        const rawCategoryDist = stmts.getSalesCategoryDistribution.all(period);
+        const categoryDistribution = rawCategoryDist.map(d => ({
+            name: d.name,
+            count: d.count,
+            value: d.count // Used by Recharts Pie
+        }));
 
-    // ─── Sales specific analytics ────────────────────────────────────────
-    const salesStats = stmts.getSalesStats.get(period);
-    
-    // Calculate AOV (Average Order Value)
-    const avgOrderValue = salesStats.tx_count > 0 ? Math.round(salesStats.total_revenue / salesStats.tx_count) : 0;
-    salesStats.avg_order_value = avgOrderValue;
+        // ─── Sales specific analytics ────────────────────────────────────────
+        const salesStats = stmts.getSalesStats.get(period) || { total_revenue: 0, total_items: 0, tx_count: 0 };
+        
+        // Calculate AOV (Average Order Value)
+        const avgOrderValue = salesStats.tx_count > 0 ? Math.round(salesStats.total_revenue / salesStats.tx_count) : 0;
+        salesStats.avg_order_value = avgOrderValue;
 
-    // Fetch Trends
-    const rawTrends = stmts.getSalesTrends.all(period).reverse(); // Oldest to newest
-    // Format trends for Recharts
-    const stockTrends = rawTrends.length > 0 ? rawTrends.map(d => ({
-        week: d.time_label,
-        assets: d.revenue || 0,
-        items: d.items || 0,
-    })) : [{ week: 'No Data', assets: 0, items: 0 }];
+        // Fetch Trends
+        const rawTrends = stmts.getSalesTrends.all(period).reverse(); // Oldest to newest
+        // Format trends for Recharts
+        const stockTrends = rawTrends.length > 0 ? rawTrends.map(d => ({
+            week: d.time_label,
+            assets: d.revenue || 0,
+            items: d.items || 0,
+        })) : [{ week: 'No Data', assets: 0, items: 0 }];
 
-    // Fetch Top Sellers & Dead Stock
-    const topSellers = stmts.getTopSellersPeriod.all(period);
-    const deadStock = stmts.getDeadStock.all();
+        // Fetch Top Sellers & Dead Stock
+        const topSellers = stmts.getTopSellersPeriod.all(period);
+        const deadStock = stmts.getDeadStock.all();
 
-    res.json({
-        totalItems, totalStockValue, totalStock, lowStockCount,
-        lowStockItems, categoryDistribution, 
-        stockTrends, // overrides the old one with dynamic
-        salesStats, topSellers, deadStock,
-        currentPeriod: period
-    });
+        res.json({
+            totalItems, totalStockValue, totalStock, lowStockCount,
+            lowStockItems, categoryDistribution, 
+            stockTrends,
+            salesStats, topSellers, deadStock,
+            currentPeriod: period
+        });
+    } catch (err) {
+        console.error('[ANALYTICS] Error:', err);
+        res.status(500).json({ error: 'ANALYTICS_ERROR', message: err.message });
+    }
 });
 
 // ─── Separate Endpoint for AI Insights (with caching) ───────────────────────
