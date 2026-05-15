@@ -58,6 +58,7 @@ function MiniStat({ icon: Icon, label, value, accent, prefix = '' }) {
 export default function Analytics() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [period, setPeriod] = useState('monthly'); // daily, weekly, monthly, yearly
     const [aiInsight, setAiInsight] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -65,6 +66,7 @@ export default function Analytics() {
     useEffect(() => {
         const fetchAll = async () => {
             setLoading(true);
+            setError(null);
             setAiLoading(true);
             setAiInsight(null);
 
@@ -72,6 +74,11 @@ export default function Analytics() {
                 // 1. Fetch data analytics utama
                 const res = await api.get(`/analytics?period=${period}`);
                 const jsonData = await res.json();
+                
+                if (jsonData.error) {
+                    throw new Error(jsonData.message || "Gagal mengambil data analytics");
+                }
+                
                 setData(jsonData);
                 setLoading(false); // Data utama sudah siap — render chart & stats
 
@@ -88,9 +95,10 @@ export default function Analytics() {
                 const aiRes = await api.get(`/analytics/insight?${insightParams}`);
                 const aiData = await aiRes.json();
                 setAiInsight(aiData.aiInsights);
-            } catch (error) {
-                console.error(error);
-                if (!data) setLoading(false); // Fallback jika fetch utama gagal
+            } catch (err) {
+                console.error(err);
+                setError(err.message || "Terjadi kesalahan saat memuat data.");
+                setLoading(false);
                 setAiInsight("Gagal terhubung ke neural network Hermes.");
             } finally {
                 setAiLoading(false);
@@ -130,7 +138,7 @@ export default function Analytics() {
             </div>
 
             <AnimatePresence mode="wait">
-                {loading || !data ? (
+                {loading ? (
                     <motion.div 
                         key="loading"
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -138,6 +146,33 @@ export default function Analytics() {
                     >
                         <Activity className="w-8 h-8 animate-spin" /> 
                         <p className="tracking-widest animate-pulse">FETCHING_SALES_DATA...</p>
+                    </motion.div>
+                ) : error ? (
+                    <motion.div 
+                        key="error"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="flex flex-col items-center justify-center h-[50vh] font-mono text-red-500 gap-4 text-center"
+                    >
+                        <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20 max-w-lg">
+                            <h3 className="text-xl font-bold mb-2 flex items-center justify-center gap-2">
+                                <Activity className="w-6 h-6" /> System Error
+                            </h3>
+                            <p className="text-gray-300">{error}</p>
+                            <button 
+                                onClick={() => window.location.reload()}
+                                className="mt-4 px-6 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                            >
+                                Retry Connection
+                            </button>
+                        </div>
+                    </motion.div>
+                ) : !data ? (
+                    <motion.div 
+                        key="nodata"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="flex flex-col items-center justify-center h-[50vh] font-mono text-gray-500 gap-4 text-center"
+                    >
+                        <p>No data available</p>
                     </motion.div>
                 ) : (
                     <motion.div 
