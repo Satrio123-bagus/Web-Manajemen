@@ -22,3 +22,4 @@ Ini adalah proyek aplikasi manajemen berbasis web. Proyek ini menggunakan arsite
     * Tulis kode yang bersih, mudah dibaca, dan berikan komentar pada bagian logika yang kompleks atau konfigurasi khusus.
     * Perhatikan penggunaan port agar tidak terjadi bentrok antara service client dan server saat dijalankan via Docker.
 4.  **Debugging Web:** Saat membantu melakukan *debugging* pada proyek web ini, selidiki log dari *container* Docker masing-masing layanan (client/server) terlebih dahulu.
+5.  **Git Commit Otomatis:** Setiap kali Anda (AI) selesai melakukan perubahan kode atau perbaikan file apa pun di proyek ini, Anda WAJIB langsung menjalankan perintah terminal untuk melakukan `git add` dan `git commit` dengan pesan commit yang jelas (format Conventional Commits). Jangan biarkan file dalam status *modified* atau *untracked*. Biarkan urusan `git push` dilakukan secara manual oleh pengguna (USER).
