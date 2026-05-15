@@ -96,11 +96,21 @@ router.get('/insight', async (req, res) => {
         // ─── FIX: Gunakan hermesClient.isAvailable() dan .generate() ────
         const available = await hermesClient.isAvailable();
         if (available && txCount > 0) {
-            const prompt = `Buat 2 kalimat singkat gaya cyberpunk tentang penjualan ${period} toko. 
-Revenue: Rp${totalRevenue.toLocaleString('id-ID')}, Items: ${totalItems}. 
-Top item: ${topItem}.
-Beri satu pujian atau peringatan stok mati.`;
+            const prompt = `Anda adalah Hermes, AI Analis Bisnis yang sangat cerdas.
+Berikan ringkasan performa penjualan ${period} dalam 2 kalimat singkat dan padat.
+Data: Pendapatan Rp${totalRevenue.toLocaleString('id-ID')} dari ${txCount} transaksi (${totalItems} item terjual). Item terlaris: ${topItem}.
+Aturan wajib: 
+1. Gunakan nada profesional dan analitik.
+2. JANGAN gunakan metafora berlebihan (seperti "jalan gelap", "dunia neon", dll).
+3. JANGAN gunakan tanda kutip (") di awal atau akhir kalimat.
+4. Berikan satu kesimpulan atau saran singkat berdasarkan data.`;
             aiInsights = await hermesClient.generate(prompt);
+            
+            // Hapus tanda kutip jika AI masih nakal menambahkannya
+            if (aiInsights) {
+                aiInsights = aiInsights.replace(/^["']|["']$/g, '').trim();
+            }
+            
             // Simpan ke cache setelah berhasil generate
             setCachedInsight(period, aiInsights);
         } else {
