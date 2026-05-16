@@ -85,7 +85,24 @@ app.use((req, res, next) => {
 
 // ─── HEALTH CHECK ENDPOINT ─────────────────────────────
 app.get('/api/status', (req, res) => {
-    res.json({ status: 'ONLINE', timestamp: new Date().toISOString() });
+    try {
+        const { betterSqlite } = require('./models/dbStore');
+        // Pengecekan sederhana ke SQLite untuk memastikan tidak ada lock/korup
+        betterSqlite.prepare('SELECT 1').get(); 
+        
+        res.status(200).json({ 
+            status: 'ONLINE', 
+            database: 'CONNECTED', 
+            timestamp: new Date().toISOString() 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            status: 'OFFLINE', 
+            database: 'ERROR', 
+            error: error.message, 
+            timestamp: new Date().toISOString() 
+        });
+    }
 });
 
 // ─── AUTH MIDDLEWARE ────────────────────────────────────
