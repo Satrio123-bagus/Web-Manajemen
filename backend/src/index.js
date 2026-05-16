@@ -1,4 +1,28 @@
 require('dotenv').config({ path: __dirname + '/../.env' });
+const Sentry = require('@sentry/node');
+const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [
+      nodeProfilingIntegration(),
+    ],
+    // Tracing / Performance Monitoring
+    tracesSampleRate: 0.1,
+    profilesSampleRate: 0.1,
+    // Privacy Filtering
+    beforeSend(event) {
+      if (event.request && event.request.headers) {
+        delete event.request.headers['authorization'];
+        delete event.request.headers['cookie'];
+      }
+      return event;
+    },
+  });
+  console.log('[Sentry] Initialized for Node.js Backend');
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -155,6 +179,11 @@ app.use('/api/terminal', authMiddleware, aiLimiter, terminalRouter);
 app.use('/api/terminal/vision', authMiddleware, aiLimiter, require('./routes/vision'));
 app.use('/api/chat', authMiddleware, aiLimiter, require('./routes/chat'));
 app.use('/api/push', authMiddleware, require('./routes/push'));  // Web Push Notifications
+// ─── SENTRY ERROR HANDLER ──────────────────────────────
+if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+}
+
 // ─── SERVE FRONTEND (PRODUCTION) ───────────────────────
 const DIST_PATH = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(DIST_PATH));
