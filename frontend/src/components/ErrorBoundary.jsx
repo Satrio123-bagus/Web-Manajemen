@@ -58,8 +58,12 @@ class ErrorBoundary extends React.Component {
         url: window.location.href,
       };
 
-      // Uncomment when error tracking service is configured:
-      // fetch('/api/errors/log', { method: 'POST', body: JSON.stringify(errorPayload) });
+      // Send error to Sentry if initialized
+      if (window.Sentry || (typeof Sentry !== 'undefined')) {
+         import('@sentry/react').then(Sentry => {
+             Sentry.captureException(error, { extra: errorInfo });
+         });
+      }
 
       console.warn('[ErrorBoundary] Error logged:', errorPayload);
     } catch (err) {
