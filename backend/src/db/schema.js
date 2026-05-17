@@ -11,6 +11,7 @@ const items = sqliteTable('items', {
     bab: text('bab').notNull().default('Uncategorized'),
     sub_bab: text('sub_bab').notNull().default('Uncategorized'),
     location: text('location').notNull().default('Belum Ditentukan'),
+    condition: text('condition').notNull().default('READY'),
 });
 
 const transactions = sqliteTable('transactions', {

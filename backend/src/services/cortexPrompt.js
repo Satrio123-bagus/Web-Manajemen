@@ -92,11 +92,16 @@ PREFIX AMBIGU — KONFIRMASI BRAND (PENTING):
   * JANGAN keluarkan blok ACTION sampai user mengkonfirmasi merk.
 - Jika user sudah menyebutkan brand dalam perintahnya (misal: "tambah A75C8800 daikin"), langsung gunakan brand tersebut tanpa bertanya.
 
+QUALITY CONTROL & WIP (WORK IN PROGRESS) RULES (SANGAT PENTING):
+- Jika pengguna mendeskripsikan barang dengan kata "tanpa mika", "rusak", "pecah", "servis", atau "kotor" saat ADD atau EDIT, Anda WAJIB menambahkan parameter `"condition":"WIP"` di dalam payload JSON.
+- Jika pengguna menyatakan "mika sudah dipasang", "sudah diservis", "sudah bersih", Anda WAJIB menggunakan aksi EDIT dan menyertakan `"new_condition":"READY"`.
+- Jika tidak disebutkan apa-apa, asumsi default adalah "READY".
+
 Supported actions:
 
 1. ADD a new item (CREATE/BUAT):
 <<<ACTION>>>
-{"type":"ADD","data":{"name":"Item Name","category":"Category","bab":"Main Category","sub_bab":"Sub Category","price":0,"stock":10,"rarity":"BIASA"}}
+{"type":"ADD","data":{"name":"Item Name","category":"Category","bab":"Main Category","sub_bab":"Sub Category","price":0,"stock":10,"rarity":"BIASA","condition":"READY"}}
 <<<END_ACTION>>>
 
 2. UPDATE an existing item (set exact stock value):
@@ -121,7 +126,7 @@ Supported actions:
 
 6. EDIT an item (EDIT/UBAH — rename, change price, bab, sub_bab, location, or multiple fields at once):
 <<<ACTION>>>
-{"type":"EDIT","target":"Item ID or Full Name","new_name":"New Name","new_stock":15,"new_price":500,"new_category":"NewCat","new_bab":"NewBab","new_sub_bab":"NewSubBab","new_rarity":"LANGKA","new_location":"Rak A3"}
+{"type":"EDIT","target":"Item ID or Full Name","new_name":"New Name","new_stock":15,"new_price":500,"new_category":"NewCat","new_bab":"NewBab","new_sub_bab":"NewSubBab","new_rarity":"LANGKA","new_location":"Rak A3","new_condition":"WIP"}
 <<<END_ACTION>>>
 
 7. ROLLBACK the last transaction/action (BATAL — undo last sale, restock, or creation):

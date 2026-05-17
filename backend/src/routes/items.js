@@ -40,7 +40,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', validate(itemSchema), (req, res) => {
-    const { name, category, price, stock, rarity, bab, sub_bab, location } = req.body;
+    const { name, category, price, stock, rarity, bab, sub_bab, location, condition } = req.body;
     if (!name) return res.status(400).json({ error: 'FIELD_REQUIRED: name' });
 
     const stockVal = Number(stock) || 0;
@@ -52,10 +52,10 @@ router.post('/', validate(itemSchema), (req, res) => {
     const item = {
         id: newItemId, name: name.trim(), category: babVal, price: Number(price) || 0,
         stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
-        bab: babVal, sub_bab: subBabVal, location: locationVal
+        bab: babVal, sub_bab: subBabVal, location: locationVal, condition: condition || 'READY'
     };
 
-    stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, item.location);
+    stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, item.location, item.condition);
     refreshInventory();
 
     insertTransaction({
@@ -140,7 +140,7 @@ router.put('/:id', validate(itemSchema), (req, res) => {
     const existing = stmts.getItemById.get(id);
     if (!existing) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
 
-    const { name, category, price, stock, rarity, bab, sub_bab, location } = req.body;
+    const { name, category, price, stock, rarity, bab, sub_bab, location, condition } = req.body;
     const updated = {
         name: (name !== undefined ? name.trim() : existing.name),
         category: (category !== undefined ? category.trim() : existing.category),
@@ -150,11 +150,12 @@ router.put('/:id', validate(itemSchema), (req, res) => {
         bab: (bab !== undefined ? bab.trim() : (category !== undefined ? category.trim() : existing.bab)),
         sub_bab: (sub_bab !== undefined ? sub_bab.trim() : existing.sub_bab),
         location: (location !== undefined ? location.trim() : existing.location || 'Belum Ditentukan'),
+        condition: (condition !== undefined ? condition.trim() : existing.condition || 'READY'),
     };
     updated.category = updated.bab;
     updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
 
-    stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, id, updated.location);
+    stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, id, updated.location, updated.condition);
     refreshInventory();
 
     const result = { id, ...updated };
