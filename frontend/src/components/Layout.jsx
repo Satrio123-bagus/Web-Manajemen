@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationPanel from './NotificationPanel';
@@ -17,8 +17,41 @@ export default function Layout({ children, activePage, onSearch }) {
         }
     };
 
+    // Handle touch gestures for mobile sidebar
+    const touchStartX = useRef(0);
+    const touchStartY = useRef(0);
+
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        
+        const swipeDistanceX = touchEndX - touchStartX.current;
+        const swipeDistanceY = Math.abs(touchEndY - touchStartY.current);
+
+        // Ignore if scrolling vertically (Y distance > X distance)
+        if (swipeDistanceY > Math.abs(swipeDistanceX)) return;
+
+        // Swipe right to open (must start from left edge < 50px)
+        if (swipeDistanceX > 60 && touchStartX.current < 50) {
+            setMobileSidebarOpen(true);
+        }
+        // Swipe left to close (can happen anywhere if sidebar is open)
+        else if (swipeDistanceX < -60 && mobileSidebarOpen) {
+            setMobileSidebarOpen(false);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-[var(--color-dark-bg)] text-gray-200 font-sans relative overflow-hidden">
+        <div 
+            className="min-h-screen bg-[var(--color-dark-bg)] text-gray-200 font-sans relative overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+        >
             {/* ── Ambient Background ── */}
             <div className="fixed inset-0 pointer-events-none z-0">
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[var(--color-neon-purple)] rounded-full blur-[180px] opacity-[0.12] animate-pulse" />
