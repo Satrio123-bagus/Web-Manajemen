@@ -383,15 +383,29 @@ router.post('/', async (req, res) => {
     const totalValue = state.inventory.reduce((sum, i) => sum + i.price * i.stock, 0);
     const lowStock = state.inventory.filter(i => i.stock < 2);
 
-    // --- SMART CONTEXT INJECTION (KEYWORD FILTER) ---
-    const words = cmd.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    let relevantItems = [];
+    // --- SMART CONTEXT INJECTION (KEYWORD FILTER WITH SCORING) ---
+    const stopWords = ['dimana', 'letak', 'ada', 'tolong', 'cek', 'stok', 'berapa', 'jual', 'tambah', 'hapus', 'ubah', 'jadi', 'ke', 'di', 'dari', 'buat', 'bikin', 'rakit', 'untuk'];
+    const words = cmd.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
     
+    let relevantItems = [];
     if (words.length > 0) {
-        relevantItems = state.inventory.filter(item => {
+        const scoredItems = state.inventory.map(item => {
             const searchStr = `${item.name} ${item.category} ${item.bab} ${item.sub_bab} ${item.id}`.toLowerCase();
-            return words.some(w => searchStr.includes(w));
-        });
+            let score = 0;
+            // Exact alphanumeric code match gives massive bonus
+            words.forEach(w => {
+                if (searchStr.includes(w)) {
+                    score += 1;
+                    // Give extra weight to numbers/codes to prioritize specific model searches
+                    if (/\d/.test(w)) score += 5; 
+                }
+            });
+            return { item, score };
+        }).filter(obj => obj.score > 0);
+        
+        // Sort by highest score first
+        scoredItems.sort((a, b) => b.score - a.score);
+        relevantItems = scoredItems.map(obj => obj.item);
     }
     
     // Always include low stock items for alerts, and limit total context size
