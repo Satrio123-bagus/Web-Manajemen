@@ -129,6 +129,8 @@ app.get('/api/status', (req, res) => {
     }
 });
 
+
+
 // ─── AUTH MIDDLEWARE ────────────────────────────────────
 const authMiddleware = require('./middleware/auth');
 

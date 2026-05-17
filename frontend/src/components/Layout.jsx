@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationPanel from './NotificationPanel';
 import { Search, Bell, User, Zap, Menu } from 'lucide-react';
-
 export default function Layout({ children, activePage, onSearch }) {
     const [sidebarCollapsed] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
