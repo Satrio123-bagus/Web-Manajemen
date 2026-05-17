@@ -72,6 +72,7 @@ betterSqlite.exec(`
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN location TEXT NOT NULL DEFAULT 'Belum Ditentukan'`); } catch (_) { }
+try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN condition TEXT NOT NULL DEFAULT 'READY'`); } catch (_) { }
 try { betterSqlite.exec(`UPDATE items SET bab = category WHERE bab = 'Uncategorized' AND category IS NOT NULL AND category != ''`); } catch (_) { }
 
 // Initialize Drizzle ORM
@@ -89,12 +90,12 @@ const stmts = {
     get: (id) => db.select().from(items).where(eq(items.id, id)).get()
   },
   insertItem: {
-    run: (id, name, category, price, stock, rarity, status, bab, sub_bab, location) =>
-      db.insert(items).values({ id, name, category, price, stock, rarity, status, bab, sub_bab, location: location || 'Belum Ditentukan' }).run()
+    run: (id, name, category, price, stock, rarity, status, bab, sub_bab, location, condition) =>
+      db.insert(items).values({ id, name, category, price, stock, rarity, status, bab, sub_bab, location: location || 'Belum Ditentukan', condition: condition || 'READY' }).run()
   },
   updateItem: {
-    run: (name, category, price, stock, rarity, status, bab, sub_bab, id, location) =>
-      db.update(items).set({ name, category, price, stock, rarity, status, bab, sub_bab, location: location || undefined }).where(eq(items.id, id)).run()
+    run: (name, category, price, stock, rarity, status, bab, sub_bab, id, location, condition) =>
+      db.update(items).set({ name, category, price, stock, rarity, status, bab, sub_bab, location: location || undefined, condition: condition || undefined }).where(eq(items.id, id)).run()
   },
   deleteItem: {
     run: (id) => db.delete(items).where(eq(items.id, id)).run()

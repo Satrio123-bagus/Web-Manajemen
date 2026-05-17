@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Coins, Package, AlertTriangle, TrendingUp, Trash2,
-    Edit3, Plus, X, Save, Search, ChevronDown, DollarSign
+    Edit3, Plus, X, Save, Search, ChevronDown, DollarSign, Wrench
 } from 'lucide-react';
 import CortexActionCenter from '../components/CortexActionCenter';
 
@@ -84,6 +84,8 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
         return { totalAssets, totalItems, lowStock };
     }, [items]);
 
+    const wipItems = useMemo(() => items.filter(i => i.condition === 'WIP'), [items]);
+
     /* ── Filter + Sort ── */
     const filtered = useMemo(() => {
         // Items are already filtered by backend
@@ -129,6 +131,45 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
 
             {/* ═══ MAIN CONTENT GRID ═══ */}
             <div className="space-y-8">
+                
+                {/* ═══ QC / WORK IN PROGRESS QUEUE ═══ */}
+                {wipItems.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-[#1a1305]/90 border border-amber-500/30 rounded-2xl p-6 relative overflow-hidden backdrop-blur-xl shadow-[0_8px_30px_rgba(251,191,36,0.1)]"
+                    >
+                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(251,191,36,0.03)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px]" />
+                        <div className="relative z-10 flex flex-col md:flex-row items-start gap-4">
+                            <div className="p-3 bg-amber-500/20 rounded-xl shrink-0 border border-amber-500/30">
+                                <Wrench className="w-6 h-6 text-amber-400 animate-pulse" />
+                            </div>
+                            <div className="flex-1 w-full">
+                                <h3 className="text-lg font-bold text-amber-400 mb-1 font-mono tracking-wide">BENGKEL / QUALITY CONTROL</h3>
+                                <p className="text-sm text-amber-400/70 mb-4 max-w-2xl">
+                                    Terdapat <span className="font-bold text-white">{wipItems.length} barang</span> yang belum selesai diproses (WIP). Barang-barang ini otomatis <strong className="text-red-400">dikunci dari penjualan</strong> oleh sistem Cortex sampai diperbaiki/selesai dirakit.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {wipItems.map(item => (
+                                        <div key={item.id} className="bg-black/60 border border-amber-500/20 p-3 rounded-xl flex justify-between items-center group cursor-pointer hover:border-amber-400/60 hover:bg-amber-900/20 transition-all shadow-[inset_0_0_15px_rgba(251,191,36,0.05)]" onClick={() => onEdit(item)}>
+                                            <div className="min-w-0 pr-2">
+                                                <p className="font-bold text-amber-300 text-sm truncate group-hover:text-amber-200">{item.name}</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[10px] text-gray-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">{item.id}</span>
+                                                    <span className="text-[10px] text-gray-400 font-mono">Stok: {item.stock}</span>
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0 p-1.5 bg-white/5 rounded-lg group-hover:bg-amber-400/20 transition-colors">
+                                                <Edit3 className="w-4 h-4 text-gray-500 group-hover:text-amber-400 transition-colors" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
                 {/* ═══ TABLE SECTION (Full Width) ═══ */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -227,8 +268,11 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
 
                                                     {/* NAME */}
                                                     <td className="px-5 py-4">
-                                                        <span className="font-bold text-white group-hover/row:text-[var(--color-neon-cyan)] transition-colors">
+                                                        <span className="font-bold text-white group-hover/row:text-[var(--color-neon-cyan)] transition-colors flex items-center gap-2">
                                                             {item.name}
+                                                            {item.condition === 'WIP' && (
+                                                                <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[9px] rounded font-mono font-bold tracking-widest uppercase shadow-[0_0_10px_rgba(251,191,36,0.2)]">WIP</span>
+                                                            )}
                                                         </span>
                                                     </td>
 
@@ -299,17 +343,17 @@ export default function Dashboard({ items, meta, onPageChange, limit, onLimitCha
                                                             {/* Quick Sell */}
                                                             {item.price > 0 && (
                                                                 <motion.button
-                                                                    whileHover={item.stock > 0 ? { scale: 1.1 } : {}} whileTap={item.stock > 0 ? { scale: 0.9 } : {}}
-                                                                    onClick={() => item.stock > 0 && onSell(item.id)}
-                                                                    disabled={item.stock <= 0}
-                                                                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border ${item.stock > 0
+                                                                    whileHover={item.stock > 0 && item.condition !== 'WIP' ? { scale: 1.1 } : {}} whileTap={item.stock > 0 && item.condition !== 'WIP' ? { scale: 0.9 } : {}}
+                                                                    onClick={() => item.stock > 0 && item.condition !== 'WIP' && onSell(item.id)}
+                                                                    disabled={item.stock <= 0 || item.condition === 'WIP'}
+                                                                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all border ${item.stock > 0 && item.condition !== 'WIP'
                                                                         ? 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10 hover:border-amber-400/60 hover:shadow-[0_0_12px_rgba(251,191,36,0.2)]'
                                                                         : 'text-gray-600 border-gray-700/30 bg-gray-800/30 cursor-not-allowed'
                                                                         }`}
-                                                                    title={item.stock > 0 ? `Sell 1x ${item.name}` : 'Out of stock'}
+                                                                    title={item.condition === 'WIP' ? 'Terkunci: Masih WIP (Belum Selesai)' : (item.stock > 0 ? `Sell 1x ${item.name}` : 'Out of stock')}
                                                                 >
                                                                     <DollarSign className="w-3 h-3" />
-                                                                    {item.stock > 0 ? 'SELL' : 'EMPTY'}
+                                                                    {item.condition === 'WIP' ? 'LOCKED' : (item.stock > 0 ? 'SELL' : 'EMPTY')}
                                                                 </motion.button>
                                                             )}
                                                             {/* Assemble */}

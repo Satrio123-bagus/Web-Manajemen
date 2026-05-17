@@ -56,7 +56,7 @@ function executeAction(actionJson) {
         const action = JSON.parse(actionJson);
         switch (action.type) {
             case 'ADD': {
-                const { name, category, price, stock, rarity, bab, sub_bab } = action.data || {};
+                const { name, category, price, stock, rarity, bab, sub_bab, condition } = action.data || {};
                 if (!name) return '[ERROR] ADD failed: name required.';
                 const newItemId = `item_${Date.now()}`;
                 const stockVal = Number(stock) || 0;
@@ -67,10 +67,10 @@ function executeAction(actionJson) {
                 const item = {
                     id: newItemId, name: name.trim(), category: babVal, price: priceVal,
                     stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
-                    bab: babVal, sub_bab: subBabVal,
+                    bab: babVal, sub_bab: subBabVal, condition: condition || 'READY'
                 };
 
-                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, 'Belum Ditentukan');
+                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, 'Belum Ditentukan', item.condition);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: item.name, category: item.bab,
                     unit_price: item.price, quantity: item.stock, total: 0, timestamp: new Date().toISOString(),
@@ -131,6 +131,7 @@ function executeAction(actionJson) {
                 if (!target) return '[ERROR] JUAL gagal: target tidak ditentukan.';
                 const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
                 if (!item) return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
+                if (item.condition === 'WIP') return `[ERROR] JUAL DITOLAK: ${item.name} masih berstatus WIP (Belum Selesai / Perlu Servis). Selesaikan QC terlebih dahulu!`;
                 if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
                 const newStock = item.stock - qty;
                 const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
@@ -201,10 +202,11 @@ function executeAction(actionJson) {
                     bab: action.new_bab ? String(action.new_bab).trim() : (action.new_category ? String(action.new_category).trim() : existing.bab || existing.category),
                     sub_bab: action.new_sub_bab ? String(action.new_sub_bab).trim() : existing.sub_bab || 'Uncategorized',
                     location: action.new_location ? String(action.new_location).trim() : existing.location || 'Belum Ditentukan',
+                    condition: action.new_condition ? String(action.new_condition).trim() : existing.condition || 'READY',
                 };
                 edited.category = edited.bab;
                 edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, edited.location);
+                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, edited.location, edited.condition);
                 insertTransaction({
                     transaction_id: generateTxId(), item_name: edited.name, category: edited.bab,
                     unit_price: edited.price, quantity: edited.stock, total: 0, timestamp: new Date().toISOString(),
@@ -218,6 +220,7 @@ function executeAction(actionJson) {
                 if (edited.category !== existing.category) changes.push(`Kategori: ${existing.category} → ${edited.category}`);
                 if (edited.rarity !== existing.rarity) changes.push(`Raritas: ${existing.rarity} → ${edited.rarity}`);
                 if (edited.location !== (existing.location || 'Belum Ditentukan')) changes.push(`Lokasi: ${existing.location || 'Belum Ditentukan'} → ${edited.location}`);
+                if (edited.condition !== (existing.condition || 'READY')) changes.push(`Kondisi: ${existing.condition || 'READY'} → ${edited.condition}`);
                 return `[EDITED] ${existing.id} | ${changes.join(' | ')}`;
             }
             case 'ASSEMBLE': {
@@ -431,10 +434,11 @@ LIVE SYSTEM CONTEXT:
 - Total Items (in DB): ${state.inventory.length}
 - Total Stock Value: Rp${totalValue.toLocaleString('id-ID')}
 - Low Stock Alerts: ${lowStock.length} items
+- QC/WIP Items: ${state.inventory.filter(i => i.condition === 'WIP').length} items
 - Bab (Main Categories): ${[...new Set(state.inventory.map(i => i.bab || i.category))].join(', ')}
 
 RELEVANT ITEMS (Filtered Context, Max 25):
-${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Lokasi: ${item.location || 'Belum Ditentukan'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity} ${item.stock < 2 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
+${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Lokasi: ${item.location || 'Belum Ditentukan'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Kondisi: ${item.condition || 'READY'} ${item.condition === 'WIP' ? '[WARN: QC WIP]' : ''} ${item.stock < 2 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
 
 ANALYTICS DATA:
 - Total Revenue: Rp${revenueStats.revenue.toLocaleString('id-ID')} from ${revenueStats.sale_count} sale(s)
