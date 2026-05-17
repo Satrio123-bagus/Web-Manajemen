@@ -434,7 +434,7 @@ LIVE SYSTEM CONTEXT:
 - Bab (Main Categories): ${[...new Set(state.inventory.map(i => i.bab || i.category))].join(', ')}
 
 RELEVANT ITEMS (Filtered Context, Max 25):
-${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity} ${item.stock < 2 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
+${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Lokasi: ${item.location || 'Belum Ditentukan'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Rarity: ${item.rarity} ${item.stock < 2 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
 
 ANALYTICS DATA:
 - Total Revenue: Rp${revenueStats.revenue.toLocaleString('id-ID')} from ${revenueStats.sale_count} sale(s)
