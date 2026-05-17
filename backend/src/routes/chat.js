@@ -20,15 +20,27 @@ router.post('/', async (req, res) => {
     try {
         const allItems = stmts.getAllItems.all();
         
-        // --- SMART CONTEXT INJECTION (KEYWORD FILTER) ---
-        const words = pesan.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-        let relevantItems = [];
+        // --- SMART CONTEXT INJECTION (KEYWORD FILTER WITH SCORING) ---
+        const stopWords = ['dimana', 'letak', 'ada', 'tolong', 'cek', 'stok', 'berapa', 'jual', 'tambah', 'hapus', 'ubah', 'jadi', 'ke', 'di', 'dari', 'buat', 'bikin', 'rakit', 'untuk'];
+        const words = pesan.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
         
+        let relevantItems = [];
         if (words.length > 0) {
-            relevantItems = allItems.filter(item => {
+            const scoredItems = allItems.map(item => {
                 const searchStr = `${item.name} ${item.category} ${item.bab} ${item.sub_bab} ${item.id}`.toLowerCase();
-                return words.some(w => searchStr.includes(w));
-            });
+                let score = 0;
+                words.forEach(w => {
+                    if (searchStr.includes(w)) {
+                        score += 1;
+                        if (/\d/.test(w)) score += 5; // Extra weight for numbers/model codes
+                    }
+                });
+                return { item, score };
+            }).filter(obj => obj.score > 0);
+            
+            // Sort by highest score first
+            scoredItems.sort((a, b) => b.score - a.score);
+            relevantItems = scoredItems.map(obj => obj.item);
         }
         
         // If no specific match or everything matched, just send top/recent items + low stock
