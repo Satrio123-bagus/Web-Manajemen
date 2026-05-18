@@ -62,6 +62,14 @@ export default function Analytics() {
     const [period, setPeriod] = useState('monthly'); // daily, weekly, monthly, yearly
     const [aiInsight, setAiInsight] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const periodOptions = [
+        { id: 'daily', label: 'Harian', desc: '24 Jam' },
+        { id: 'weekly', label: 'Mingguan', desc: '7 Hari' },
+        { id: 'monthly', label: 'Bulanan', desc: '30 Hari' },
+        { id: 'yearly', label: 'Tahunan', desc: '12 Bulan' },
+    ];
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -120,20 +128,66 @@ export default function Analytics() {
                     <p className="text-xs font-mono text-gray-600 mt-1">Real-time revenue & performance tracking</p>
                 </div>
 
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                        <Calendar className="w-4 h-4 text-[var(--color-neon-purple)]" />
-                    </div>
-                    <select
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value)}
-                        className="bg-[rgba(8,8,12,0.8)] border border-[var(--color-neon-purple)]/40 text-white text-sm font-mono rounded-xl focus:ring-[var(--color-neon-purple)] focus:border-[var(--color-neon-purple)] block w-full pl-10 p-2.5 hover:bg-[var(--color-neon-purple)]/10 transition-colors cursor-pointer appearance-none outline-none pr-8"
+                <div 
+                    className="relative group z-50"
+                    tabIndex={0}
+                    onBlur={(e) => {
+                        // Close dropdown if focus moves outside of it
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                            setIsDropdownOpen(false);
+                        }
+                    }}
+                >
+                    <button
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="flex items-center justify-between gap-3 bg-[rgba(8,8,12,0.8)] border border-[var(--color-neon-purple)]/40 text-white text-sm font-mono rounded-xl px-4 py-2.5 hover:bg-[var(--color-neon-purple)]/20 hover:border-[var(--color-neon-purple)] hover:shadow-[0_0_15px_rgba(188,19,254,0.2)] transition-all cursor-pointer outline-none min-w-[200px]"
                     >
-                        <option value="daily">Harian (24 Jam)</option>
-                        <option value="weekly">Mingguan (7 Hari)</option>
-                        <option value="monthly">Bulanan (30 Hari)</option>
-                        <option value="yearly">Tahunan (12 Bulan)</option>
-                    </select>
+                        <div className="flex items-center gap-3">
+                            <Calendar className={`w-4 h-4 transition-colors ${isDropdownOpen ? 'text-[var(--color-neon-cyan)]' : 'text-[var(--color-neon-purple)]'}`} />
+                            <span className="font-bold tracking-wide">{periodOptions.find(o => o.id === period)?.label || 'Pilih Mode'}</span>
+                        </div>
+                        <motion.svg 
+                            animate={{ rotate: isDropdownOpen ? 180 : 0 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                            className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                        </motion.svg>
+                    </button>
+
+                    <AnimatePresence>
+                        {isDropdownOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute right-0 sm:right-auto left-0 sm:left-auto sm:right-0 top-full mt-2 w-full sm:min-w-[220px] bg-[rgba(10,10,14,0.95)] backdrop-blur-xl border border-[var(--color-neon-purple)]/40 rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_20px_rgba(188,19,254,0.2)]"
+                            >
+                                <div className="p-1 flex flex-col gap-1">
+                                    {periodOptions.map((opt) => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => {
+                                                setPeriod(opt.id);
+                                                setIsDropdownOpen(false);
+                                            }}
+                                            className={`w-full text-left px-4 py-3 font-mono text-sm transition-all rounded-lg flex items-center justify-between group ${
+                                                period === opt.id 
+                                                    ? 'bg-gradient-to-r from-[var(--color-neon-purple)]/30 to-transparent text-white border-l-2 border-[var(--color-neon-purple)]' 
+                                                    : 'text-gray-400 hover:bg-white/5 hover:text-white border-l-2 border-transparent'
+                                            }`}
+                                        >
+                                            <span className="font-bold tracking-wide">{opt.label}</span>
+                                            <span className={`text-[10px] px-2 py-1 rounded-md transition-colors ${period === opt.id ? 'bg-[var(--color-neon-purple)]/40 text-white' : 'bg-white/5 text-gray-500 group-hover:bg-white/10'}`}>
+                                                {opt.desc}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
 
