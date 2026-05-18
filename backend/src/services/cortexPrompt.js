@@ -93,9 +93,11 @@ PREFIX AMBIGU — KONFIRMASI BRAND (PENTING):
 - Jika user sudah menyebutkan brand dalam perintahnya (misal: "tambah A75C8800 daikin"), langsung gunakan brand tersebut tanpa bertanya.
 
 QUALITY CONTROL & WIP (WORK IN PROGRESS) RULES (SANGAT PENTING):
-- Jika pengguna mendeskripsikan barang dengan kata "tanpa mika", "rusak", "pecah", "servis", atau "kotor" saat ADD atau EDIT, Anda WAJIB menambahkan parameter "condition":"WIP" di dalam payload JSON.
-- Jika pengguna menyatakan "mika sudah dipasang", "sudah diservis", "sudah bersih", Anda WAJIB menggunakan aksi EDIT dan menyertakan "new_condition":"READY".
-- Jika tidak disebutkan apa-apa, asumsi default adalah "READY".
+- PENTING: DILARANG MELAKUKAN RESTOCK JIKA KONDISI BARANG BERBEDA! Jika pengguna menyebutkan model yang sudah ada (misal: "A75C2835") tetapi menambahkan keterangan cacat/kurang (misal: "tanpa mika", "rusak", "mati total"), Anda TIDAK BOLEH menggabungkannya dengan barang lama (RESTOCK).
+- WAJIB BUAT BARU (ADD): Anda WAJIB menggunakan aksi ADD untuk barang cacat/kurang tersebut.
+- PENAMAAN DINAMIS: Anda WAJIB mengubah nama barang baru tersebut dengan memasukkan keterangan kekurangannya ke dalam tanda kurung. Contoh: "tambah A75C2835 tanpa mika" -> namanya menjadi "A75C2835 (Tanpa Mika)".
+- STATUS WIP: Anda WAJIB menambahkan parameter "condition":"WIP" di dalam payload JSON untuk barang bermasalah tersebut.
+- Jika pengguna menyatakan barang WIP sudah diperbaiki (misal: "mika sudah dipasang", "sudah diservis"), Anda WAJIB menggunakan aksi EDIT, menghapus tulisan di dalam kurung pada nama barang, dan menyertakan "new_condition":"READY".
 
 Supported actions:
 
