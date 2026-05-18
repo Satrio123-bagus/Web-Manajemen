@@ -67,9 +67,17 @@ function executeAction(actionJson) {
                 let finalPrice = priceVal;
                 let finalSubBab = subBabVal;
                 
+                const lowerName = name.toLowerCase();
+                const isSparepart = lowerName.includes('casing') || lowerName.includes('cassing') || lowerName.includes('sensor') || lowerName.includes('pcb') || lowerName.includes('mesin') || lowerName.includes('kapasitor');
+
                 if ((condition || 'READY') === 'WIP') {
                     finalPrice = 0;
                     finalSubBab = 'WIP';
+                } else if (finalSubBab.toLowerCase() === 'sparepart' || isSparepart) {
+                    finalPrice = 0;
+                    finalSubBab = 'Sparepart';
+                } else if (finalSubBab.toLowerCase() === 'uncategorized' || finalSubBab === '') {
+                    finalSubBab = 'Remote';
                 }
 
                 const item = {
@@ -216,6 +224,16 @@ function executeAction(actionJson) {
                 if (edited.condition === 'WIP') {
                     edited.price = 0;
                     edited.sub_bab = 'WIP';
+                } else {
+                    const lowerEditName = edited.name.toLowerCase();
+                    const isEditSparepart = lowerEditName.includes('casing') || lowerEditName.includes('cassing') || lowerEditName.includes('sensor') || lowerEditName.includes('pcb') || lowerEditName.includes('mesin') || lowerEditName.includes('kapasitor');
+                    
+                    if (edited.sub_bab.toLowerCase() === 'sparepart' || isEditSparepart) {
+                        edited.price = 0;
+                        edited.sub_bab = 'Sparepart';
+                    } else if (edited.sub_bab.toLowerCase() === 'uncategorized' || edited.sub_bab === '') {
+                        edited.sub_bab = 'Remote';
+                    }
                 }
                 
                 edited.category = edited.bab;
