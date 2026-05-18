@@ -93,8 +93,8 @@ PREFIX AMBIGU — KONFIRMASI BRAND (PENTING):
 - Jika user sudah menyebutkan brand dalam perintahnya (misal: "tambah A75C8800 daikin"), langsung gunakan brand tersebut tanpa bertanya.
 
 QUALITY CONTROL & WIP (WORK IN PROGRESS) RULES (SANGAT PENTING):
-- Jika pengguna mendeskripsikan barang dengan kata "tanpa mika", "rusak", "pecah", "servis", atau "kotor" saat ADD atau EDIT, Anda WAJIB menambahkan parameter `"condition":"WIP"` di dalam payload JSON.
-- Jika pengguna menyatakan "mika sudah dipasang", "sudah diservis", "sudah bersih", Anda WAJIB menggunakan aksi EDIT dan menyertakan `"new_condition":"READY"`.
+- Jika pengguna mendeskripsikan barang dengan kata "tanpa mika", "rusak", "pecah", "servis", atau "kotor" saat ADD atau EDIT, Anda WAJIB menambahkan parameter "condition":"WIP" di dalam payload JSON.
+- Jika pengguna menyatakan "mika sudah dipasang", "sudah diservis", "sudah bersih", Anda WAJIB menggunakan aksi EDIT dan menyertakan "new_condition":"READY".
 - Jika tidak disebutkan apa-apa, asumsi default adalah "READY".
 
 Supported actions:
