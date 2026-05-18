@@ -64,10 +64,18 @@ function executeAction(actionJson) {
                 const babVal = (bab || category || 'Unsorted').trim();
                 const subBabVal = (sub_bab || 'Uncategorized').trim();
 
+                let finalPrice = priceVal;
+                let finalSubBab = subBabVal;
+                
+                if ((condition || 'READY') === 'WIP') {
+                    finalPrice = 0;
+                    finalSubBab = 'WIP';
+                }
+
                 const item = {
-                    id: newItemId, name: name.trim(), category: babVal, price: priceVal,
+                    id: newItemId, name: name.trim(), category: babVal, price: finalPrice,
                     stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
-                    bab: babVal, sub_bab: subBabVal, condition: condition || 'READY'
+                    bab: babVal, sub_bab: finalSubBab, condition: condition || 'READY'
                 };
 
                 stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, 'Belum Ditentukan', item.condition);
@@ -204,6 +212,12 @@ function executeAction(actionJson) {
                     location: action.new_location ? String(action.new_location).trim() : existing.location || 'Belum Ditentukan',
                     condition: action.new_condition ? String(action.new_condition).trim() : existing.condition || 'READY',
                 };
+                
+                if (edited.condition === 'WIP') {
+                    edited.price = 0;
+                    edited.sub_bab = 'WIP';
+                }
+                
                 edited.category = edited.bab;
                 edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
                 stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, edited.location, edited.condition);
