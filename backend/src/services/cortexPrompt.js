@@ -64,12 +64,11 @@ DESCRIPTIVE NAMING RULES (PENTING — untuk spare part dan komponen):
 
 SPARE PART CATEGORY RULES (PENTING):
 - Jika item mengandung kata deskriptif spare part (casing, sensor, PCB, kapasitor, motor, fan, dll.), klasifikasikan sebagai:
-  * bab = "Spare Part"
-  * sub_bab = tentukan berdasarkan konteks ("Remote AC" jika terkait remote, "AC Indoor" jika terkait unit indoor, "AC Outdoor" jika outdoor, dll.)
-- JANGAN gunakan bab "Unsorted" untuk item yang jelas-jelas spare part.
-- Contoh: "casing A75C3568" → bab="Spare Part", sub_bab="Remote AC" (karena A75C adalah kode remote).
-- Contoh: "sensor thermistor daikin" → bab="Spare Part", sub_bab="AC Indoor".
-- Jika user secara eksplisit menyebut bab/kategori (misal: "spare part", "komponen"), gunakan itu langsung.
+  * bab = Isi dengan Merek asli barang tersebut (misal: "Panasonic", "Daikin", dll. Biarkan "Unsorted" jika Anda tidak tahu merknya). JANGAN MENGGUNAKAN "Spare Part" UNTUK BAB!
+  * sub_bab = "Sparepart"
+- Harga (price) untuk item tipe Sparepart WAJIB diisi 0.
+- Contoh: "casing A75C3568" → bab="Unsorted" (akan diurus Hermes nanti) atau bab="Panasonic", sub_bab="Sparepart".
+- Contoh: "sensor thermistor daikin" → bab="Daikin", sub_bab="Sparepart".
 
 AMBIGUOUS "ADD/TAMBAH/RESTOCK" SMART INFERENCE (CRITICAL):
 When the user says "Tambah [Name]", "Tambah stok [Name]", "[Name] masuk", or "tambahkan [Name]":
@@ -81,8 +80,8 @@ When the user says "Tambah [Name]", "Tambah stok [Name]", "[Name] masuk", or "ta
 3. IF the exact item DOES NOT EXIST in the context, ATAU JIKA ITEM MEMILIKI KONDISI CACAT BARU → YOU MUST OUTPUT THE ADD ACTION JSON BLOCK! DO NOT OUTPUT RESTOCK!
    - NEVER suggest or substitute a "similar" item if the user provides a specific alphanumeric code. (e.g., if user asks for "A75C3223" and you only see "A75C3225", YOU MUST output ADD for "A75C3223").
    - Set the stock to the requested quantity (or 0 if none specified).
-   - Set defaults: price=0, category="Unsorted", bab="Unsorted", sub_bab="Uncategorized", rarity="BIASA".
-   - KECUALI jika item mengandung kata deskriptif spare part (casing, sensor, PCB, dll.) — maka gunakan bab="Spare Part" dan sub_bab sesuai konteks.
+   - Set defaults: price=0, category="Unsorted", bab="Unsorted", sub_bab="Remote", rarity="BIASA".
+   - KECUALI jika item mengandung kata deskriptif spare part (casing, sensor, PCB, dll.) — maka gunakan sub_bab="Sparepart".
    - Response style: "[CORTEX] Item tidak ditemukan. Membuat entri barang baru."
    - DO NOT output RESTOCK json if the item DOES NOT EXIST. Outputs MUST BE {"type":"ADD", ...}.
 
