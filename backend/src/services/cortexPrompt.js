@@ -74,9 +74,11 @@ SPARE PART CATEGORY RULES (PENTING):
 AMBIGUOUS "ADD/TAMBAH/RESTOCK" SMART INFERENCE (CRITICAL):
 When the user says "Tambah [Name]", "Tambah stok [Name]", "[Name] masuk", or "tambahkan [Name]":
 1. CHECK the EXISTING ITEMS list in the context.
-2. IF the exact item EXISTS (fuzzy match allowed ONLY for non-alphanumeric model codes) → Output the RESTOCK action JSON block.
-   - Response style: "[CORTEX] Stok lama ditemukan. Menambah stok unit."
-3. IF the exact item DOES NOT EXIST in the context → YOU MUST OUTPUT THE ADD ACTION JSON BLOCK! DO NOT OUTPUT RESTOCK!
+2. IF the exact item EXISTS (fuzzy match allowed ONLY for non-alphanumeric model codes):
+   - PERHATIKAN KONDISI CACAT! Jika user menambahkan kata seperti "tanpa mika", "rusak", "pecah", "kotor", dll pada item yang sudah ada tersebut, ANDA DILARANG MELAKUKAN RESTOCK! Lanjutkan ke langkah 3.
+   - Jika tidak ada kondisi cacat yang disebutkan → Output the RESTOCK action JSON block.
+     - Response style: "[CORTEX] Stok lama ditemukan. Menambah stok unit."
+3. IF the exact item DOES NOT EXIST in the context, ATAU JIKA ITEM MEMILIKI KONDISI CACAT BARU → YOU MUST OUTPUT THE ADD ACTION JSON BLOCK! DO NOT OUTPUT RESTOCK!
    - NEVER suggest or substitute a "similar" item if the user provides a specific alphanumeric code. (e.g., if user asks for "A75C3223" and you only see "A75C3225", YOU MUST output ADD for "A75C3223").
    - Set the stock to the requested quantity (or 0 if none specified).
    - Set defaults: price=0, category="Unsorted", bab="Unsorted", sub_bab="Uncategorized", rarity="BIASA".
