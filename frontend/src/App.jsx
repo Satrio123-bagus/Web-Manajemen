@@ -16,7 +16,7 @@ import BarcodeStudio from './pages/BarcodeStudio';
 import MobileScanner from './pages/MobileScanner';
 import { SettingsProvider } from './context/SettingsContext';
 import { useSound } from './hooks/useSound';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api, { fetchApi } from './api';
 
 const API = '/api/items';
@@ -61,6 +61,7 @@ function AppContent() {
       }
       return res.json();
     },
+    placeholderData: keepPreviousData,
     staleTime: 60000, 
     enabled: !!token,
   });
