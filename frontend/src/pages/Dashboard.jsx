@@ -571,10 +571,23 @@ export function AssembleModal({ isOpen, onClose, onSave, sourceItem, allItems })
     useEffect(() => {
         if (isOpen && sourceItem) {
             setMaterials([{ id: sourceItem.id, qty: 1 }]);
-            setTargetItemId('');
             setQuantity('');
+            
+            // Auto-detect target item: if source is "A75C2835 (Tanpa Mika)", look for "A75C2835"
+            let autoTargetId = '';
+            if (allItems) {
+                const baseNameMatch = sourceItem.name.match(/^(.*?)\s*\(/);
+                if (baseNameMatch && baseNameMatch[1]) {
+                    const baseName = baseNameMatch[1].trim().toLowerCase();
+                    const targetMatch = allItems.find(i => i.name.toLowerCase() === baseName && i.id !== sourceItem.id);
+                    if (targetMatch) {
+                        autoTargetId = targetMatch.id;
+                    }
+                }
+            }
+            setTargetItemId(autoTargetId);
         }
-    }, [isOpen, sourceItem]);
+    }, [isOpen, sourceItem, allItems]);
 
     const handleQuantityChange = (e) => {
         const val = e.target.value;
