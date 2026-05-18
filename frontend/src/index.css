@@ -169,3 +169,11 @@ body.low-graphics .shadow-\[0_0_30px_rgba\(188\,19\,254\,0\.15\)\] {
 body.low-graphics * {
   transition-duration: 0ms !important;
 }
+
+/* 8. Matikan gradient text (mencegah blok hitam di Windows 7/Browser Lama) */
+body.low-graphics .bg-clip-text,
+body.low-graphics .text-transparent {
+  background: none !important;
+  -webkit-text-fill-color: var(--color-neon-cyan) !important;
+  color: var(--color-neon-cyan) !important;
+}
