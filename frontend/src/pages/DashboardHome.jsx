@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
     Coins, Cpu, AlertTriangle, Bot as TerminalIcon,
-    Shield, Zap, ChevronRight, Activity
+    Shield, Zap, ChevronRight, Activity, ClipboardList, CheckCircle2
 } from 'lucide-react';
 import api from '../api';
 
@@ -116,8 +116,9 @@ function logColor(type) {
 export default function DashboardHome() {
     const [analytics, setAnalytics] = useState(null);
     const [terminalLogs, setTerminalLogs] = useState([]);
-    const [lastUpdated, setLastUpdated] = useState(null);   // Waktu terakhir data diperbarui
-    const [countdown, setCountdown] = useState(30);         // Hitung mundur ke refresh berikutnya
+    const [supplyReports, setSupplyReports] = useState([]); // State laporan alat pekerja
+    const [lastUpdated, setLastUpdated] = useState(null);
+    const [countdown, setCountdown] = useState(30);
     const [newLogCount, setNewLogCount] = useState(0);      // Jumlah log baru sejak refresh
     const [isRefreshing, setIsRefreshing] = useState(false); // Status loading saat refresh
     const logRef = useRef(null);
@@ -150,10 +151,12 @@ export default function DashboardHome() {
             Promise.all([
                 safeFetch('/api/analytics'),
                 safeFetch('/api/transactions'),
-            ]).then(([a, t]) => {
+                safeFetch('/api/production/supplies') // Fetch supplies
+            ]).then(([a, t, s]) => {
                 setAnalytics(a);
                 const txList = Array.isArray(t) ? t : (Array.isArray(t?.data) ? t.data : []);
                 setTerminalLogs(txList);
+                if (s?.reports) setSupplyReports(s.reports);
                 setLastUpdated(new Date());
                 prevLogCount.current = txList.length;
                 setCountdown(POLL_INTERVAL);
@@ -175,6 +178,11 @@ export default function DashboardHome() {
                 const freshData = await safeFetch('/api/transactions');
                 const freshList = Array.isArray(freshData) ? freshData : (Array.isArray(freshData?.data) ? freshData.data : []);
                 setTerminalLogs(freshList);
+
+                // Fetch supplies for polling too
+                const suppliesData = await safeFetch('/api/production/supplies');
+                if (suppliesData?.reports) setSupplyReports(suppliesData.reports);
+
                 setLastUpdated(new Date());
                 // Deteksi apakah ada log baru sejak polling terakhir
                 const added = freshList.length - prevLogCount.current;
@@ -214,6 +222,15 @@ export default function DashboardHome() {
     const loadPct = Math.min(100, Math.round((totalItems / MAX_CAPACITY) * 100));
 
     const animatedValue = useCountUp(totalValue, 2500);
+
+    const handleResolveReport = async (id) => {
+        try {
+            await api.put(`/production/supplies/${id}`, { status: 'RESOLVED' });
+            setSupplyReports(prev => prev.map(r => r.id === id ? { ...r, status: 'RESOLVED' } : r));
+        } catch (err) {
+            console.error('Failed to resolve report', err);
+        }
+    };
 
     if (!analytics) {
         return (
@@ -482,6 +499,41 @@ export default function DashboardHome() {
                             <span>&gt;</span>
                             <span className="animate-[flicker_1s_infinite]">█</span>
                         </div>
+                    </div>
+                </GlassCard>
+
+                {/* ═══ WIDGET F — SUPPLY REQUESTS (ADMIN FEEDBACK LOOP) ═══ */}
+                <GlassCard delay={0.4} className="xl:col-span-2 border-t-4 border-t-amber-500">
+                    <div className="flex items-center gap-2 mb-3">
+                        <ClipboardList className="w-4 h-4 text-amber-400" />
+                        <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-gray-500 uppercase">
+                            LAPORAN_PERLENGKAPAN_PEKERJA
+                        </GlitchHeader>
+                    </div>
+
+                    <div className="space-y-3 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                        {supplyReports.filter(r => r.status === 'PENDING').length === 0 ? (
+                            <p className="text-gray-500 font-mono text-xs text-center py-4">TIDAK ADA PERMINTAAN DARI PEKERJA</p>
+                        ) : (
+                            supplyReports.filter(r => r.status === 'PENDING').map(report => (
+                                <div key={report.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex justify-between items-center group hover:border-amber-500/30 transition-colors">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-bold text-amber-400">@{report.pekerja}</span>
+                                            <span className="text-[9px] font-mono text-gray-500">{new Date(report.timestamp).toLocaleTimeString('id-ID')}</span>
+                                        </div>
+                                        <p className="text-sm text-gray-300">{report.laporan}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleResolveReport(report.id)}
+                                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 p-2 rounded-lg transition-all flex items-center gap-2 font-bold text-xs"
+                                        title="Tandai Sudah Dibelikan"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4" /> SELESAI
+                                    </button>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </GlassCard>
             </div>

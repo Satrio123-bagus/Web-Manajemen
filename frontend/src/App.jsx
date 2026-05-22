@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import Dashboard, { InventoryModal, AssembleModal } from './pages/Dashboard';
 import DashboardHome from './pages/DashboardHome';
+import WorkerDashboard from './pages/WorkerDashboard';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Terminal from './pages/Terminal';
@@ -245,7 +246,7 @@ function AppContent() {
         </div>
       ) : (
         <Routes>
-          <Route path="/" element={<DashboardHome />} />
+          <Route path="/" element={user?.role === 'ADMIN' ? <DashboardHome /> : <WorkerDashboard user={user} />} />
           <Route path="/inventory" element={
             <Dashboard
               items={items}
