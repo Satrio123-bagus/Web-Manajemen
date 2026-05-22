@@ -41,9 +41,39 @@ const tabelBarang = sqliteTable('barang', {
     kategori: text('kategori')
 });
 
+const users = sqliteTable('users', {
+    id: text('id').primaryKey(),
+    username: text('username').notNull().unique(),
+    password_hash: text('password_hash').notNull(),
+    role: text('role').notNull().default('CASING'), // CASING, MESIN, ADMIN
+});
+
+const production_jobs = sqliteTable('production_jobs', {
+    id: text('id').primaryKey(),
+    tipe_remote: text('tipe_remote').notNull(),
+    komponen: text('komponen').notNull(), // CASING, MESIN, LAYAR
+    kriteria: text('kriteria'), // Baut, Tidak Baut, dll
+    status: text('status').notNull().default('MENTAH'), // MENTAH, PROSES, QC_CEK, SELESAI_JUAL, SELESAI_RAKIT, RUSAK
+    catatan: text('catatan'),
+    alokasi: integer('alokasi').default(1),
+    assigned_to: text('assigned_to'), // ID user (opsional)
+    timestamp: text('timestamp'),
+});
+
+const supply_reports = sqliteTable('supply_reports', {
+    id: text('id').primaryKey(),
+    pekerja: text('pekerja').notNull(), // username
+    laporan: text('laporan').notNull(),
+    status: text('status').notNull().default('PENDING'), // PENDING, RESOLVED
+    timestamp: text('timestamp'),
+});
+
 module.exports = {
     items,
     transactions,
     conversations,
     tabelBarang,
+    users,
+    production_jobs,
+    supply_reports,
 };

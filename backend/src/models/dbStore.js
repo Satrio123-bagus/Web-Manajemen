@@ -4,7 +4,7 @@ const fs = require('fs');
 const { drizzle } = require('drizzle-orm/better-sqlite3');
 const { eq, sum, count, desc, like, or, sql } = require('drizzle-orm');
 const schema = require('../db/schema');
-const { items, transactions, conversations } = schema;
+const { items, transactions, conversations, users, production_jobs, supply_reports } = schema;
 
 // ─── SQLite DATABASE + DRIZZLE ORM ──────────────────────
 const dataDir = path.join(__dirname, '../../data');
@@ -68,6 +68,30 @@ betterSqlite.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_tx_type_time ON transactions(type, timestamp);
   CREATE INDEX IF NOT EXISTS idx_tx_item_name ON transactions(item_name);
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'CASING'
+  );
+  CREATE TABLE IF NOT EXISTS production_jobs (
+    id TEXT PRIMARY KEY,
+    tipe_remote TEXT NOT NULL,
+    komponen TEXT NOT NULL,
+    kriteria TEXT,
+    status TEXT NOT NULL DEFAULT 'MENTAH',
+    catatan TEXT,
+    alokasi INTEGER DEFAULT 1,
+    assigned_to TEXT,
+    timestamp TEXT
+  );
+  CREATE TABLE IF NOT EXISTS supply_reports (
+    id TEXT PRIMARY KEY,
+    pekerja TEXT NOT NULL,
+    laporan TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    timestamp TEXT
+  );
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN sub_bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -108,6 +132,37 @@ const stmts = {
   },
   deleteAll: {
     run: () => db.delete(items).run()
+  },
+  getUserByUsername: {
+    get: (username) => db.select().from(users).where(eq(users.username, username)).get()
+  },
+  insertUser: {
+    run: (id, username, password_hash, role) => 
+      db.insert(users).values({ id, username, password_hash, role }).run()
+  },
+  getProductionJobs: {
+    all: () => db.select().from(production_jobs).orderBy(desc(production_jobs.timestamp)).all()
+  },
+  insertProductionJob: {
+    run: (id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp) =>
+      db.insert(production_jobs).values({ id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp }).run()
+  },
+  updateProductionJobStatus: {
+    run: (id, status, catatan) =>
+      db.update(production_jobs).set({ status, catatan: catatan || undefined }).where(eq(production_jobs.id, id)).run()
+  },
+  deleteProductionJob: {
+    run: (id) => db.delete(production_jobs).where(eq(production_jobs.id, id)).run()
+  },
+  getSupplyReports: {
+    all: () => db.select().from(supply_reports).orderBy(desc(supply_reports.timestamp)).all()
+  },
+  insertSupplyReport: {
+    run: (id, pekerja, laporan, status, timestamp) =>
+      db.insert(supply_reports).values({ id, pekerja, laporan, status, timestamp }).run()
+  },
+  updateSupplyReportStatus: {
+    run: (id, status) => db.update(supply_reports).set({ status }).where(eq(supply_reports.id, id)).run()
   },
   insertTx: {
     run: (transaction_id, item_name, category, unit_price, quantity, total, timestamp, type, source) =>

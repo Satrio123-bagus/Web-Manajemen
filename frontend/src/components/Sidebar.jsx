@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Package, BarChart3, Settings, Bot, History,
-    ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut, QrCode, ScanLine
+    ChevronLeft, ChevronRight, Wifi, Cpu, Activity, X, LogOut, QrCode, ScanLine, Wrench
 } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
 import api from '../api';
@@ -10,6 +10,7 @@ import api from '../api';
 const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'DASHBOARD', to: '/' },
     { icon: Package, label: 'INVENTORY', to: '/inventory' },
+    { icon: Wrench, label: 'FACTORY BOARD', to: '/production' },
     { icon: BarChart3, label: 'ANALYTICS', to: '/analytics' },
     { icon: History, label: 'HISTORY', to: '/history' },
     { icon: Bot, label: 'AI MANAGER', to: '/terminal' },
@@ -18,7 +19,7 @@ const NAV_ITEMS = [
     { icon: Settings, label: 'SETTINGS', to: '/settings' },
 ];
 
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, onClose, user }) {
     const [collapsed, setCollapsed] = useState(false);
     const [systemStatus, setSystemStatus] = useState('CHECKING'); // CHECKING, ONLINE, OFFLINE
     const [latency, setLatency] = useState(0);
@@ -104,7 +105,10 @@ export default function Sidebar({ isOpen, onClose }) {
 
                 {/* ── Navigation ── */}
                 <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
-                    {NAV_ITEMS.map(({ icon: Icon, label, to }) => (
+                    {NAV_ITEMS.filter(item => {
+                        if (!user || user.role === 'ADMIN') return true;
+                        return ['FACTORY BOARD', 'INVENTORY'].includes(item.label);
+                    }).map(({ icon: Icon, label, to }) => (
                         <NavLink
                             key={to}
                             to={to}
