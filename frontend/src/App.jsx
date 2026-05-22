@@ -14,6 +14,7 @@ import Login from './pages/Login';
 import TransactionHistory from './pages/TransactionHistory';
 import BarcodeStudio from './pages/BarcodeStudio';
 import MobileScanner from './pages/MobileScanner';
+import ProductionBoard from './pages/ProductionBoard';
 import { SettingsProvider } from './context/SettingsContext';
 import { useSound } from './hooks/useSound';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -23,6 +24,18 @@ const API = '/api/items';
 
 function AppContent() {
   const [token, setToken] = useState(localStorage.getItem('cortex_token'));
+  
+  let user = null;
+  if (token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      user = JSON.parse(atob(base64));
+    } catch(e) {
+      console.error('Failed to parse JWT:', e);
+    }
+  }
+
   const [activeDeleteId, setActiveDeleteId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -216,7 +229,7 @@ function AppContent() {
   }
 
   return (
-    <Layout activePage={activePage} onSearch={(q) => setSearchQuery(q)}>
+    <Layout activePage={activePage} onSearch={(q) => setSearchQuery(q)} user={user}>
       {/* Error banner */}
       {error && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
@@ -249,12 +262,17 @@ function AppContent() {
               isDeleting={activeDeleteId}
             />
           } />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/terminal" element={<Terminal />} />
-          <Route path="/history" element={<TransactionHistory />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/barcode-studio" element={<BarcodeStudio />} />
-          <Route path="/scanner" element={<MobileScanner />} />
+          <Route path="/production" element={<ProductionBoard user={user} />} />
+          {user?.role === 'ADMIN' && (
+            <>
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/terminal" element={<Terminal />} />
+              <Route path="/history" element={<TransactionHistory />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/barcode-studio" element={<BarcodeStudio />} />
+              <Route path="/scanner" element={<MobileScanner />} />
+            </>
+          )}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

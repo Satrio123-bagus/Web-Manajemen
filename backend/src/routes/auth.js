@@ -19,50 +19,61 @@ const loginLimiter = rateLimit({
     validate: false,
 });
 
+const { stmts } = require('../models/dbStore');
+
 router.post('/login', loginLimiter, async (req, res) => {
-    const { password } = req.body;
+    const { username, password } = req.body;
 
-    // ─── SECURITY: Crash if critical env vars are missing ────────
-    const passwordHash = process.env.ADMIN_PASSWORD_HASH;
     const jwtSecret = process.env.JWT_SECRET;
-
-    if (!passwordHash || !jwtSecret) {
-        console.error('[FATAL] ADMIN_PASSWORD_HASH or JWT_SECRET is not set in .env!');
+    if (!jwtSecret) {
+        console.error('[FATAL] JWT_SECRET is not set in .env!');
         return res.status(500).json({
             error: 'SERVER_CONFIG_ERROR',
             message: 'Konfigurasi server tidak lengkap. Hubungi administrator.'
         });
     }
 
-    if (!password) {
+    // Default to fallback if no username provided, to avoid breaking old clients momentarily
+    if (!username || !password) {
         return res.status(401).json({
             error: 'UNAUTHORIZED',
-            message: 'Akses Ditolak. Password tidak diberikan.'
+            message: 'Akses Ditolak. Username dan Password harus diisi.'
         });
     }
 
-    // ─── SECURITY: Compare with bcrypt hash (timing-safe) ───────
-    const isValid = await bcrypt.compare(password, passwordHash);
+    const user = stmts.getUserByUsername.get(username);
+    
+    if (!user) {
+        logAudit('LOGIN_FAILED', `User tidak ditemukan: ${username}`, req);
+        return res.status(401).json({
+            error: 'UNAUTHORIZED',
+            message: 'Akses Ditolak. Username atau Password salah.'
+        });
+    }
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
-        logAudit('LOGIN_FAILED', 'Password salah', req);
+        logAudit('LOGIN_FAILED', `Password salah untuk user: ${username}`, req);
         return res.status(401).json({
             error: 'UNAUTHORIZED',
-            message: 'Akses Ditolak. Password salah atau tidak dikenali.'
+            message: 'Akses Ditolak. Username atau Password salah.'
         });
     }
 
-    // Generate JWT token valid for 8 hours (reduced from 24h)
+    // Generate JWT token valid for 8 hours
     const token = jwt.sign(
-        { role: 'admin', system: 'CORTEX', timestamp: Date.now() },
+        { id: user.id, username: user.username, role: user.role, system: 'CORTEX', timestamp: Date.now() },
         jwtSecret,
         { expiresIn: '8h' }
     );
 
-    logAudit('LOGIN_SUCCESS', 'Admin login', req);
+    logAudit('LOGIN_SUCCESS', `Login berhasil: ${username} (${user.role})`, req);
     res.json({
         success: true,
-        message: 'Akses Diberikan. Selamat datang kembali, Administrator.',
-        token: token
+        message: `Selamat datang, ${user.username} (${user.role})`,
+        token: token,
+        role: user.role,
+        username: user.username
     });
 });
 

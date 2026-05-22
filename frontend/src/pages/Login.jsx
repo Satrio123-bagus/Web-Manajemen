@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, ServerCrash, KeyRound } from 'lucide-react';
+import { Lock, ServerCrash, KeyRound, UserRound } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
 import api from '../api';
 
 export default function Login({ onLogin }) {
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +18,7 @@ export default function Login({ onLogin }) {
         playSound('click');
 
         try {
-            const res = await api.post('/auth/login', { password });
+            const res = await api.post('/auth/login', { username, password });
 
             const data = await res.json();
 
@@ -61,6 +62,21 @@ export default function Login({ onLogin }) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <UserRound className="h-5 w-5 text-gray-500 group-focus-within:text-[var(--color-neon-cyan)] transition-colors" />
+                            </div>
+                            <input
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="block w-full pl-11 pr-4 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--color-neon-cyan)] focus:bg-white/10 font-mono tracking-widest transition-all"
+                                placeholder="ENTER USERNAME"
+                                required
+                            />
+                        </div>
+                    </div>
                     <div>
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationPanel from './NotificationPanel';
 import { Search, Bell, User, Zap, Menu } from 'lucide-react';
-export default function Layout({ children, activePage, onSearch }) {
+export default function Layout({ children, activePage, onSearch, user }) {
     const [sidebarCollapsed] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [headerSearch, setHeaderSearch] = useState('');
@@ -61,7 +61,7 @@ export default function Layout({ children, activePage, onSearch }) {
             </div>
 
             {/* ── Sidebar ── */}
-            <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+            <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} user={user} />
 
             {/* ── Main Wrapper (shifts right for sidebar) ── */}
             <div className={`transition-all duration-300 ml-0 md:ml-64`}>
@@ -113,9 +113,9 @@ export default function Layout({ children, activePage, onSearch }) {
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0a0a0c] shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
                             </div>
                             <div className="hidden lg:block text-left">
-                                <p className="text-xs font-bold text-gray-300">OPERATOR</p>
-                                <p className="text-[10px] font-mono text-gray-600 flex items-center gap-1">
-                                    <Zap className="w-3 h-3 text-amber-400" /> ADMIN_LV9
+                                <p className="text-xs font-bold text-gray-300 uppercase">{user?.username || 'OPERATOR'}</p>
+                                <p className="text-[10px] font-mono text-gray-600 flex items-center gap-1 uppercase">
+                                    <Zap className="w-3 h-3 text-amber-400" /> {user?.role || 'ADMIN_LV9'}
                                 </p>
                             </div>
                         </button>
