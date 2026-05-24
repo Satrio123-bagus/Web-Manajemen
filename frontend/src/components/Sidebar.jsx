@@ -107,7 +107,7 @@ export default function Sidebar({ isOpen, onClose, user }) {
                 <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
                     {NAV_ITEMS.filter(item => {
                         if (!user || user.role === 'ADMIN') return true;
-                        return ['FACTORY BOARD', 'INVENTORY'].includes(item.label);
+                        return ['DASHBOARD', 'FACTORY BOARD'].includes(item.label);
                     }).map(({ icon: Icon, label, to }) => (
                         <NavLink
                             key={to}
