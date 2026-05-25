@@ -143,6 +143,9 @@ const stmts = {
   getProductionJobs: {
     all: () => db.select().from(production_jobs).orderBy(desc(production_jobs.timestamp)).all()
   },
+  getProductionJobById: {
+    get: (id) => db.select().from(production_jobs).where(eq(production_jobs.id, id)).get()
+  },
   insertProductionJob: {
     run: (id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp) =>
       db.insert(production_jobs).values({ id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp }).run()

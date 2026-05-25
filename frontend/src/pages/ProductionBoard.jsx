@@ -90,20 +90,11 @@ export default function ProductionBoard({ user }) {
         if (!qcJob) return;
         playSound('click');
         try {
-            // Because one job could be split into Jual, Rakit, and Rusak,
-            // we simulate splitting by updating the current job to one status,
-            // and creating new jobs for the other allocations if needed.
-            // For simplicity in this demo, if they allocate to JUAL, we just move the main job there,
-            // or if it's a mix, we'll just set it to the one with the highest allocation.
-            // In a real robust system, we would hit a specific /api/production/split_qc endpoint.
-            
-            // Temporary simple approach: just move the entire batch to the selected bucket 
-            // if they only chose 1 bucket, otherwise pick the largest.
-            let finalStatus = 'SELESAI_RAKIT';
-            if (qcJual >= qcRakit && qcJual >= qcRusak) finalStatus = 'SELESAI_JUAL';
-            if (qcRusak > qcJual && qcRusak > qcRakit) finalStatus = 'RUSAK';
-
-            await api.put(`/production/jobs/${qcJob.id}`, { status: finalStatus, catatan: `QC Split: Jual ${qcJual}, Rakit ${qcRakit}, Rusak ${qcRusak}` });
+            await api.post(`/production/jobs/${qcJob.id}/qc`, { 
+                qcJual, 
+                qcRakit, 
+                qcRusak 
+            });
             setQcJob(null);
             fetchData();
         } catch (err) {
