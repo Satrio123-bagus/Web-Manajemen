@@ -44,6 +44,42 @@ router.put('/jobs/:id', (req, res) => {
     }
 });
 
+router.post('/jobs/:id/qc', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { qcJual, qcRakit, qcRusak } = req.body;
+        
+        const job = stmts.getProductionJobById.get(id);
+        if (!job) {
+            return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
+        }
+        
+        const total = (qcJual || 0) + (qcRakit || 0) + (qcRusak || 0);
+        if (total !== job.alokasi) {
+            return res.status(400).json({ success: false, message: 'Total alokasi QC tidak sesuai dengan jumlah barang!' });
+        }
+        
+        // Split functionality:
+        // Delete original job, then create new jobs for each bucket that has > 0 quantity
+        stmts.deleteProductionJob.run(id);
+        const timestamp = new Date().toISOString();
+        
+        if (qcJual > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', 'Dari QC Split (Jual)', qcJual, job.assigned_to, timestamp);
+        }
+        if (qcRakit > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', 'Dari QC Split (Rakit)', qcRakit, job.assigned_to, timestamp);
+        }
+        if (qcRusak > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', 'Dari QC Split (Rusak)', qcRusak, job.assigned_to, timestamp);
+        }
+        
+        res.json({ success: true, message: 'Alokasi QC berhasil diproses' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.delete('/jobs/:id', (req, res) => {
     try {
         stmts.deleteProductionJob.run(req.params.id);
