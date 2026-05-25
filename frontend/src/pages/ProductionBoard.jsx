@@ -64,7 +64,7 @@ export default function ProductionBoard({ user }) {
     // Constants
     const SUPPLIERS = ['Aziz', 'Komeng', 'Wakil', 'Campuran (Lama)'];
     const MERK_OPTIONS = ['Panasonic', 'Daikin', 'Sharp', 'Samsung', 'LG', 'Universal', 'Lain-lain'];
-    const SMART_TAGS = ['Baut', 'Non-Baut', 'Kecil', 'Sedang', 'Besar', 'Smart TV', 'Tabung', 'Original', 'Grade A'];
+    const SMART_TAGS = ['Lengkap', 'Tanpa Tutup', 'Tanpa Mika', 'Baut', 'Non-Baut', 'Kecil', 'Sedang', 'Besar', 'Smart TV', 'Tabung', 'Original', 'Grade A'];
 
     useEffect(() => {
         fetchData();
