@@ -137,11 +137,12 @@ const authMiddleware = require('./middleware/auth');
 // ─── LOGIN RATE LIMITER (Brute-Force Protection) ───────
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Max 5 login attempts per 15 minutes per IP
+    max: 30, // Max 30 failed login attempts per 15 minutes per IP (increased for shared WiFi)
+    skipSuccessfulRequests: true, // Only count failed logins!
     standardHeaders: true,
     legacyHeaders: false,
     validate: false,
-    message: { error: 'LOGIN_RATE_LIMIT // Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' },
+    message: { error: 'LOGIN_RATE_LIMIT // Terlalu banyak percobaan login yang gagal. Coba lagi dalam 15 menit.' },
 });
 
 // ─── MOUNT ROUTES ───────────────────────────────────────
