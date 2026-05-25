@@ -80,6 +80,37 @@ router.post('/jobs/:id/qc', (req, res) => {
     }
 });
 
+router.post('/jobs/:id/sortir', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { sortirCuci, sortirCat } = req.body;
+        
+        const job = stmts.getProductionJobById.get(id);
+        if (!job) {
+            return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
+        }
+        
+        const total = (sortirCuci || 0) + (sortirCat || 0);
+        if (total !== job.alokasi) {
+            return res.status(400).json({ success: false, message: 'Total sortir tidak sesuai dengan jumlah barang!' });
+        }
+        
+        stmts.deleteProductionJob.run(id);
+        const timestamp = new Date().toISOString();
+        
+        if (sortirCuci > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CUCI', 'Hasil Sortir (Cuci Saja)', sortirCuci, job.assigned_to, timestamp);
+        }
+        if (sortirCat > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', 'Hasil Sortir (Perlu Cat)', sortirCat, job.assigned_to, timestamp);
+        }
+        
+        res.json({ success: true, message: 'Barang berhasil disortir ke gudang' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.delete('/jobs/:id', (req, res) => {
     try {
         stmts.deleteProductionJob.run(req.params.id);

@@ -5,9 +5,12 @@ import api from '../api';
 import { useSound } from '../hooks/useSound';
 
 const COLUMNS = [
-    { id: 'MENTAH', title: 'MENTAH', icon: PackageOpen, color: 'text-gray-400', border: 'border-gray-500/30', bg: 'bg-gray-500/10' },
-    { id: 'PROSES', title: 'DIPROSES', icon: Wrench, color: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
-    { id: 'QC_CEK', title: 'QC CEK', icon: CheckCircle, color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
+    { id: 'MENTAH', title: 'KARUNG MENTAH', icon: PackageOpen, color: 'text-gray-400', border: 'border-gray-500/30', bg: 'bg-gray-500/10' },
+    { id: 'GUDANG_CUCI', title: 'GUDANG CUCI', icon: Archive, color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
+    { id: 'GUDANG_CAT', title: 'GUDANG CAT', icon: Archive, color: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
+    { id: 'PROSES_CUCI', title: 'PROSES CUCI', icon: Wrench, color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
+    { id: 'PROSES_CAT', title: 'PROSES CAT', icon: Wrench, color: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
+    { id: 'QC_CEK', title: 'QC CEK', icon: CheckCircle, color: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
     { id: 'SELESAI_JUAL', title: 'ETALASE JUAL', icon: ArrowUpRight, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
     { id: 'SELESAI_RAKIT', title: 'ANTREAN RAKIT', icon: Archive, color: 'text-emerald-500', border: 'border-emerald-600/30', bg: 'bg-emerald-600/10' },
     { id: 'RUSAK', title: 'RUSAK', icon: AlertTriangle, color: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/10' }
@@ -29,6 +32,11 @@ export default function ProductionBoard({ user }) {
     const [qcJual, setQcJual] = useState(0);
     const [qcRakit, setQcRakit] = useState(0);
     const [qcRusak, setQcRusak] = useState(0);
+
+    // Sortir popup state
+    const [sortirJob, setSortirJob] = useState(null);
+    const [sortirCuci, setSortirCuci] = useState(0);
+    const [sortirCat, setSortirCat] = useState(0);
 
     useEffect(() => {
         fetchData();
@@ -96,6 +104,21 @@ export default function ProductionBoard({ user }) {
                 qcRusak 
             });
             setQcJob(null);
+            fetchData();
+        } catch (err) {
+            playSound('error');
+        }
+    };
+
+    const handleSortirSubmit = async () => {
+        if (!sortirJob) return;
+        playSound('click');
+        try {
+            await api.post(`/production/jobs/${sortirJob.id}/sortir`, { 
+                sortirCuci, 
+                sortirCat 
+            });
+            setSortirJob(null);
             fetchData();
         } catch (err) {
             playSound('error');
@@ -229,12 +252,27 @@ export default function ProductionBoard({ user }) {
                                                 {/* Action Buttons based on status */}
                                                 <div className="pt-3 border-t border-white/5 flex gap-2">
                                                     {col.id === 'MENTAH' && (
-                                                        <button onClick={() => handleMoveJob(job.id, 'PROSES')} className="flex-1 text-[10px] bg-amber-500/10 text-amber-500 py-1.5 rounded font-bold hover:bg-amber-500/20 transition-colors">
-                                                            KERJAKAN
+                                                        <button onClick={() => { setSortirJob(job); setSortirCuci(0); setSortirCat(0); }} className="flex-1 text-[10px] bg-gray-500/10 text-gray-400 py-1.5 rounded font-bold hover:bg-gray-500/20 transition-colors">
+                                                            BONGKAR & SORTIR
                                                         </button>
                                                     )}
-                                                    {col.id === 'PROSES' && (
+                                                    {col.id === 'GUDANG_CUCI' && (
+                                                        <button onClick={() => handleMoveJob(job.id, 'PROSES_CUCI')} className="flex-1 text-[10px] bg-cyan-500/10 text-cyan-400 py-1.5 rounded font-bold hover:bg-cyan-500/20 transition-colors">
+                                                            TARIK KE CUCI
+                                                        </button>
+                                                    )}
+                                                    {col.id === 'GUDANG_CAT' && (
+                                                        <button onClick={() => handleMoveJob(job.id, 'PROSES_CAT')} className="flex-1 text-[10px] bg-orange-500/10 text-orange-400 py-1.5 rounded font-bold hover:bg-orange-500/20 transition-colors">
+                                                            TARIK KE CAT
+                                                        </button>
+                                                    )}
+                                                    {col.id === 'PROSES_CUCI' && (
                                                         <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="flex-1 text-[10px] bg-blue-500/10 text-blue-500 py-1.5 rounded font-bold hover:bg-blue-500/20 transition-colors">
+                                                            SELESAI (KE QC)
+                                                        </button>
+                                                    )}
+                                                    {col.id === 'PROSES_CAT' && (
+                                                        <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="flex-1 text-[10px] bg-amber-500/10 text-amber-500 py-1.5 rounded font-bold hover:bg-amber-500/20 transition-colors">
                                                             SELESAI (KE QC)
                                                         </button>
                                                     )}
@@ -291,6 +329,42 @@ export default function ProductionBoard({ user }) {
                     </div>
                 </div>
             </div>
+
+            {/* Sortir Modal */}
+            <AnimatePresence>
+                {sortirJob && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-white/20 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+                            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-gray-500/10">
+                                <h3 className="font-black text-gray-300 tracking-wider">BONGKAR KARUNG (Total: {sortirJob.alokasi})</h3>
+                                <button onClick={() => setSortirJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        MASUK GUDANG CUCI (Mulus) 🌧️
+                                    </label>
+                                    <input type="number" min="0" max={sortirJob.alokasi} value={sortirCuci} onChange={e => setSortirCuci(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-cyan-500/30 rounded-lg p-3 text-cyan-400 font-mono text-lg text-center focus:border-cyan-400 focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        MASUK GUDANG CAT (Baret) ☀️
+                                    </label>
+                                    <input type="number" min="0" max={sortirJob.alokasi} value={sortirCat} onChange={e => setSortirCat(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-orange-500/30 rounded-lg p-3 text-orange-400 font-mono text-lg text-center focus:border-orange-400 focus:outline-none" />
+                                </div>
+                                
+                                { (sortirCuci + sortirCat) !== Number(sortirJob.alokasi) ? (
+                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {sortirJob.alokasi}! (Input: {sortirCuci + sortirCat})</div>
+                                ) : (
+                                    <button onClick={handleSortirSubmit} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-500 transition-colors">
+                                        SIMPAN KE GUDANG
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* QC Allocation Modal */}
             <AnimatePresence>
