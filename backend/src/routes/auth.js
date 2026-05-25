@@ -9,10 +9,11 @@ const { logAudit } = require('../middleware/auditLogger');
 // Memblokir IP jika gagal login 5 kali berturut-turut dalam 15 menit
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 menit
-    max: 5, // Membatasi setiap IP hanya 5 request per windowMs
+    max: 30, // Membatasi setiap IP maksimal 30 gagal login (ditingkatkan untuk satu WiFi)
+    skipSuccessfulRequests: true, // HANYA hitung jika login gagal!
     message: {
         error: 'TOO_MANY_REQUESTS',
-        message: 'Akses Ditolak. Anda mencoba login terlalu sering. Silakan coba lagi dalam 15 menit.'
+        message: 'Akses Ditolak. Anda gagal login terlalu sering. Silakan coba lagi dalam 15 menit.'
     },
     standardHeaders: true, // Mengembalikan info rate limit di headers `RateLimit-*`
     legacyHeaders: false, // Menonaktifkan headers `X-RateLimit-*` (format lama)
