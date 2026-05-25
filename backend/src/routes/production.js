@@ -98,34 +98,37 @@ router.put('/jobs/:id', (req, res) => {
 router.post('/jobs/:id/qc', (req, res) => {
     try {
         const { id } = req.params;
-        const { qcJual, qcRakit, qcRusak } = req.body;
+        const { qcJual, qcRakit, qcRusak, qcRework, catatan } = req.body;
         
         const job = stmts.getProductionJobById.get(id);
         if (!job) {
             return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
         }
         
-        const total = (qcJual || 0) + (qcRakit || 0) + (qcRusak || 0);
-        if (total !== job.alokasi) {
-            return res.status(400).json({ success: false, message: 'Total alokasi QC tidak sesuai dengan jumlah barang!' });
+        const totalInput = (qcJual || 0) + (qcRakit || 0) + (qcRusak || 0) + (qcRework || 0);
+        if (totalInput !== job.alokasi) {
+            return res.status(400).json({ success: false, message: 'Total alokasi QC tidak cocok' });
         }
         
-        // Split functionality:
-        // Delete original job, then create new jobs for each bucket that has > 0 quantity
-        stmts.deleteProductionJob.run(id);
         const timestamp = new Date().toISOString();
+        const baseCatatan = catatan ? ` - Catatan: ${catatan}` : '';
+        
+        stmts.deleteProductionJob.run(id);
         
         if (qcJual > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', 'Dari QC Split (Jual)', qcJual, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', job.catatan, qcJual, job.assigned_to, timestamp, job.supplier);
         }
         if (qcRakit > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', 'Dari QC Split (Rakit)', qcRakit, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', job.catatan, qcRakit, job.assigned_to, timestamp, job.supplier);
         }
         if (qcRusak > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', 'Dari QC Split (Rusak)', qcRusak, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', `Gagal QC${baseCatatan}`, qcRusak, job.assigned_to, timestamp, job.supplier);
+        }
+        if (qcRework > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', `REWORK QC${baseCatatan}`, qcRework, job.assigned_to, timestamp, job.supplier);
         }
         
-        res.json({ success: true, message: 'Alokasi QC berhasil diproses' });
+        res.json({ success: true, message: 'QC selesai' });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
