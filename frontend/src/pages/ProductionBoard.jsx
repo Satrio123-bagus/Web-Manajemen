@@ -38,6 +38,10 @@ export default function ProductionBoard({ user }) {
     const [sortirCuci, setSortirCuci] = useState(0);
     const [sortirCat, setSortirCat] = useState(0);
 
+    // Feed State
+    const [activeTab, setActiveTab] = useState('ALL');
+    const [searchQuery, setSearchQuery] = useState('');
+
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 10000); // polling setiap 10 detik
@@ -142,11 +146,18 @@ export default function ProductionBoard({ user }) {
         }
     };
 
-    // Filter jobs based on role
+    // Filter jobs based on role, tab, and search
     const filteredJobs = jobs.filter(job => {
-        if (user?.role === 'ADMIN') return true;
-        if (user?.role === 'CASING') return job.komponen === 'CASING';
-        if (user?.role === 'MESIN') return job.komponen === 'MESIN' || job.komponen === 'LAYAR';
+        // Role filter
+        if (user?.role === 'CASING' && job.komponen !== 'CASING') return false;
+        if (user?.role === 'MESIN' && job.komponen !== 'MESIN' && job.komponen !== 'LAYAR') return false;
+        
+        // Tab filter
+        if (activeTab !== 'ALL' && job.status !== activeTab) return false;
+
+        // Search filter
+        if (searchQuery && !job.tipe_remote.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+
         return true;
     });
 
@@ -211,84 +222,120 @@ export default function ProductionBoard({ user }) {
                 )}
             </AnimatePresence>
 
+            {/* Smart Navigation & Search */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-4 sticky top-4 z-40 shadow-xl space-y-4">
+                <div className="relative">
+                    <input 
+                        type="text" 
+                        placeholder="🔍 Cari tipe remote (misal: A75C)..." 
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full bg-black border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)] transition-colors text-lg font-bold shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                    />
+                </div>
+                
+                {/* Horizontal Scrollable Tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <button 
+                        onClick={() => setActiveTab('ALL')}
+                        className={`flex-shrink-0 px-4 py-2 rounded-full font-bold text-xs transition-all border ${activeTab === 'ALL' ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'}`}
+                    >
+                        SEMUA TUGAS
+                    </button>
+                    {COLUMNS.map(col => {
+                        const count = jobs.filter(j => j.status === col.id).length;
+                        return (
+                            <button 
+                                key={col.id}
+                                onClick={() => setActiveTab(col.id)}
+                                className={`flex-shrink-0 px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 transition-all border ${activeTab === col.id ? `${col.bg} ${col.border} ${col.color}` : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'}`}
+                            >
+                                <col.icon className="w-3 h-3" />
+                                {col.title}
+                                <span className="bg-black/50 px-1.5 rounded-md">{count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                {/* Kanban Board Area (Takes 3 columns) */}
-                <div className="lg:col-span-3 overflow-x-auto">
-                    <div className="flex gap-4 min-w-max pb-4">
-                        {COLUMNS.map(col => {
-                            const colJobs = filteredJobs.filter(j => j.status === col.id);
-                            const Icon = col.icon;
-                            
+                {/* Vertical Task Feed (Takes 3 columns on large screens) */}
+                <div className="lg:col-span-3 space-y-3 pb-20">
+                    {filteredJobs.length === 0 ? (
+                        <div className="bg-black/40 border border-white/10 rounded-2xl p-12 flex flex-col items-center justify-center text-gray-500 shadow-lg">
+                            <Archive className="w-12 h-12 mb-4 opacity-20" />
+                            <p className="font-mono text-sm">TIDAK ADA TUGAS DITEMUKAN</p>
+                        </div>
+                    ) : (
+                        filteredJobs.map(job => {
+                            const colConfig = COLUMNS.find(c => c.id === job.status) || COLUMNS[0];
+                            const Icon = colConfig.icon;
+
                             return (
-                                <div key={col.id} className={`w-72 flex-shrink-0 bg-black/40 border ${col.border} rounded-2xl overflow-hidden flex flex-col max-h-[70vh]`}>
-                                    <div className={`p-4 border-b ${col.border} ${col.bg} flex items-center justify-between`}>
-                                        <div className="flex items-center gap-2">
-                                            <Icon className={`w-5 h-5 ${col.color}`} />
-                                            <h3 className={`font-black tracking-widest ${col.color}`}>{col.title}</h3>
+                                <motion.div layoutId={job.id} key={job.id} className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 hover:border-white/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group shadow-md hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-xl ${colConfig.bg} ${colConfig.border} border shadow-inner`}>
+                                            <Icon className={`w-6 h-6 ${colConfig.color}`} />
                                         </div>
-                                        <span className="bg-black/50 px-2 py-0.5 rounded text-xs font-mono text-white">{colJobs.length}</span>
-                                    </div>
-                                    <div className="p-3 overflow-y-auto flex-1 space-y-3 min-h-[150px]">
-                                        {colJobs.length === 0 && (
-                                            <div className="h-full flex items-center justify-center text-gray-600 font-mono text-xs opacity-50">
-                                                KOSONG
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="font-black text-white text-lg tracking-wider">{job.tipe_remote}</h4>
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider
+                                                    ${job.komponen === 'CASING' ? 'bg-blue-500/20 text-blue-400' : 
+                                                    job.komponen === 'MESIN' ? 'bg-purple-500/20 text-purple-400' : 
+                                                    'bg-emerald-500/20 text-emerald-400'}`}
+                                                >
+                                                    {job.komponen}
+                                                </span>
                                             </div>
-                                        )}
-                                        {colJobs.map(job => (
-                                            <motion.div layoutId={job.id} key={job.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-white/20 transition-all group">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider
-                                                        ${job.komponen === 'CASING' ? 'bg-blue-500/20 text-blue-400' : 
-                                                          job.komponen === 'MESIN' ? 'bg-purple-500/20 text-purple-400' : 
-                                                          'bg-emerald-500/20 text-emerald-400'}`}
-                                                    >
-                                                        {job.komponen}
-                                                    </span>
-                                                    <span className="text-[10px] font-mono text-gray-500">{job.alokasi} pcs</span>
-                                                </div>
-                                                <h4 className="font-bold text-white mb-1">{job.tipe_remote}</h4>
-                                                {job.kriteria && <p className="text-xs text-gray-400 mb-3">{job.kriteria}</p>}
-                                                
-                                                {/* Action Buttons based on status */}
-                                                <div className="pt-3 border-t border-white/5 flex gap-2">
-                                                    {col.id === 'MENTAH' && (
-                                                        <button onClick={() => { setSortirJob(job); setSortirCuci(0); setSortirCat(0); }} className="flex-1 text-[10px] bg-gray-500/10 text-gray-400 py-1.5 rounded font-bold hover:bg-gray-500/20 transition-colors">
-                                                            BONGKAR & SORTIR
-                                                        </button>
-                                                    )}
-                                                    {col.id === 'GUDANG_CUCI' && (
-                                                        <button onClick={() => handleMoveJob(job.id, 'PROSES_CUCI')} className="flex-1 text-[10px] bg-cyan-500/10 text-cyan-400 py-1.5 rounded font-bold hover:bg-cyan-500/20 transition-colors">
-                                                            TARIK KE CUCI
-                                                        </button>
-                                                    )}
-                                                    {col.id === 'GUDANG_CAT' && (
-                                                        <button onClick={() => handleMoveJob(job.id, 'PROSES_CAT')} className="flex-1 text-[10px] bg-orange-500/10 text-orange-400 py-1.5 rounded font-bold hover:bg-orange-500/20 transition-colors">
-                                                            TARIK KE CAT
-                                                        </button>
-                                                    )}
-                                                    {col.id === 'PROSES_CUCI' && (
-                                                        <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="flex-1 text-[10px] bg-blue-500/10 text-blue-500 py-1.5 rounded font-bold hover:bg-blue-500/20 transition-colors">
-                                                            SELESAI (KE QC)
-                                                        </button>
-                                                    )}
-                                                    {col.id === 'PROSES_CAT' && (
-                                                        <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="flex-1 text-[10px] bg-amber-500/10 text-amber-500 py-1.5 rounded font-bold hover:bg-amber-500/20 transition-colors">
-                                                            SELESAI (KE QC)
-                                                        </button>
-                                                    )}
-                                                    {col.id === 'QC_CEK' && (
-                                                        <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); }} className="flex-1 text-[10px] bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] py-1.5 rounded font-bold hover:bg-[var(--color-neon-cyan)]/20 transition-colors">
-                                                            ALOKASI QC
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </motion.div>
-                                        ))}
+                                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                                                <span className={`${colConfig.color} font-bold flex items-center gap-1`}>
+                                                    • {colConfig.title}
+                                                </span>
+                                                <span className="text-gray-400 font-mono bg-black/50 border border-white/5 px-2 py-0.5 rounded-md">{job.alokasi} pcs</span>
+                                                {job.kriteria && <span className="text-gray-400 italic">📝 {job.kriteria}</span>}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        })}
-                    </div>
+                                    
+                                    {/* Action Buttons based on status */}
+                                    <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-2 sm:mt-0 min-w-max">
+                                        {job.status === 'MENTAH' && (
+                                            <button onClick={() => { setSortirJob(job); setSortirCuci(0); setSortirCat(0); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-gray-500/10 text-gray-300 rounded-lg font-bold hover:bg-gray-500/30 hover:text-white transition-colors border border-gray-500/30">
+                                                BONGKAR & SORTIR
+                                            </button>
+                                        )}
+                                        {job.status === 'GUDANG_CUCI' && (
+                                            <button onClick={() => handleMoveJob(job.id, 'PROSES_CUCI')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-cyan-500/10 text-cyan-400 rounded-lg font-bold hover:bg-cyan-500/30 hover:text-cyan-300 transition-colors border border-cyan-500/30">
+                                                TARIK KE CUCI
+                                            </button>
+                                        )}
+                                        {job.status === 'GUDANG_CAT' && (
+                                            <button onClick={() => handleMoveJob(job.id, 'PROSES_CAT')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 hover:text-orange-300 transition-colors border border-orange-500/30">
+                                                TARIK KE CAT
+                                            </button>
+                                        )}
+                                        {job.status === 'PROSES_CUCI' && (
+                                            <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
+                                                SELESAI (KE QC)
+                                            </button>
+                                        )}
+                                        {job.status === 'PROSES_CAT' && (
+                                            <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
+                                                SELESAI (KE QC)
+                                            </button>
+                                        )}
+                                        {job.status === 'QC_CEK' && (
+                                            <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] rounded-lg font-bold hover:bg-[var(--color-neon-cyan)]/30 hover:text-white transition-colors border border-[var(--color-neon-cyan)]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
+                                                ALOKASI QC
+                                            </button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            );
+                        })
+                    )}
                 </div>
 
                 {/* Supply Reports Side Panel */}
