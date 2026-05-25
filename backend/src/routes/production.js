@@ -139,14 +139,15 @@ router.post('/jobs/:id/qc', (req, res) => {
 router.post('/jobs/:id/sortir', (req, res) => {
     try {
         const { id } = req.params;
-        const { sortirCuci, sortirCat } = req.body;
+        const { sortirCuci, sortirCat, sortirKimia } = req.body;
         
         const job = stmts.getProductionJobById.get(id);
         if (!job) {
             return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
         }
         
-        const total = (sortirCuci || 0) + (sortirCat || 0);
+        const total = (sortirCuci || 0) + (sortirCat || 0) + (sortirKimia || 0);
+        
         if (total !== job.alokasi) {
             return res.status(400).json({ success: false, message: 'Total sortir tidak sesuai dengan jumlah barang!' });
         }
@@ -159,6 +160,9 @@ router.post('/jobs/:id/sortir', (req, res) => {
         }
         if (sortirCat > 0) {
             stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', 'Hasil Sortir (Perlu Cat)', sortirCat, job.assigned_to, timestamp, job.supplier, job.merk);
+        }
+        if (sortirKimia > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_KIMIA', 'Hasil Sortir (Pemutihan Kimia)', sortirKimia, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         
         res.json({ success: true, message: 'Barang berhasil disortir ke gudang' });
