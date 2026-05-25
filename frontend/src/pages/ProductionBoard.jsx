@@ -316,10 +316,12 @@ export default function ProductionBoard({ user }) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2">KOMPONEN</label>
-                                    <select value={newJob.komponen} onChange={e => setNewJob({...newJob, komponen: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white">
-                                        <option>CASING</option>
-                                        <option>MESIN</option>
-                                        <option>LAYAR</option>
+                                    <select value={newJob.komponen} onChange={e => setNewJob({...newJob, komponen: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)]">
+                                        <option className="bg-gray-900" value="CASING">CASING (Body)</option>
+                                        <option className="bg-gray-900" value="TUTUP BATERAI">TUTUP BATERAI</option>
+                                        <option className="bg-gray-900" value="MIKA">MIKA (Sensor/Layar)</option>
+                                        <option className="bg-gray-900" value="MESIN">MESIN (PCB)</option>
+                                        <option className="bg-gray-900" value="KARET">KARET (Keypad)</option>
                                     </select>
                                 </div>
                                 <div>
@@ -404,9 +406,11 @@ export default function ProductionBoard({ user }) {
                                                     {job.tipe_remote}
                                                 </h3>
                                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider
-                                                    ${job.komponen === 'CASING' ? 'bg-blue-500/20 text-blue-400' : 
-                                                    job.komponen === 'MESIN' ? 'bg-purple-500/20 text-purple-400' : 
-                                                    'bg-emerald-500/20 text-emerald-400'}`}
+                                                    ${job.komponen === 'CASING' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 
+                                                    job.komponen === 'TUTUP BATERAI' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 
+                                                    job.komponen === 'MIKA' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 
+                                                    job.komponen === 'MESIN' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 
+                                                    'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}
                                                 >
                                                     {job.komponen}
                                                 </span>
