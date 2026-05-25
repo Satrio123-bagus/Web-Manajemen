@@ -239,7 +239,7 @@ export default function ProductionBoard({ user }) {
                                                         </button>
                                                     )}
                                                     {col.id === 'QC_CEK' && (
-                                                        <button onClick={() => { setQcJob(job); setQcJual(job.alokasi); setQcRakit(0); setQcRusak(0); }} className="flex-1 text-[10px] bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] py-1.5 rounded font-bold hover:bg-[var(--color-neon-cyan)]/20 transition-colors">
+                                                        <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); }} className="flex-1 text-[10px] bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] py-1.5 rounded font-bold hover:bg-[var(--color-neon-cyan)]/20 transition-colors">
                                                             ALOKASI QC
                                                         </button>
                                                     )}
@@ -322,7 +322,7 @@ export default function ProductionBoard({ user }) {
                                 </div>
                                 
                                 { (qcJual + qcRakit + qcRusak) !== Number(qcJob.alokasi) ? (
-                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}!</div>
+                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}! (Total input saat ini: {qcJual + qcRakit + qcRusak})</div>
                                 ) : (
                                     <button onClick={handleQcSubmit} className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-400 transition-colors">
                                         KONFIRMASI ALOKASI
