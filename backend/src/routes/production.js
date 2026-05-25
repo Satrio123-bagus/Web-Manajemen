@@ -148,6 +148,43 @@ router.post('/jobs/:id/tarik', (req, res) => {
     }
 });
 
+router.post('/jobs/:id/afkir', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { jumlahRusak, catatan } = req.body;
+        
+        const job = stmts.getProductionJobById.get(id);
+        if (!job) {
+            return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
+        }
+        
+        if (jumlahRusak <= 0 || jumlahRusak > job.alokasi) {
+            return res.status(400).json({ success: false, message: 'Jumlah afkir tidak valid!' });
+        }
+        
+        const timestamp = new Date().toISOString();
+        
+        if (jumlahRusak === job.alokasi) {
+            // Semua rusak
+            stmts.updateProductionJobStatus.run(id, 'RUSAK', catatan || 'Afkir total saat proses');
+        } else {
+            // Sebagian rusak, belah data
+            stmts.deleteProductionJob.run(id);
+            const sisaProses = job.alokasi - jumlahRusak;
+            
+            // Simpan sisa yang bagus di proses
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, job.catatan, sisaProses, job.assigned_to, timestamp, job.supplier);
+            
+            // Lempar yang rusak ke tong rusak
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', catatan || `Afkir dari ${job.status}`, jumlahRusak, job.assigned_to, timestamp, job.supplier);
+        }
+        
+        res.json({ success: true, message: 'Barang rusak berhasil disortir' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.delete('/jobs/:id', (req, res) => {
     try {
         stmts.deleteProductionJob.run(req.params.id);
