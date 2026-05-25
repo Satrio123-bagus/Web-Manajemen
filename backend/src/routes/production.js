@@ -19,12 +19,12 @@ router.get('/jobs', (req, res) => {
 
 router.post('/jobs', (req, res) => {
     try {
-        const { tipe_remote, komponen, kriteria, alokasi } = req.body;
+        const { tipe_remote, komponen, kriteria, alokasi, supplier } = req.body;
         const id = crypto.randomUUID();
         const timestamp = new Date().toISOString();
         
         stmts.insertProductionJob.run(
-            id, tipe_remote, komponen, kriteria || '', 'MENTAH', '', alokasi || 1, null, timestamp
+            id, tipe_remote, komponen, kriteria || '', 'MENTAH', '', alokasi || 1, null, timestamp, supplier
         );
         res.status(201).json({ success: true, message: 'Pekerjaan ditambahkan', id });
     } catch (err) {
@@ -65,13 +65,13 @@ router.post('/jobs/:id/qc', (req, res) => {
         const timestamp = new Date().toISOString();
         
         if (qcJual > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', 'Dari QC Split (Jual)', qcJual, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', 'Dari QC Split (Jual)', qcJual, job.assigned_to, timestamp, job.supplier);
         }
         if (qcRakit > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', 'Dari QC Split (Rakit)', qcRakit, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', 'Dari QC Split (Rakit)', qcRakit, job.assigned_to, timestamp, job.supplier);
         }
         if (qcRusak > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', 'Dari QC Split (Rusak)', qcRusak, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', 'Dari QC Split (Rusak)', qcRusak, job.assigned_to, timestamp, job.supplier);
         }
         
         res.json({ success: true, message: 'Alokasi QC berhasil diproses' });
@@ -99,10 +99,10 @@ router.post('/jobs/:id/sortir', (req, res) => {
         const timestamp = new Date().toISOString();
         
         if (sortirCuci > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CUCI', 'Hasil Sortir (Cuci Saja)', sortirCuci, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CUCI', 'Hasil Sortir (Cuci Saja)', sortirCuci, job.assigned_to, timestamp, job.supplier);
         }
         if (sortirCat > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', 'Hasil Sortir (Perlu Cat)', sortirCat, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', 'Hasil Sortir (Perlu Cat)', sortirCat, job.assigned_to, timestamp, job.supplier);
         }
         
         res.json({ success: true, message: 'Barang berhasil disortir ke gudang' });
@@ -136,10 +136,10 @@ router.post('/jobs/:id/tarik', (req, res) => {
             const sisaGudang = job.alokasi - jumlah;
             
             // Simpan sisa di gudang
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, 'Sisa dari penarikan parsial', sisaGudang, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, 'Sisa dari penarikan parsial', sisaGudang, job.assigned_to, timestamp, job.supplier);
             
             // Tarik sebagian ke proses
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, targetStatus, `Ditarik parsial dari ${job.status}`, jumlah, job.assigned_to, timestamp);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, targetStatus, `Ditarik parsial dari ${job.status}`, jumlah, job.assigned_to, timestamp, job.supplier);
         }
         
         res.json({ success: true, message: 'Barang berhasil ditarik' });
