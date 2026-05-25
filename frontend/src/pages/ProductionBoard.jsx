@@ -25,7 +25,7 @@ export default function ProductionBoard({ user }) {
 
     // Admin form state
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newJob, setNewJob] = useState({ tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1 });
+    const [newJob, setNewJob] = useState({ tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1, supplier: 'Campuran (Lama)' });
 
     // QC Check popup state
     const [qcJob, setQcJob] = useState(null); // The job currently in QC check popup
@@ -83,7 +83,7 @@ export default function ProductionBoard({ user }) {
                 playSound('success');
                 fetchData();
                 setShowAddForm(false);
-                setNewJob({ tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1 });
+                setNewJob({ tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1, supplier: 'Campuran (Lama)' });
             }
         } catch (error) {
             playSound('error');
@@ -230,6 +230,15 @@ export default function ProductionBoard({ user }) {
                             <input value={newJob.kriteria} onChange={e => setNewJob({...newJob, kriteria: e.target.value})} type="text" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-white font-mono text-sm" placeholder="Contoh: Baut / Non-Baut" />
                         </div>
                         <div className="space-y-1">
+                            <label className="text-[10px] font-mono text-gray-400">SUPPLIER</label>
+                            <select value={newJob.supplier} onChange={e => setNewJob({...newJob, supplier: e.target.value})} className="w-full bg-[#111] border border-[var(--color-neon-cyan)]/30 rounded-lg p-2 text-[var(--color-neon-cyan)] font-mono text-sm font-bold">
+                                <option value="Campuran (Lama)">Campuran (Lama)</option>
+                                <option value="Aziz">Aziz</option>
+                                <option value="Komeng">Komeng</option>
+                                <option value="Wakil">Wakil</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
                             <label className="text-[10px] font-mono text-gray-400">JUMLAH (PCS)</label>
                             <input required value={newJob.alokasi} onChange={e => setNewJob({...newJob, alokasi: parseInt(e.target.value)})} type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-white font-mono text-sm" />
                         </div>
@@ -308,6 +317,11 @@ export default function ProductionBoard({ user }) {
                                                 >
                                                     {job.komponen}
                                                 </span>
+                                                {job.supplier && (
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${job.supplier === 'Campuran (Lama)' ? 'bg-gray-500/20 text-gray-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                        🏭 {job.supplier}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-3 text-xs">
                                                 <span className={`${colConfig.color} font-bold flex items-center gap-1`}>

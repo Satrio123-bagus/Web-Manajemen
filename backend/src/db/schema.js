@@ -58,6 +58,7 @@ const production_jobs = sqliteTable('production_jobs', {
     alokasi: integer('alokasi').default(1),
     assigned_to: text('assigned_to'), // ID user (opsional)
     timestamp: text('timestamp'),
+    supplier: text('supplier').notNull().default('Campuran (Lama)'),
 });
 
 const supply_reports = sqliteTable('supply_reports', {
