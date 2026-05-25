@@ -32,6 +32,8 @@ export default function ProductionBoard({ user }) {
     const [qcJual, setQcJual] = useState(0);
     const [qcRakit, setQcRakit] = useState(0);
     const [qcRusak, setQcRusak] = useState(0);
+    const [qcRework, setQcRework] = useState(0);
+    const [qcCatatan, setQcCatatan] = useState('');
 
     // Sortir popup state
     const [sortirJob, setSortirJob] = useState(null);
@@ -115,7 +117,9 @@ export default function ProductionBoard({ user }) {
             await api.post(`/production/jobs/${qcJob.id}/qc`, { 
                 qcJual, 
                 qcRakit, 
-                qcRusak 
+                qcRusak,
+                qcRework,
+                catatan: qcCatatan
             });
             setQcJob(null);
             fetchData();
@@ -416,7 +420,7 @@ export default function ProductionBoard({ user }) {
                                             </>
                                         )}
                                         {job.status === 'QC_CEK' && (
-                                            <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] rounded-lg font-bold hover:bg-[var(--color-neon-cyan)]/30 hover:text-white transition-colors border border-[var(--color-neon-cyan)]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
+                                            <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); setQcRework(0); setQcCatatan(''); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] rounded-lg font-bold hover:bg-[var(--color-neon-cyan)]/30 hover:text-white transition-colors border border-[var(--color-neon-cyan)]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
                                                 ALOKASI QC
                                             </button>
                                         )}
@@ -530,9 +534,21 @@ export default function ProductionBoard({ user }) {
                                     </label>
                                     <input type="number" min="0" max={qcJob.alokasi} value={qcRusak} onChange={e => setQcRusak(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-red-400 font-mono text-lg text-center" />
                                 </div>
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        PERBAIKI ULANG (KEMBALI KE GUDANG CAT)
+                                    </label>
+                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRework} onChange={e => setQcRework(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-orange-400 font-mono text-lg text-center" />
+                                </div>
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        ALASAN REWORK / KENDALA
+                                    </label>
+                                    <input type="text" value={qcCatatan} onChange={e => setQcCatatan(e.target.value)} placeholder="Contoh: Pekerja cat teledor, casing pecah..." className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white" />
+                                </div>
                                 
-                                { (qcJual + qcRakit + qcRusak) !== Number(qcJob.alokasi) ? (
-                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}! (Total input saat ini: {qcJual + qcRakit + qcRusak})</div>
+                                { (qcJual + qcRakit + qcRusak + qcRework) !== Number(qcJob.alokasi) ? (
+                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}! (Total input saat ini: {qcJual + qcRakit + qcRusak + qcRework})</div>
                                 ) : (
                                     <button onClick={handleQcSubmit} className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-400 transition-colors">
                                         KONFIRMASI ALOKASI
