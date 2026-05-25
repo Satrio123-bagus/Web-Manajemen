@@ -76,6 +76,7 @@ betterSqlite.exec(`
   );
   CREATE TABLE IF NOT EXISTS production_jobs (
     id TEXT PRIMARY KEY,
+    merk TEXT DEFAULT 'Lain-lain',
     tipe_remote TEXT NOT NULL,
     komponen TEXT NOT NULL,
     kriteria TEXT,
@@ -110,6 +111,7 @@ try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN location TEXT NOT NULL DEF
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN condition TEXT NOT NULL DEFAULT 'READY'`); } catch (_) { }
 try { betterSqlite.exec(`UPDATE items SET bab = category WHERE bab = 'Uncategorized' AND category IS NOT NULL AND category != ''`); } catch (_) { }
 try { betterSqlite.exec(`ALTER TABLE production_jobs ADD COLUMN supplier TEXT DEFAULT 'Campuran (Lama)'`); } catch (_) { }
+try { betterSqlite.exec(`ALTER TABLE production_jobs ADD COLUMN merk TEXT DEFAULT 'Lain-lain'`); } catch (_) { }
 
 // Initialize Drizzle ORM
 const db = drizzle(betterSqlite, { schema });
@@ -159,8 +161,8 @@ const stmts = {
     get: (id) => db.select().from(production_jobs).where(eq(production_jobs.id, id)).get()
   },
   insertProductionJob: {
-    run: (id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp, supplier) =>
-      db.insert(production_jobs).values({ id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp, supplier: supplier || 'Campuran (Lama)' }).run()
+    run: (id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp, supplier, merk) =>
+      db.insert(production_jobs).values({ id, tipe_remote, komponen, kriteria, status, catatan, alokasi, assigned_to, timestamp, supplier: supplier || 'Campuran (Lama)', merk: merk || 'Lain-lain' }).run()
   },
   updateProductionJobStatus: {
     run: (id, status, catatan) =>

@@ -25,7 +25,14 @@ export default function ProductionBoard({ user }) {
 
     // Admin form state
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newJob, setNewJob] = useState({ tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1, supplier: 'Campuran (Lama)' });
+    const [newJob, setNewJob] = useState({
+        merk: 'Lain-lain',
+        tipe_remote: '',
+        komponen: 'CASING',
+        kriteria: '',
+        alokasi: 1,
+        supplier: 'Campuran (Lama)'
+    });
 
     // QC Check popup state
     const [qcJob, setQcJob] = useState(null); // The job currently in QC check popup
@@ -53,6 +60,11 @@ export default function ProductionBoard({ user }) {
     const [afkirJob, setAfkirJob] = useState(null);
     const [afkirJumlah, setAfkirJumlah] = useState(0);
     const [afkirCatatan, setAfkirCatatan] = useState('');
+
+    // Constants
+    const SUPPLIERS = ['Aziz', 'Komeng', 'Wakil', 'Campuran (Lama)'];
+    const MERK_OPTIONS = ['Panasonic', 'Daikin', 'Sharp', 'Samsung', 'LG', 'Universal', 'Lain-lain'];
+    const SMART_TAGS = ['Baut', 'Non-Baut', 'Kecil', 'Sedang', 'Besar', 'Smart TV', 'Tabung', 'Original', 'Grade A'];
 
     useEffect(() => {
         fetchData();
@@ -90,7 +102,7 @@ export default function ProductionBoard({ user }) {
                 playSound('success');
                 fetchData();
                 setShowAddForm(false);
-                setNewJob({ tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1, supplier: 'Campuran (Lama)' });
+                setNewJob({ merk: 'Lain-lain', tipe_remote: '', komponen: 'CASING', kriteria: '', alokasi: 1, supplier: 'Campuran (Lama)' });
             }
         } catch (error) {
             playSound('error');
@@ -260,40 +272,69 @@ export default function ProductionBoard({ user }) {
                         animate={{ opacity: 1, height: 'auto' }} 
                         exit={{ opacity: 0, height: 0 }}
                         onSubmit={handleAddJob} 
-                        className="bg-black/50 border border-[var(--color-neon-cyan)]/30 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-5 gap-4 overflow-hidden"
+                        className="bg-black/50 border border-[var(--color-neon-cyan)]/30 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden"
                     >
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-gray-400">TIPE REMOTE</label>
-                            <input required value={newJob.tipe_remote} onChange={e => setNewJob({...newJob, tipe_remote: e.target.value})} type="text" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-white font-mono text-sm" placeholder="Contoh: A75C2656" />
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2">MERK REMOTE</label>
+                                <select value={newJob.merk} onChange={e => setNewJob({...newJob, merk: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)]">
+                                    {MERK_OPTIONS.map(opt => <option key={opt} value={opt} className="bg-gray-900">{opt}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2">TIPE / KODE REMOTE</label>
+                                <input value={newJob.tipe_remote} onChange={e => setNewJob({...newJob, tipe_remote: e.target.value})} type="text" className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)]" placeholder="Contoh: A75C2656" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2">KRITERIA SPESIAL</label>
+                                <input value={newJob.kriteria} onChange={e => setNewJob({...newJob, kriteria: e.target.value})} type="text" className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)] mb-2" placeholder="Ketik manual atau klik tag di bawah..." />
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {SMART_TAGS.map(tag => {
+                                        const isSelected = newJob.kriteria?.includes(tag);
+                                        return (
+                                            <button 
+                                                key={tag} 
+                                                type="button"
+                                                onClick={() => {
+                                                    const current = newJob.kriteria ? newJob.kriteria.split(',').map(s=>s.trim()).filter(s=>s) : [];
+                                                    if(isSelected) {
+                                                        setNewJob({...newJob, kriteria: current.filter(t => t !== tag).join(', ')});
+                                                    } else {
+                                                        setNewJob({...newJob, kriteria: [...current, tag].join(', ')});
+                                                    }
+                                                }}
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all ${isSelected ? 'bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] border-[var(--color-neon-cyan)]' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'}`}
+                                            >
+                                                {isSelected ? '✓ ' : '+ '}{tag}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-gray-400">KOMPONEN</label>
-                            <select value={newJob.komponen} onChange={e => setNewJob({...newJob, komponen: e.target.value})} className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white font-mono text-sm">
-                                <option>CASING</option>
-                                <option>MESIN</option>
-                                <option>LAYAR</option>
-                            </select>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-gray-400">KRITERIA</label>
-                            <input value={newJob.kriteria} onChange={e => setNewJob({...newJob, kriteria: e.target.value})} type="text" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-white font-mono text-sm" placeholder="Contoh: Baut / Non-Baut" />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-gray-400">SUPPLIER</label>
-                            <select value={newJob.supplier} onChange={e => setNewJob({...newJob, supplier: e.target.value})} className="w-full bg-[#111] border border-[var(--color-neon-cyan)]/30 rounded-lg p-2 text-[var(--color-neon-cyan)] font-mono text-sm font-bold">
-                                <option value="Campuran (Lama)">Campuran (Lama)</option>
-                                <option value="Aziz">Aziz</option>
-                                <option value="Komeng">Komeng</option>
-                                <option value="Wakil">Wakil</option>
-                            </select>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-gray-400">JUMLAH (PCS)</label>
-                            <input required value={newJob.alokasi} onChange={e => setNewJob({...newJob, alokasi: parseInt(e.target.value)})} type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-white font-mono text-sm" />
-                        </div>
-                        <div className="flex items-end">
-                            <button type="submit" className="w-full h-[42px] bg-[var(--color-neon-cyan)] text-black font-bold rounded-lg hover:shadow-[0_0_15px_rgba(0,243,255,0.5)] transition-all flex items-center justify-center gap-2">
-                                <Save className="w-4 h-4" /> SIMPAN
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-2">KOMPONEN</label>
+                                    <select value={newJob.komponen} onChange={e => setNewJob({...newJob, komponen: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white">
+                                        <option>CASING</option>
+                                        <option>MESIN</option>
+                                        <option>LAYAR</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-2">JUMLAH (PCS)</label>
+                                    <input required value={newJob.alokasi} onChange={e => setNewJob({...newJob, alokasi: parseInt(e.target.value)})} type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2">SUPPLIER</label>
+                                <select value={newJob.supplier} onChange={e => setNewJob({...newJob, supplier: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white">
+                                    {SUPPLIERS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <button type="submit" className="w-full h-[48px] bg-[var(--color-neon-cyan)] text-black font-bold rounded-lg hover:shadow-[0_0_15px_rgba(0,243,255,0.5)] transition-all flex items-center justify-center gap-2">
+                                <Save className="w-4 h-4" /> SIMPAN KARUNG
                             </button>
                         </div>
                     </motion.form>
@@ -358,7 +399,10 @@ export default function ProductionBoard({ user }) {
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="font-black text-white text-lg tracking-wider">{job.tipe_remote}</h4>
+                                                <h3 className="text-[var(--color-neon-cyan)] font-bold font-mono tracking-wider text-sm sm:text-base break-words">
+                                                    <span className="text-xs text-gray-400 mr-2">[{job.merk?.toUpperCase() || 'LAIN-LAIN'}]</span>
+                                                    {job.tipe_remote}
+                                                </h3>
                                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider
                                                     ${job.komponen === 'CASING' ? 'bg-blue-500/20 text-blue-400' : 
                                                     job.komponen === 'MESIN' ? 'bg-purple-500/20 text-purple-400' : 

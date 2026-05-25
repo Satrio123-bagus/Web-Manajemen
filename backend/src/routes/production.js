@@ -70,14 +70,16 @@ router.post('/tutup-buku', (req, res) => {
 
 router.post('/jobs', (req, res) => {
     try {
-        const { tipe_remote, komponen, kriteria, alokasi, supplier } = req.body;
-        const id = crypto.randomUUID();
-        const timestamp = new Date().toISOString();
+        const { tipe_remote, komponen, kriteria, alokasi, supplier, merk } = req.body;
+        if (!tipe_remote || !komponen || !alokasi) {
+            return res.status(400).json({ success: false, message: 'Data tidak lengkap' });
+        }
         
-        stmts.insertProductionJob.run(
-            id, tipe_remote, komponen, kriteria || '', 'MENTAH', '', alokasi || 1, null, timestamp, supplier
-        );
-        res.status(201).json({ success: true, message: 'Pekerjaan ditambahkan', id });
+        const timestamp = new Date().toISOString();
+        const catatan = 'Masuk Gudang Mentah';
+        
+        stmts.insertProductionJob.run(crypto.randomUUID(), tipe_remote, komponen, kriteria, 'MENTAH', catatan, Number(alokasi), null, timestamp, supplier, merk);
+        res.json({ success: true, message: 'Pekerjaan berhasil ditambahkan' });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
@@ -116,16 +118,16 @@ router.post('/jobs/:id/qc', (req, res) => {
         stmts.deleteProductionJob.run(id);
         
         if (qcJual > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', job.catatan, qcJual, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', job.catatan, qcJual, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         if (qcRakit > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', job.catatan, qcRakit, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', job.catatan, qcRakit, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         if (qcRusak > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', `Gagal QC${baseCatatan}`, qcRusak, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', `Gagal QC${baseCatatan}`, qcRusak, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         if (qcRework > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', `REWORK QC${baseCatatan}`, qcRework, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', `REWORK QC${baseCatatan}`, qcRework, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         
         res.json({ success: true, message: 'QC selesai' });
@@ -153,10 +155,10 @@ router.post('/jobs/:id/sortir', (req, res) => {
         const timestamp = new Date().toISOString();
         
         if (sortirCuci > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CUCI', 'Hasil Sortir (Cuci Saja)', sortirCuci, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CUCI', 'Hasil Sortir (Cuci Saja)', sortirCuci, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         if (sortirCat > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', 'Hasil Sortir (Perlu Cat)', sortirCat, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', 'Hasil Sortir (Perlu Cat)', sortirCat, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         
         res.json({ success: true, message: 'Barang berhasil disortir ke gudang' });
@@ -189,11 +191,13 @@ router.post('/jobs/:id/tarik', (req, res) => {
             stmts.deleteProductionJob.run(id);
             const sisaGudang = job.alokasi - jumlah;
             
-            // Simpan sisa di gudang
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, 'Sisa dari penarikan parsial', sisaGudang, job.assigned_to, timestamp, job.supplier);
+            if (sisaGudang > 0) {
+                // Keep remainder in the current bucket
+                stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, 'Sisa dari penarikan parsial', sisaGudang, job.assigned_to, timestamp, job.supplier, job.merk);
+            }
             
             // Tarik sebagian ke proses
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, targetStatus, `Ditarik parsial dari ${job.status}`, jumlah, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, targetStatus, `Ditarik parsial dari ${job.status}`, jumlah, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         
         res.json({ success: true, message: 'Barang berhasil ditarik' });
@@ -226,11 +230,13 @@ router.post('/jobs/:id/afkir', (req, res) => {
             stmts.deleteProductionJob.run(id);
             const sisaProses = job.alokasi - jumlahRusak;
             
-            // Simpan sisa yang bagus di proses
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, job.catatan, sisaProses, job.assigned_to, timestamp, job.supplier);
+            if (sisaProses > 0) {
+                // Sisa barang tetap lanjut di status sebelumnya (belum rusak semua)
+                stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, job.catatan, sisaProses, job.assigned_to, timestamp, job.supplier, job.merk);
+            }
             
             // Lempar yang rusak ke tong rusak
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', catatan || `Afkir dari ${job.status}`, jumlahRusak, job.assigned_to, timestamp, job.supplier);
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', catatan || `Afkir dari ${job.status}`, jumlahRusak, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         
         res.json({ success: true, message: 'Barang rusak berhasil disortir' });

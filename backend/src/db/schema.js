@@ -50,6 +50,7 @@ const users = sqliteTable('users', {
 
 const production_jobs = sqliteTable('production_jobs', {
     id: text('id').primaryKey(),
+    merk: text('merk').notNull().default('Lain-lain'),
     tipe_remote: text('tipe_remote').notNull(),
     komponen: text('komponen').notNull(), // CASING, MESIN, LAYAR
     kriteria: text('kriteria'), // Baut, Tidak Baut, dll
