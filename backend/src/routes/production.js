@@ -111,6 +111,43 @@ router.post('/jobs/:id/sortir', (req, res) => {
     }
 });
 
+router.post('/jobs/:id/tarik', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { jumlah, targetStatus } = req.body;
+        
+        const job = stmts.getProductionJobById.get(id);
+        if (!job) {
+            return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
+        }
+        
+        if (jumlah <= 0 || jumlah > job.alokasi) {
+            return res.status(400).json({ success: false, message: 'Jumlah tidak valid!' });
+        }
+        
+        const timestamp = new Date().toISOString();
+        
+        if (jumlah === job.alokasi) {
+            // Tarik semua, cukup update status
+            stmts.updateProductionJobStatus.run(id, targetStatus, `Ditarik penuh ke ${targetStatus}`);
+        } else {
+            // Tarik sebagian, belah data
+            stmts.deleteProductionJob.run(id);
+            const sisaGudang = job.alokasi - jumlah;
+            
+            // Simpan sisa di gudang
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, 'Sisa dari penarikan parsial', sisaGudang, job.assigned_to, timestamp);
+            
+            // Tarik sebagian ke proses
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, targetStatus, `Ditarik parsial dari ${job.status}`, jumlah, job.assigned_to, timestamp);
+        }
+        
+        res.json({ success: true, message: 'Barang berhasil ditarik' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.delete('/jobs/:id', (req, res) => {
     try {
         stmts.deleteProductionJob.run(req.params.id);

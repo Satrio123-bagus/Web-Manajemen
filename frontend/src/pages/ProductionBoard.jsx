@@ -42,6 +42,11 @@ export default function ProductionBoard({ user }) {
     const [activeTab, setActiveTab] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Tarik Parsial popup state
+    const [tarikJob, setTarikJob] = useState(null);
+    const [tarikJumlah, setTarikJumlah] = useState(0);
+    const [tarikTargetStatus, setTarikTargetStatus] = useState('');
+
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 10000); // polling setiap 10 detik
@@ -123,6 +128,21 @@ export default function ProductionBoard({ user }) {
                 sortirCat 
             });
             setSortirJob(null);
+            fetchData();
+        } catch (err) {
+            playSound('error');
+        }
+    };
+
+    const handleTarikSubmit = async () => {
+        if (!tarikJob || tarikJumlah <= 0 || tarikJumlah > tarikJob.alokasi) return;
+        playSound('click');
+        try {
+            await api.post(`/production/jobs/${tarikJob.id}/tarik`, { 
+                jumlah: tarikJumlah, 
+                targetStatus: tarikTargetStatus 
+            });
+            setTarikJob(null);
             fetchData();
         } catch (err) {
             playSound('error');
@@ -307,12 +327,12 @@ export default function ProductionBoard({ user }) {
                                             </button>
                                         )}
                                         {job.status === 'GUDANG_CUCI' && (
-                                            <button onClick={() => handleMoveJob(job.id, 'PROSES_CUCI')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-cyan-500/10 text-cyan-400 rounded-lg font-bold hover:bg-cyan-500/30 hover:text-cyan-300 transition-colors border border-cyan-500/30">
+                                            <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_CUCI'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-cyan-500/10 text-cyan-400 rounded-lg font-bold hover:bg-cyan-500/30 hover:text-cyan-300 transition-colors border border-cyan-500/30">
                                                 TARIK KE CUCI
                                             </button>
                                         )}
                                         {job.status === 'GUDANG_CAT' && (
-                                            <button onClick={() => handleMoveJob(job.id, 'PROSES_CAT')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 hover:text-orange-300 transition-colors border border-orange-500/30">
+                                            <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_CAT'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 hover:text-orange-300 transition-colors border border-orange-500/30">
                                                 TARIK KE CAT
                                             </button>
                                         )}
@@ -447,6 +467,43 @@ export default function ProductionBoard({ user }) {
                                 ) : (
                                     <button onClick={handleQcSubmit} className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-400 transition-colors">
                                         KONFIRMASI ALOKASI
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Tarik Parsial Modal */}
+            <AnimatePresence>
+                {tarikJob && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-white/20 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+                            <div className={`p-4 border-b border-white/10 flex justify-between items-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-500/10' : 'bg-orange-500/10'}`}>
+                                <h3 className={`font-black tracking-wider ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400' : 'text-orange-400'}`}>TARIK KE PROSES (Max: {tarikJob.alokasi})</h3>
+                                <button onClick={() => setTarikJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        JUMLAH YANG AKAN DIKERJAKAN
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max={tarikJob.alokasi} 
+                                        value={tarikJumlah} 
+                                        onChange={e => setTarikJumlah(parseInt(e.target.value) || 0)} 
+                                        className={`w-full bg-white/5 border rounded-lg p-3 font-mono text-lg text-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400 border-cyan-500/30' : 'text-orange-400 border-orange-500/30'}`} 
+                                    />
+                                </div>
+                                
+                                { (tarikJumlah <= 0 || tarikJumlah > tarikJob.alokasi) ? (
+                                    <div className="text-red-400 text-xs text-center font-bold">JUMLAH TIDAK VALID!</div>
+                                ) : (
+                                    <button onClick={handleTarikSubmit} className={`w-full text-white font-bold py-3 rounded-lg transition-colors ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-orange-600 hover:bg-orange-500'}`}>
+                                        TARIK SEKARANG
                                     </button>
                                 )}
                             </div>
