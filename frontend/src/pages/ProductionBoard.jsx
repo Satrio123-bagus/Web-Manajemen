@@ -47,6 +47,11 @@ export default function ProductionBoard({ user }) {
     const [tarikJumlah, setTarikJumlah] = useState(0);
     const [tarikTargetStatus, setTarikTargetStatus] = useState('');
 
+    // Afkir popup state
+    const [afkirJob, setAfkirJob] = useState(null);
+    const [afkirJumlah, setAfkirJumlah] = useState(0);
+    const [afkirCatatan, setAfkirCatatan] = useState('');
+
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 10000); // polling setiap 10 detik
@@ -143,6 +148,21 @@ export default function ProductionBoard({ user }) {
                 targetStatus: tarikTargetStatus 
             });
             setTarikJob(null);
+            fetchData();
+        } catch (err) {
+            playSound('error');
+        }
+    };
+
+    const handleAfkirSubmit = async () => {
+        if (!afkirJob || afkirJumlah <= 0 || afkirJumlah > afkirJob.alokasi) return;
+        playSound('click');
+        try {
+            await api.post(`/production/jobs/${afkirJob.id}/afkir`, { 
+                jumlahRusak: afkirJumlah, 
+                catatan: afkirCatatan 
+            });
+            setAfkirJob(null);
             fetchData();
         } catch (err) {
             playSound('error');
@@ -351,14 +371,24 @@ export default function ProductionBoard({ user }) {
                                             </button>
                                         )}
                                         {job.status === 'PROSES_CUCI' && (
-                                            <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
-                                                SELESAI (KE QC)
-                                            </button>
+                                            <>
+                                                <button onClick={() => { setAfkirJob(job); setAfkirJumlah(0); setAfkirCatatan(''); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-red-500/10 text-red-400 rounded-lg font-bold hover:bg-red-500/30 hover:text-red-300 transition-colors border border-red-500/30">
+                                                    LAPOR RUSAK ⚠️
+                                                </button>
+                                                <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
+                                                    SELESAI (KE QC)
+                                                </button>
+                                            </>
                                         )}
                                         {job.status === 'PROSES_CAT' && (
-                                            <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
-                                                SELESAI (KE QC)
-                                            </button>
+                                            <>
+                                                <button onClick={() => { setAfkirJob(job); setAfkirJumlah(0); setAfkirCatatan(''); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-red-500/10 text-red-400 rounded-lg font-bold hover:bg-red-500/30 hover:text-red-300 transition-colors border border-red-500/30">
+                                                    LAPOR RUSAK ⚠️
+                                                </button>
+                                                <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
+                                                    SELESAI (KE QC)
+                                                </button>
+                                            </>
                                         )}
                                         {job.status === 'QC_CEK' && (
                                             <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] rounded-lg font-bold hover:bg-[var(--color-neon-cyan)]/30 hover:text-white transition-colors border border-[var(--color-neon-cyan)]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
@@ -518,6 +548,57 @@ export default function ProductionBoard({ user }) {
                                 ) : (
                                     <button onClick={handleTarikSubmit} className={`w-full text-white font-bold py-3 rounded-lg transition-colors ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-orange-600 hover:bg-orange-500'}`}>
                                         TARIK SEKARANG
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Lapor Rusak (Afkir) Modal */}
+            <AnimatePresence>
+                {afkirJob && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-white/20 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+                            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-red-500/10">
+                                <h3 className="font-black text-red-400 tracking-wider flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4" /> LAPOR RUSAK (Max: {afkirJob.alokasi})
+                                </h3>
+                                <button onClick={() => setAfkirJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        JUMLAH BARANG RUSAK
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max={afkirJob.alokasi} 
+                                        value={afkirJumlah} 
+                                        onChange={e => setAfkirJumlah(parseInt(e.target.value) || 0)} 
+                                        className="w-full bg-white/5 border border-red-500/30 rounded-lg p-3 font-mono text-lg text-center text-red-400 focus:border-red-400 focus:outline-none" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                        CATATAN KENDALA (Opsional)
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={afkirCatatan} 
+                                        onChange={e => setAfkirCatatan(e.target.value)} 
+                                        placeholder="Casing retak / tulisan pudar..."
+                                        className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-red-400 focus:outline-none" 
+                                    />
+                                </div>
+                                
+                                { (afkirJumlah <= 0 || afkirJumlah > afkirJob.alokasi) ? (
+                                    <div className="text-red-400 text-xs text-center font-bold">JUMLAH TIDAK VALID!</div>
+                                ) : (
+                                    <button onClick={handleAfkirSubmit} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500 transition-colors mt-2">
+                                        BUANG KE TONG RUSAK
                                     </button>
                                 )}
                             </div>
