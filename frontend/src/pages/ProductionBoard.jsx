@@ -7,8 +7,10 @@ import { useSound } from '../hooks/useSound';
 const COLUMNS = [
     { id: 'MENTAH', title: 'KARUNG MENTAH', icon: PackageOpen, color: 'text-gray-400', border: 'border-gray-500/30', bg: 'bg-gray-500/10' },
     { id: 'GUDANG_CUCI', title: 'GUDANG CUCI', icon: Archive, color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
+    { id: 'GUDANG_KIMIA', title: 'GUDANG KIMIA', icon: Archive, color: 'text-fuchsia-400', border: 'border-fuchsia-500/30', bg: 'bg-fuchsia-500/10' },
     { id: 'GUDANG_CAT', title: 'GUDANG CAT', icon: Archive, color: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
     { id: 'PROSES_CUCI', title: 'PROSES CUCI', icon: Wrench, color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
+    { id: 'PROSES_KIMIA', title: 'PROSES KIMIA', icon: Wrench, color: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
     { id: 'PROSES_CAT', title: 'PROSES CAT', icon: Wrench, color: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
     { id: 'QC_CEK', title: 'QC CEK', icon: CheckCircle, color: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
     { id: 'SELESAI_JUAL', title: 'ETALASE JUAL', icon: ArrowUpRight, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
@@ -46,6 +48,7 @@ export default function ProductionBoard({ user }) {
     const [sortirJob, setSortirJob] = useState(null);
     const [sortirCuci, setSortirCuci] = useState(0);
     const [sortirCat, setSortirCat] = useState(0);
+    const [sortirKimia, setSortirKimia] = useState(0);
 
     // Feed State
     const [activeTab, setActiveTab] = useState('ALL');
@@ -433,7 +436,7 @@ export default function ProductionBoard({ user }) {
                                     {/* Action Buttons based on status */}
                                     <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-2 sm:mt-0 min-w-max">
                                         {job.status === 'MENTAH' && (
-                                            <button onClick={() => { setSortirJob(job); setSortirCuci(0); setSortirCat(0); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-gray-500/10 text-gray-300 rounded-lg font-bold hover:bg-gray-500/30 hover:text-white transition-colors border border-gray-500/30">
+                                            <button onClick={() => { setSortirJob(job); setSortirCuci(0); setSortirCat(0); setSortirKimia(0); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-gray-500/10 text-gray-300 rounded-lg font-bold hover:bg-gray-500/30 hover:text-white transition-colors border border-gray-500/30">
                                                 BONGKAR & SORTIR
                                             </button>
                                         )}
@@ -444,28 +447,28 @@ export default function ProductionBoard({ user }) {
                                         )}
                                         {job.status === 'GUDANG_CAT' && (
                                             <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_CAT'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 hover:text-orange-300 transition-colors border border-orange-500/30">
-                                                TARIK KE CAT
+                                                Tarik ke Proses Cat
+                                            </button>
+                                        )}
+                                        {job.status === 'GUDANG_KIMIA' && (
+                                            <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_KIMIA'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-fuchsia-500/10 text-fuchsia-400 rounded-lg font-bold hover:bg-fuchsia-500/30 hover:text-fuchsia-300 transition-colors border border-fuchsia-500/30">
+                                                Tarik ke Proses Kimia
                                             </button>
                                         )}
                                         {job.status === 'PROSES_CUCI' && (
-                                            <>
-                                                <button onClick={() => { setAfkirJob(job); setAfkirJumlah(0); setAfkirCatatan(''); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-red-500/10 text-red-400 rounded-lg font-bold hover:bg-red-500/30 hover:text-red-300 transition-colors border border-red-500/30">
-                                                    LAPOR RUSAK ⚠️
-                                                </button>
-                                                <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
-                                                    SELESAI (KE QC)
-                                                </button>
-                                            </>
+                                            <button onClick={() => updateJobStatus(job.id, 'QC_CEK', 'Selesai Dicuci')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
+                                                ✓ Selesai Cuci (Kirim QC)
+                                            </button>
                                         )}
                                         {job.status === 'PROSES_CAT' && (
-                                            <>
-                                                <button onClick={() => { setAfkirJob(job); setAfkirJumlah(0); setAfkirCatatan(''); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-red-500/10 text-red-400 rounded-lg font-bold hover:bg-red-500/30 hover:text-red-300 transition-colors border border-red-500/30">
-                                                    LAPOR RUSAK ⚠️
-                                                </button>
-                                                <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
-                                                    SELESAI (KE QC)
-                                                </button>
-                                            </>
+                                            <button onClick={() => updateJobStatus(job.id, 'QC_CEK', 'Selesai Dicat')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
+                                                ✓ Selesai Cat (Kirim QC)
+                                            </button>
+                                        )}
+                                        {job.status === 'PROSES_KIMIA' && (
+                                            <button onClick={() => updateJobStatus(job.id, 'GUDANG_CAT', 'Selesai Kimia, lanjut ke Gudang Cat')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-pink-500/10 text-pink-400 rounded-lg font-bold hover:bg-pink-500/30 hover:text-pink-300 transition-colors border border-pink-500/30">
+                                                ✓ Selesai Kimia (Kirim Gudang Cat)
+                                            </button>
                                         )}
                                         {job.status === 'QC_CEK' && (
                                             <button onClick={() => { setQcJob(job); setQcJual(0); setQcRakit(0); setQcRusak(0); setQcRework(0); setQcCatatan(''); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] rounded-lg font-bold hover:bg-[var(--color-neon-cyan)]/30 hover:text-white transition-colors border border-[var(--color-neon-cyan)]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
@@ -528,26 +531,31 @@ export default function ProductionBoard({ user }) {
                                 <button onClick={() => setSortirJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
                             </div>
                             <div className="p-6 space-y-6">
-                                <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        MASUK GUDANG CUCI (Mulus) 🌧️
-                                    </label>
-                                    <input type="number" min="0" max={sortirJob.alokasi} value={sortirCuci} onChange={e => setSortirCuci(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-cyan-500/30 rounded-lg p-3 text-cyan-400 font-mono text-lg text-center focus:border-cyan-400 focus:outline-none" />
-                                </div>
-                                <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        MASUK GUDANG CAT (Baret) ☀️
-                                    </label>
-                                    <input type="number" min="0" max={sortirJob.alokasi} value={sortirCat} onChange={e => setSortirCat(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-orange-500/30 rounded-lg p-3 text-orange-400 font-mono text-lg text-center focus:border-orange-400 focus:outline-none" />
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-cyan-400 block mb-1">Ke Gudang Cuci (Cuci Saja)</label>
+                                        <input type="number" min="0" max={sortirJob.alokasi} value={sortirCuci} onChange={e => setSortirCuci(parseInt(e.target.value) || 0)} className="w-full bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-cyan-400" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-orange-400 block mb-1">Ke Gudang Cat (Perlu Cat Semprot)</label>
+                                        <input type="number" min="0" max={sortirJob.alokasi} value={sortirCat} onChange={e => setSortirCat(parseInt(e.target.value) || 0)} className="w-full bg-orange-900/20 border border-orange-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-orange-400" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-fuchsia-400 block mb-1">Ke Gudang Kimia (Rendam Pemutih)</label>
+                                        <input type="number" min="0" max={sortirJob.alokasi} value={sortirKimia} onChange={e => setSortirKimia(parseInt(e.target.value) || 0)} className="w-full bg-fuchsia-900/20 border border-fuchsia-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-fuchsia-400" />
+                                    </div>
                                 </div>
                                 
-                                { (sortirCuci + sortirCat) !== Number(sortirJob.alokasi) ? (
-                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {sortirJob.alokasi}! (Input: {sortirCuci + sortirCat})</div>
-                                ) : (
-                                    <button onClick={handleSortirSubmit} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-500 transition-colors">
-                                        SIMPAN KE GUDANG
-                                    </button>
-                                )}
+                                <div className={`p-4 rounded-xl border ${sortirCuci + sortirCat + sortirKimia === sortirJob.alokasi ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400' : 'bg-red-900/20 border-red-500/30 text-red-400'}`}>
+                                    <div className="flex justify-between items-center font-bold">
+                                        <span>Total Terbagi:</span>
+                                        <span>{sortirCuci + sortirCat + sortirKimia} / {sortirJob.alokasi}</span>
+                                    </div>
+                                </div>
+                                
+                                <button onClick={handleSortirMentah} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-500 transition-colors">
+                                    SIMPAN KE GUDANG
+                                </button>
                             </div>
                         </motion.div>
                     </div>
@@ -613,8 +621,8 @@ export default function ProductionBoard({ user }) {
                 {tarikJob && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-white/20 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-                            <div className={`p-4 border-b border-white/10 flex justify-between items-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-500/10' : 'bg-orange-500/10'}`}>
-                                <h3 className={`font-black tracking-wider ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400' : 'text-orange-400'}`}>TARIK KE PROSES (Max: {tarikJob.alokasi})</h3>
+                            <div className={`p-4 border-b border-white/10 flex justify-between items-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-500/10' : tarikTargetStatus === 'PROSES_KIMIA' ? 'bg-fuchsia-500/10' : 'bg-orange-500/10'}`}>
+                                <h3 className={`font-black tracking-wider ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400' : tarikTargetStatus === 'PROSES_KIMIA' ? 'text-fuchsia-400' : 'text-orange-400'}`}>TARIK KE PROSES (Max: {tarikJob.alokasi})</h3>
                                 <button onClick={() => setTarikJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
                             </div>
                             <div className="p-6 space-y-6">
@@ -628,15 +636,15 @@ export default function ProductionBoard({ user }) {
                                         max={tarikJob.alokasi} 
                                         value={tarikJumlah} 
                                         onChange={e => setTarikJumlah(parseInt(e.target.value) || 0)} 
-                                        className={`w-full bg-white/5 border rounded-lg p-3 font-mono text-lg text-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400 border-cyan-500/30' : 'text-orange-400 border-orange-500/30'}`} 
+                                        className={`w-full bg-white/5 border rounded-lg p-3 font-mono text-lg text-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400 border-cyan-500/30' : tarikTargetStatus === 'PROSES_KIMIA' ? 'text-fuchsia-400 border-fuchsia-500/30' : 'text-orange-400 border-orange-500/30'}`} 
                                     />
                                 </div>
                                 
                                 { (tarikJumlah <= 0 || tarikJumlah > tarikJob.alokasi) ? (
                                     <div className="text-red-400 text-xs text-center font-bold">JUMLAH TIDAK VALID!</div>
                                 ) : (
-                                    <button onClick={handleTarikSubmit} className={`w-full text-white font-bold py-3 rounded-lg transition-colors ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-orange-600 hover:bg-orange-500'}`}>
-                                        TARIK SEKARANG
+                                    <button onClick={handleTarikSubmit} className={`w-full text-white font-bold py-3 rounded-lg transition-colors ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-600 hover:bg-cyan-500' : tarikTargetStatus === 'PROSES_KIMIA' ? 'bg-fuchsia-600 hover:bg-fuchsia-500' : 'bg-orange-600 hover:bg-orange-500'}`}>
+                                        Tarik {tarikJumlah} Pcs
                                     </button>
                                 )}
                             </div>
