@@ -169,6 +169,22 @@ export default function ProductionBoard({ user }) {
         }
     };
 
+    const handleTutupBuku = async () => {
+        if (!confirm('AWAS! Anda akan mengompres data dan MENGHAPUS SEMUA KARTU di kolom Selesai/Rusak. Lanjutkan?')) return;
+        try {
+            playSound('click');
+            const res = await api.post('/production/tutup-buku');
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                fetchData();
+            }
+        } catch (err) {
+            playSound('error');
+            console.error(err);
+        }
+    };
+
     const sendReport = async () => {
         if (!reportText.trim()) return;
         try {
@@ -213,13 +229,22 @@ export default function ProductionBoard({ user }) {
                     </p>
                 </div>
                 {user?.role === 'ADMIN' && (
-                    <button
-                        onClick={() => setShowAddForm(!showAddForm)}
-                        className="flex items-center gap-2 bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] px-4 py-2 rounded-xl font-bold hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all border border-[var(--color-neon-cyan)]/50"
-                    >
-                        {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        {showAddForm ? 'TUTUP' : 'INPUT KARUNG MENTAH'}
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleTutupBuku}
+                            className="flex items-center gap-2 bg-red-500/20 text-red-400 px-4 py-2 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-all border border-red-500/50"
+                        >
+                            <Archive className="w-4 h-4" />
+                            TUTUP BUKU
+                        </button>
+                        <button
+                            onClick={() => setShowAddForm(!showAddForm)}
+                            className="flex items-center gap-2 bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] px-4 py-2 rounded-xl font-bold hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all border border-[var(--color-neon-cyan)]/50"
+                        >
+                            {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            {showAddForm ? 'TUTUP' : 'INPUT KARUNG MENTAH'}
+                        </button>
+                    </div>
                 )}
             </header>
 
