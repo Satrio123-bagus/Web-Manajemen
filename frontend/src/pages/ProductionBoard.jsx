@@ -321,7 +321,7 @@ export default function ProductionBoard({ user }) {
                                     <input type="number" min="0" max={qcJob.alokasi} value={qcRusak} onChange={e => setQcRusak(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-red-400 font-mono text-lg text-center" />
                                 </div>
                                 
-                                { (qcJual + qcRakit + qcRusak) !== qcJob.alokasi ? (
+                                { (qcJual + qcRakit + qcRusak) !== Number(qcJob.alokasi) ? (
                                     <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}!</div>
                                 ) : (
                                     <button onClick={handleQcSubmit} className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-400 transition-colors">
