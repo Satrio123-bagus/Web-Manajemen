@@ -17,6 +17,57 @@ router.get('/jobs', (req, res) => {
     }
 });
 
+router.post('/tutup-buku', (req, res) => {
+    try {
+        const jobsToArchive = stmts.getJobsForRollup.get();
+        if (!jobsToArchive || jobsToArchive.length === 0) {
+            return res.json({ success: true, message: 'Tidak ada data untuk ditutup buku.' });
+        }
+
+        const bulanSekarang = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const grouped = {};
+
+        jobsToArchive.forEach(job => {
+            const key = `${job.supplier}_${job.tipe_remote}`;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    supplier: job.supplier || 'Campuran (Lama)',
+                    tipe_remote: job.tipe_remote,
+                    bagus: 0,
+                    rusak: 0
+                };
+            }
+            if (job.status === 'RUSAK') {
+                grouped[key].rusak += job.alokasi;
+            } else {
+                grouped[key].bagus += job.alokasi;
+            }
+        });
+
+        // Simpan ke rollup
+        const timestamp = new Date().toISOString();
+        Object.values(grouped).forEach(g => {
+            stmts.insertAnalyticsRollup.run(
+                crypto.randomUUID(),
+                bulanSekarang,
+                g.supplier,
+                g.tipe_remote,
+                g.bagus,
+                g.rusak,
+                timestamp
+            );
+        });
+
+        // Hapus dari papan
+        stmts.deleteJobsForRollup.run();
+
+        res.json({ success: true, message: `Berhasil tutup buku. ${jobsToArchive.length} tiket dikompresi.` });
+    } catch (err) {
+        console.error('Tutup buku error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.post('/jobs', (req, res) => {
     try {
         const { tipe_remote, komponen, kriteria, alokasi, supplier } = req.body;

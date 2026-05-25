@@ -84,14 +84,24 @@ betterSqlite.exec(`
     alokasi INTEGER DEFAULT 1,
     assigned_to TEXT,
     timestamp TEXT,
-    supplier TEXT DEFAULT 'Campuran (Lama)'
+    supplier TEXT
   );
   CREATE TABLE IF NOT EXISTS supply_reports (
-    id TEXT PRIMARY KEY,
-    pekerja TEXT NOT NULL,
-    laporan TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'PENDING',
-    timestamp TEXT
+      id TEXT PRIMARY KEY,
+      pekerja TEXT NOT NULL,
+      laporan TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      timestamp TEXT
+  );
+  
+  CREATE TABLE IF NOT EXISTS supplier_analytics_rollup (
+      id TEXT PRIMARY KEY,
+      bulan TEXT NOT NULL,
+      supplier TEXT NOT NULL,
+      tipe_remote TEXT NOT NULL,
+      total_bagus INTEGER DEFAULT 0,
+      total_rusak INTEGER DEFAULT 0,
+      timestamp TEXT
   );
 `);
 try { betterSqlite.exec(`ALTER TABLE items ADD COLUMN bab TEXT NOT NULL DEFAULT 'Uncategorized'`); } catch (_) { }
@@ -284,7 +294,7 @@ const stmts = {
     all: (period) => {
       let whereSql;
       if (period === 'daily') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 day', 'localtime')`;
-      else if (period === 'weekly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-7 days', 'localtime')`;
+      else if (period === 'weekly') whereSql = whereSql = sql`${transactions.timestamp} >= datetime('now', '-7 days', 'localtime')`;
       else if (period === 'yearly') whereSql = sql`${transactions.timestamp} >= datetime('now', '-1 year', 'localtime')`;
       else whereSql = sql`${transactions.timestamp} >= datetime('now', '-30 days', 'localtime')`;
 
@@ -381,6 +391,14 @@ const stmts = {
       return stmt.get();
     }
   },
+  
+  // ─── Analytics Rollup ──────────────────────────────────
+  getJobsForRollup: { get: () => betterSqlite.prepare(`SELECT * FROM production_jobs WHERE status IN ('SELESAI_JUAL', 'SELESAI_RAKIT', 'RUSAK')`).all() },
+  insertAnalyticsRollup: { run: (id, bulan, supplier, tipe_remote, total_bagus, total_rusak, timestamp) => betterSqlite.prepare(`INSERT INTO supplier_analytics_rollup (id, bulan, supplier, tipe_remote, total_bagus, total_rusak, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(id, bulan, supplier, tipe_remote, total_bagus, total_rusak, timestamp) },
+  deleteJobsForRollup: { run: () => betterSqlite.prepare(`DELETE FROM production_jobs WHERE status IN ('SELESAI_JUAL', 'SELESAI_RAKIT', 'RUSAK')`).run() },
+  getAnalyticsRollup: { all: () => betterSqlite.prepare(`SELECT * FROM supplier_analytics_rollup ORDER BY bulan DESC, supplier ASC`).all() },
+  getAllSupplyReports: { all: () => betterSqlite.prepare('SELECT * FROM supply_reports ORDER BY timestamp DESC').all() },
+
   // ─── Push Notifications: Subscriptions ──────────────────────────────────
   insertPushSub: {
     run: (endpoint, p256dh, auth, userAgent) => {

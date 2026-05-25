@@ -69,6 +69,16 @@ const supply_reports = sqliteTable('supply_reports', {
     timestamp: text('timestamp'),
 });
 
+const supplier_analytics_rollup = sqliteTable('supplier_analytics_rollup', {
+    id: text('id').primaryKey(),
+    bulan: text('bulan').notNull(), // format YYYY-MM
+    supplier: text('supplier').notNull(),
+    tipe_remote: text('tipe_remote').notNull(),
+    total_bagus: integer('total_bagus').default(0),
+    total_rusak: integer('total_rusak').default(0),
+    timestamp: text('timestamp'),
+});
+
 module.exports = {
     items,
     transactions,
@@ -77,4 +87,5 @@ module.exports = {
     users,
     production_jobs,
     supply_reports,
+    supplier_analytics_rollup,
 };
