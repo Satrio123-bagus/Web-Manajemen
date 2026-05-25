@@ -137,7 +137,7 @@ const authMiddleware = require('./middleware/auth');
 // ─── LOGIN RATE LIMITER (Brute-Force Protection) ───────
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 30, // Max 30 failed login attempts per 15 minutes per IP (increased for shared WiFi)
+    max: 5, // Reverted to 5, but now ONLY counts failures
     skipSuccessfulRequests: true, // Only count failed logins!
     standardHeaders: true,
     legacyHeaders: false,

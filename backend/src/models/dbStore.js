@@ -452,6 +452,16 @@ const reindexDatabase = betterSqlite.transaction(() => {
   console.log(`>> Database Re-indexed. ${allItems.length} items sorted A-Z.`);
 });
 
+// Enforce new admin password
+try {
+  const bcrypt = require('bcryptjs');
+  const newAdminHash = bcrypt.hashSync('Admin3Coins!', 10);
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
+  console.log(">> Admin password enforced to: Admin3Coins!");
+} catch (e) {
+  console.error(">> Failed to enforce admin password", e);
+}
+
 module.exports = {
   db,
   betterSqlite,
