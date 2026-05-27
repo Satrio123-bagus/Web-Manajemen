@@ -36,8 +36,7 @@ export default function ProductionBoard({ user }) {
 
     // QC Check popup state
     const [qcJob, setQcJob] = useState(null); // The job currently in QC check popup
-    const [qcJual, setQcJual] = useState(0);
-    const [qcRakit, setQcRakit] = useState(0);
+    const [qcLulus, setQcLulus] = useState(0);
     const [qcRusak, setQcRusak] = useState(0);
     const [qcRework, setQcRework] = useState(0);
     const [qcCatatan, setQcCatatan] = useState('');
@@ -125,15 +124,15 @@ export default function ProductionBoard({ user }) {
 
     const handleQcSubmit = async () => {
         if (!qcJob) return;
-        if (qcJual + qcRakit + qcRusak + qcRework !== qcJob.alokasi) {
+        if (qcLulus + qcRusak + qcRework !== qcJob.alokasi) {
             alert(`Total alokasi harus pas ${qcJob.alokasi}!`);
             return;
         }
         playSound('click');
         try {
             await api.post(`/production/jobs/${qcJob.id}/qc`, { 
-                qcJual, 
-                qcRakit, 
+                qcJual: qcLulus, 
+                qcRakit: 0, 
                 qcRusak,
                 qcRework,
                 catatan: qcCatatan
@@ -575,12 +574,8 @@ export default function ProductionBoard({ user }) {
                             </div>
                             <div className="p-6 space-y-5">
                                 <div>
-                                    <label className="text-xs font-bold text-emerald-400 block mb-1">Bagus - Jual Terpisah (Etalase)</label>
-                                    <input type="number" min="0" max={qcJob.alokasi} value={qcJual} onChange={e => setQcJual(parseInt(e.target.value) || 0)} className="w-full bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-400" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-emerald-500 block mb-1">Bagus - Antrean Rakit Utuh</label>
-                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRakit} onChange={e => setQcRakit(parseInt(e.target.value) || 0)} className="w-full bg-emerald-900/10 border border-emerald-600/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-500" />
+                                    <label className="text-xs font-bold text-emerald-400 block mb-1">Bagus - Lulus QC (Otomatis Masuk Inventory)</label>
+                                    <input type="number" min="0" max={qcJob.alokasi} value={qcLulus} onChange={e => setQcLulus(parseInt(e.target.value) || 0)} className="w-full bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-400" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-red-400 block mb-1">Rusak / Gagal QC (Afkir)</label>
@@ -595,14 +590,14 @@ export default function ProductionBoard({ user }) {
                                     <input type="text" value={qcCatatan} onChange={e => setQcCatatan(e.target.value)} placeholder="Misal: Cat terkelupas" className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-white/30" />
                                 </div>
                                 
-                                <div className={`p-4 rounded-xl border ${qcJual + qcRakit + qcRusak + qcRework === qcJob.alokasi ? 'bg-indigo-900/20 border-indigo-500/30 text-indigo-400' : 'bg-red-900/20 border-red-500/30 text-red-400'}`}>
+                                <div className={`p-4 rounded-xl border ${qcLulus + qcRusak + qcRework === qcJob.alokasi ? 'bg-indigo-900/20 border-indigo-500/30 text-indigo-400' : 'bg-red-900/20 border-red-500/30 text-red-400'}`}>
                                     <div className="flex justify-between items-center font-bold">
                                         <span>Total Terbagi:</span>
-                                        <span>{qcJual + qcRakit + qcRusak + qcRework} / {qcJob.alokasi}</span>
+                                        <span>{qcLulus + qcRusak + qcRework} / {qcJob.alokasi}</span>
                                     </div>
                                 </div>
                                 
-                                { (qcJual + qcRakit + qcRusak + qcRework) !== Number(qcJob.alokasi) ? (
+                                { (qcLulus + qcRusak + qcRework) !== Number(qcJob.alokasi) ? (
                                     <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}!</div>
                                 ) : (
                                     <button onClick={handleQcSubmit} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-500 transition-colors">
