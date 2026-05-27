@@ -516,42 +516,41 @@ const reindexDatabase = betterSqlite.transaction(() => {
   console.log(`>> Database Re-indexed. ${allItems.length} items sorted A-Z.`);
 });
 
-// Seed default users if table is empty (for fresh production server)
+// Seed default users (for fresh production server OR if users are missing)
 try {
   const bcrypt = require('bcryptjs');
   
-  // Check if admin exists
-  const adminExists = betterSqlite.prepare("SELECT count(*) as cnt FROM users WHERE username = 'admin'").get().cnt;
+  console.log(">> Checking default users in database...");
   
-  if (adminExists === 0) {
-    console.log(">> Seeding default users for fresh database...");
-    
-    const insertUser = betterSqlite.prepare("INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)");
-    const crypto = require('crypto');
-    
-    // Default roles and passwords from .env
-    const adminPass = process.env.ADMIN_PASSWORD || 'Admin3Coins!';
-    const casingPass = process.env.CASING_PASSWORD || 'Casing123!';
-    const mesinPass = process.env.MESIN_PASSWORD || 'Mesin123!';
+  // Use INSERT OR IGNORE so it doesn't crash if they already exist
+  const insertUser = betterSqlite.prepare("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)");
+  const crypto = require('crypto');
+  
+  // Default roles and passwords from .env
+  const adminPass = process.env.ADMIN_PASSWORD || 'Admin3Coins!';
+  const casingPass = process.env.CASING_PASSWORD || 'Casing123!';
+  const mesinPass = process.env.MESIN_PASSWORD || 'Mesin123!';
 
-    const defaults = [
-      { user: 'admin', pass: adminPass, role: 'ADMIN' },
-      { user: 'pekerja_casing', pass: casingPass, role: 'CASING' },
-      { user: 'pekerja_mesin', pass: mesinPass, role: 'MESIN' }
-    ];
+  const defaults = [
+    { user: 'admin', pass: adminPass, role: 'ADMIN' },
+    { user: 'pekerja_casing', pass: casingPass, role: 'CASING' },
+    { user: 'pekerja_mesin', pass: mesinPass, role: 'MESIN' }
+  ];
 
-    defaults.forEach(u => {
-      const hash = bcrypt.hashSync(u.pass, 10);
-      insertUser.run(crypto.randomUUID(), u.user, hash, u.role);
-    });
-    console.log(">> Default users seeded successfully using .env passwords.");
-  } else {
-    // If admin exists, enforce the admin password from .env
-    const adminPass = process.env.ADMIN_PASSWORD || 'Admin3Coins!';
-    const newAdminHash = bcrypt.hashSync(adminPass, 10);
-    betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
-    console.log(">> Admin password enforced securely.");
-  }
+  defaults.forEach(u => {
+    const hash = bcrypt.hashSync(u.pass, 10);
+    insertUser.run(crypto.randomUUID(), u.user, hash, u.role);
+  });
+  
+  // Always enforce admin password to match .env to prevent lockouts
+  const newAdminHash = bcrypt.hashSync(adminPass, 10);
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
+  
+  // Update worker passwords to match .env (in case they changed .env later)
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'pekerja_casing'").run(bcrypt.hashSync(casingPass, 10));
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'pekerja_mesin'").run(bcrypt.hashSync(mesinPass, 10));
+
+  console.log(">> User roles & passwords enforced successfully based on .env.");
 } catch (e) {
   console.error(">> Failed to seed/enforce users", e);
 }
