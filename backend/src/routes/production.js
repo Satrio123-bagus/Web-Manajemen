@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { stmts } = require('../models/dbStore');
 const crypto = require('crypto');
+const { stmts } = require('../models/dbStore');
+const { autoClassifyIfNeeded } = require('../agents/classifyAgent');
 
 // Middleware untuk memverifikasi role bisa ditambahkan jika ada middleware global JWT
 // Saat ini kita asumsikan middleware / perlindungan dihandle di frontend, tapi sebaiknya dilindungi.
@@ -130,7 +131,17 @@ router.post('/jobs/:id/qc', (req, res) => {
             stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'GUDANG_CAT', `REWORK QC${baseCatatan}`, qcRework, job.assigned_to, timestamp, job.supplier, job.merk);
         }
         
-        res.json({ success: true, message: 'QC selesai' });
+        // --- JEMBATAN KE INVENTORY (WMS) ---
+        const totalLulus = (qcJual || 0) + (qcRakit || 0);
+        if (totalLulus > 0) {
+            const inventoryResult = stmts.upsertInventoryFromQC.run(job, totalLulus);
+            if (inventoryResult && inventoryResult.isNew) {
+                // Trigger Hermes untuk klasifikasi otomatis
+                autoClassifyIfNeeded(inventoryResult.id).catch(e => console.error('[HERMES] Gagal memicu autoClassify:', e.message));
+            }
+        }
+        
+        res.json({ success: true, message: 'QC selesai, stok masuk ke Inventory' });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
