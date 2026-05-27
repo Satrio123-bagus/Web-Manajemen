@@ -516,14 +516,42 @@ const reindexDatabase = betterSqlite.transaction(() => {
   console.log(`>> Database Re-indexed. ${allItems.length} items sorted A-Z.`);
 });
 
-// Enforce new admin password
+// Seed default users if table is empty (for fresh production server)
 try {
   const bcrypt = require('bcryptjs');
-  const newAdminHash = bcrypt.hashSync('Admin3Coins!', 10);
-  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
-  console.log(">> Admin password enforced to: Admin3Coins!");
+  
+  // Check if admin exists
+  const adminExists = betterSqlite.prepare("SELECT count(*) as cnt FROM users WHERE username = 'admin'").get().cnt;
+  
+  if (adminExists === 0) {
+    console.log(">> Seeding default users for fresh database...");
+    
+    const insertUser = betterSqlite.prepare("INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)");
+    const crypto = require('crypto');
+    
+    // Default roles and passwords
+    const defaults = [
+      { user: 'admin', pass: 'Admin3Coins!', role: 'ADMIN' },
+      { user: 'qc', pass: 'qc123', role: 'QC' },
+      { user: 'mentah', pass: 'mentah123', role: 'MENTAH' },
+      { user: 'cuci', pass: 'cuci123', role: 'CUCI' },
+      { user: 'kimia', pass: 'kimia123', role: 'KIMIA' },
+      { user: 'cat', pass: 'cat123', role: 'CAT' }
+    ];
+
+    defaults.forEach(u => {
+      const hash = bcrypt.hashSync(u.pass, 10);
+      insertUser.run(crypto.randomUUID(), u.user, hash, u.role);
+    });
+    console.log(">> Default users seeded successfully.");
+  } else {
+    // If admin exists, just enforce the admin password to be sure (as per previous logic)
+    const newAdminHash = bcrypt.hashSync('Admin3Coins!', 10);
+    betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
+    console.log(">> Admin password enforced to: Admin3Coins!");
+  }
 } catch (e) {
-  console.error(">> Failed to enforce admin password", e);
+  console.error(">> Failed to seed/enforce users", e);
 }
 
 module.exports = {
