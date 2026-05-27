@@ -458,17 +458,17 @@ export default function ProductionBoard({ user }) {
                                             </button>
                                         )}
                                         {job.status === 'PROSES_CUCI' && (
-                                            <button onClick={() => updateJobStatus(job.id, 'QC_CEK', 'Selesai Dicuci')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
+                                            <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 hover:text-blue-300 transition-colors border border-blue-500/30">
                                                 ✓ Selesai Cuci (Kirim QC)
                                             </button>
                                         )}
                                         {job.status === 'PROSES_CAT' && (
-                                            <button onClick={() => updateJobStatus(job.id, 'QC_CEK', 'Selesai Dicat')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
+                                            <button onClick={() => handleMoveJob(job.id, 'QC_CEK')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg font-bold hover:bg-amber-500/30 hover:text-amber-300 transition-colors border border-amber-500/30">
                                                 ✓ Selesai Cat (Kirim QC)
                                             </button>
                                         )}
                                         {job.status === 'PROSES_KIMIA' && (
-                                            <button onClick={() => updateJobStatus(job.id, 'GUDANG_CAT', 'Selesai Kimia, lanjut ke Gudang Cat')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-pink-500/10 text-pink-400 rounded-lg font-bold hover:bg-pink-500/30 hover:text-pink-300 transition-colors border border-pink-500/30">
+                                            <button onClick={() => handleMoveJob(job.id, 'GUDANG_CAT')} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-pink-500/10 text-pink-400 rounded-lg font-bold hover:bg-pink-500/30 hover:text-pink-300 transition-colors border border-pink-500/30">
                                                 ✓ Selesai Kimia (Kirim Gudang Cat)
                                             </button>
                                         )}
