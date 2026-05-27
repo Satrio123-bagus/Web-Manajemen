@@ -118,11 +118,9 @@ router.post('/jobs/:id/qc', (req, res) => {
         
         stmts.deleteProductionJob.run(id);
         
-        if (qcJual > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_JUAL', job.catatan, qcJual, job.assigned_to, timestamp, job.supplier, job.merk);
-        }
-        if (qcRakit > 0) {
-            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'SELESAI_RAKIT', job.catatan, qcRakit, job.assigned_to, timestamp, job.supplier, job.merk);
+        if (qcJual > 0 || qcRakit > 0) {
+            // Pekerjaan ini tidak lagi masuk ke kolom Papan Produksi,
+            // melainkan langsung dilempar ke Inventory (di blok JEMBATAN KE INVENTORY).
         }
         if (qcRusak > 0) {
             stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', `Gagal QC${baseCatatan}`, qcRusak, job.assigned_to, timestamp, job.supplier, job.merk);
