@@ -127,6 +127,10 @@ export default function ProductionBoard({ user }) {
 
     const handleQcSubmit = async () => {
         if (!qcJob) return;
+        if (qcJual + qcRakit + qcRusak + qcRework !== qcJob.alokasi) {
+            alert(`Total alokasi harus pas ${qcJob.alokasi}!`);
+            return;
+        }
         playSound('click');
         try {
             await api.post(`/production/jobs/${qcJob.id}/qc`, { 
@@ -567,47 +571,44 @@ export default function ProductionBoard({ user }) {
                 {qcJob && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-white/20 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-                            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-blue-500/10">
-                                <h3 className="font-black text-blue-400 tracking-wider">ALOKASI QC (Total: {qcJob.alokasi})</h3>
+                            <div className="p-4 border-b border-indigo-500/20 flex justify-between items-center bg-indigo-500/10">
+                                <h3 className="font-black text-indigo-400 tracking-wider">ALOKASI QC (Total: {qcJob.alokasi})</h3>
                                 <button onClick={() => setQcJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
                             </div>
-                            <div className="p-6 space-y-6">
+                            <div className="p-6 space-y-5">
                                 <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        BAGUS - JUAL TERPISAH (ETALASE)
-                                    </label>
-                                    <input type="number" min="0" max={qcJob.alokasi} value={qcJual} onChange={e => setQcJual(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-emerald-400 font-mono text-lg text-center" />
+                                    <label className="text-xs font-bold text-emerald-400 block mb-1">Bagus - Jual Terpisah (Etalase)</label>
+                                    <input type="number" min="0" max={qcJob.alokasi} value={qcJual} onChange={e => setQcJual(parseInt(e.target.value) || 0)} className="w-full bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-400" />
                                 </div>
                                 <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        BAGUS - ANTREAN RAKIT UTUH
-                                    </label>
-                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRakit} onChange={e => setQcRakit(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-emerald-500 font-mono text-lg text-center" />
+                                    <label className="text-xs font-bold text-emerald-500 block mb-1">Bagus - Antrean Rakit Utuh</label>
+                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRakit} onChange={e => setQcRakit(parseInt(e.target.value) || 0)} className="w-full bg-emerald-900/10 border border-emerald-600/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-500" />
                                 </div>
                                 <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        RUSAK / GAGAL
-                                    </label>
-                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRusak} onChange={e => setQcRusak(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-red-400 font-mono text-lg text-center" />
+                                    <label className="text-xs font-bold text-red-400 block mb-1">Rusak / Gagal QC (Afkir)</label>
+                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRusak} onChange={e => setQcRusak(parseInt(e.target.value) || 0)} className="w-full bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-red-400" />
                                 </div>
                                 <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        PERBAIKI ULANG (KEMBALI KE GUDANG CAT)
-                                    </label>
-                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRework} onChange={e => setQcRework(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-orange-400 font-mono text-lg text-center" />
+                                    <label className="text-xs font-bold text-orange-400 block mb-1">Perbaiki Ulang (Rework ke Gudang Cat)</label>
+                                    <input type="number" min="0" max={qcJob.alokasi} value={qcRework} onChange={e => setQcRework(parseInt(e.target.value) || 0)} className="w-full bg-orange-900/20 border border-orange-500/30 rounded-lg p-3 text-white text-lg font-bold focus:outline-none focus:border-orange-400" />
                                 </div>
                                 <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        ALASAN REWORK / KENDALA
-                                    </label>
-                                    <input type="text" value={qcCatatan} onChange={e => setQcCatatan(e.target.value)} placeholder="Contoh: Pekerja cat teledor, casing pecah..." className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white" />
+                                    <label className="text-xs font-bold text-gray-400 block mb-1">Alasan Rework / Kendala (Opsional)</label>
+                                    <input type="text" value={qcCatatan} onChange={e => setQcCatatan(e.target.value)} placeholder="Misal: Cat terkelupas" className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-white/30" />
+                                </div>
+                                
+                                <div className={`p-4 rounded-xl border ${qcJual + qcRakit + qcRusak + qcRework === qcJob.alokasi ? 'bg-indigo-900/20 border-indigo-500/30 text-indigo-400' : 'bg-red-900/20 border-red-500/30 text-red-400'}`}>
+                                    <div className="flex justify-between items-center font-bold">
+                                        <span>Total Terbagi:</span>
+                                        <span>{qcJual + qcRakit + qcRusak + qcRework} / {qcJob.alokasi}</span>
+                                    </div>
                                 </div>
                                 
                                 { (qcJual + qcRakit + qcRusak + qcRework) !== Number(qcJob.alokasi) ? (
-                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}! (Total input saat ini: {qcJual + qcRakit + qcRusak + qcRework})</div>
+                                    <div className="text-red-400 text-xs text-center font-bold">TOTAL HARUS PAS {qcJob.alokasi}!</div>
                                 ) : (
-                                    <button onClick={handleQcSubmit} className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-400 transition-colors">
-                                        KONFIRMASI ALOKASI
+                                    <button onClick={handleQcSubmit} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-500 transition-colors">
+                                        SELESAIKAN QC
                                     </button>
                                 )}
                             </div>

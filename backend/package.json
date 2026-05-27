@@ -4,7 +4,9 @@
     "description": "INSERT3COINS Inventory Backend",
     "main": "src/index.js",
     "scripts": {
+        "prestart": "npm rebuild better-sqlite3",
         "start": "node src/index.js",
+        "predev": "npm rebuild better-sqlite3",
         "dev": "node --watch src/index.js"
     },
     "dependencies": {
