@@ -526,15 +526,20 @@ try {
   const insertUser = betterSqlite.prepare("INSERT OR IGNORE INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)");
   const crypto = require('crypto');
   
-  // Default roles and passwords from .env
+  // Default roles and credentials from .env
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
   const adminPass = process.env.ADMIN_PASSWORD || 'Admin3Coins!';
+  
+  const casingUser = process.env.CASING_USERNAME || 'pekerja_casing';
   const casingPass = process.env.CASING_PASSWORD || 'Casing123!';
+  
+  const mesinUser = process.env.MESIN_USERNAME || 'pekerja_mesin';
   const mesinPass = process.env.MESIN_PASSWORD || 'Mesin123!';
 
   const defaults = [
-    { user: 'admin', pass: adminPass, role: 'ADMIN' },
-    { user: 'pekerja_casing', pass: casingPass, role: 'CASING' },
-    { user: 'pekerja_mesin', pass: mesinPass, role: 'MESIN' }
+    { user: adminUser, pass: adminPass, role: 'ADMIN' },
+    { user: casingUser, pass: casingPass, role: 'CASING' },
+    { user: mesinUser, pass: mesinPass, role: 'MESIN' }
   ];
 
   defaults.forEach(u => {
@@ -544,11 +549,11 @@ try {
   
   // Always enforce admin password to match .env to prevent lockouts
   const newAdminHash = bcrypt.hashSync(adminPass, 10);
-  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = ?").run(newAdminHash, adminUser);
   
   // Update worker passwords to match .env (in case they changed .env later)
-  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'pekerja_casing'").run(bcrypt.hashSync(casingPass, 10));
-  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'pekerja_mesin'").run(bcrypt.hashSync(mesinPass, 10));
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = ?").run(bcrypt.hashSync(casingPass, 10), casingUser);
+  betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = ?").run(bcrypt.hashSync(mesinPass, 10), mesinUser);
 
   console.log(">> User roles & passwords enforced successfully based on .env.");
 } catch (e) {
