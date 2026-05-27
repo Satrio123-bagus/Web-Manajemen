@@ -22,3 +22,6 @@ ssl/
 
 # Backup folder
 backend/data/backups/
+
+# AI Configurations
+GEMINI.md
