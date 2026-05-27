@@ -13,7 +13,7 @@ const COLUMNS = [
     { id: 'PROSES_KIMIA', title: 'PROSES KIMIA', icon: Wrench, color: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
     { id: 'PROSES_CAT', title: 'PROSES CAT', icon: Wrench, color: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
     { id: 'QC_CEK', title: 'QC CEK', icon: CheckCircle, color: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
-    { id: 'RUSAK', title: 'RUSAK / GAGAL', icon: Trash2, color: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/10' }
+    { id: 'RUSAK', title: 'RUSAK / GAGAL', icon: AlertTriangle, color: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/10' }
 ];
 
 export default function ProductionBoard({ user }) {
