@@ -219,6 +219,51 @@ router.post('/jobs/:id/tarik', (req, res) => {
     }
 });
 
+// Endpoint untuk Tarik sekaligus Pre-Process Sortir (Self-QC)
+router.post('/jobs/:id/tarik-sortir', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { jumlahBagus, jumlahRusak, targetStatus } = req.body;
+        
+        const job = stmts.getProductionJobById.get(id);
+        if (!job) {
+            return res.status(404).json({ success: false, message: 'Pekerjaan tidak ditemukan' });
+        }
+        
+        const total = (jumlahBagus || 0) + (jumlahRusak || 0);
+        
+        if (total <= 0 || total > job.alokasi) {
+            return res.status(400).json({ success: false, message: 'Jumlah tidak valid atau melebihi alokasi!' });
+        }
+        
+        const timestamp = new Date().toISOString();
+        
+        // Hapus pekerjaan asli dari antrean gudang
+        stmts.deleteProductionJob.run(id);
+        
+        const sisaGudang = job.alokasi - total;
+        
+        // 1. Kembalikan sisa ke gudang asal jika ditarik parsial
+        if (sisaGudang > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, job.status, 'Sisa dari penarikan sortir parsial', sisaGudang, job.assigned_to, timestamp, job.supplier, job.merk);
+        }
+        
+        // 2. Masukkan yang bagus ke meja proses (PROSES_CUCI / PROSES_CAT)
+        if (jumlahBagus > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, targetStatus, `Lulus sortir awal dari ${job.status}`, jumlahBagus, job.assigned_to, timestamp, job.supplier, job.merk);
+        }
+        
+        // 3. Masukkan yang rusak ke kolom RUSAK
+        if (jumlahRusak > 0) {
+            stmts.insertProductionJob.run(crypto.randomUUID(), job.tipe_remote, job.komponen, job.kriteria, 'RUSAK', `Disortir rusak saat masuk ${targetStatus}`, jumlahRusak, job.assigned_to, timestamp, job.supplier, job.merk);
+        }
+        
+        res.json({ success: true, message: 'Barang berhasil disortir dan ditarik' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.post('/jobs/:id/afkir', (req, res) => {
     try {
         const { id } = req.params;
