@@ -529,26 +529,28 @@ try {
     const insertUser = betterSqlite.prepare("INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)");
     const crypto = require('crypto');
     
-    // Default roles and passwords
+    // Default roles and passwords from .env
+    const adminPass = process.env.ADMIN_PASSWORD || 'Admin3Coins!';
+    const casingPass = process.env.CASING_PASSWORD || 'Casing123!';
+    const mesinPass = process.env.MESIN_PASSWORD || 'Mesin123!';
+
     const defaults = [
-      { user: 'admin', pass: 'Admin3Coins!', role: 'ADMIN' },
-      { user: 'qc', pass: 'qc123', role: 'QC' },
-      { user: 'mentah', pass: 'mentah123', role: 'MENTAH' },
-      { user: 'cuci', pass: 'cuci123', role: 'CUCI' },
-      { user: 'kimia', pass: 'kimia123', role: 'KIMIA' },
-      { user: 'cat', pass: 'cat123', role: 'CAT' }
+      { user: 'admin', pass: adminPass, role: 'ADMIN' },
+      { user: 'pekerja_casing', pass: casingPass, role: 'CASING' },
+      { user: 'pekerja_mesin', pass: mesinPass, role: 'MESIN' }
     ];
 
     defaults.forEach(u => {
       const hash = bcrypt.hashSync(u.pass, 10);
       insertUser.run(crypto.randomUUID(), u.user, hash, u.role);
     });
-    console.log(">> Default users seeded successfully.");
+    console.log(">> Default users seeded successfully using .env passwords.");
   } else {
-    // If admin exists, just enforce the admin password to be sure (as per previous logic)
-    const newAdminHash = bcrypt.hashSync('Admin3Coins!', 10);
+    // If admin exists, enforce the admin password from .env
+    const adminPass = process.env.ADMIN_PASSWORD || 'Admin3Coins!';
+    const newAdminHash = bcrypt.hashSync(adminPass, 10);
     betterSqlite.prepare("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(newAdminHash);
-    console.log(">> Admin password enforced to: Admin3Coins!");
+    console.log(">> Admin password enforced securely.");
   }
 } catch (e) {
   console.error(">> Failed to seed/enforce users", e);
