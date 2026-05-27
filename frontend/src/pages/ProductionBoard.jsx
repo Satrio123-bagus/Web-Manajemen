@@ -150,7 +150,8 @@ export default function ProductionBoard({ user }) {
         try {
             await api.post(`/production/jobs/${sortirJob.id}/sortir`, { 
                 sortirCuci, 
-                sortirCat 
+                sortirCat,
+                sortirKimia
             });
             setSortirJob(null);
             fetchData();
@@ -554,7 +555,7 @@ export default function ProductionBoard({ user }) {
                                     </div>
                                 </div>
                                 
-                                <button onClick={handleSortirMentah} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-500 transition-colors">
+                                <button onClick={handleSortirSubmit} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-500 transition-colors">
                                     SIMPAN KE GUDANG
                                 </button>
                             </div>
