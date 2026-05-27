@@ -127,6 +127,9 @@ const stmts = {
   getItemById: {
     get: (id) => db.select().from(items).where(eq(items.id, id)).get()
   },
+  getItemByName: {
+    get: (name) => db.select().from(items).where(eq(items.name, name)).get()
+  },
   insertItem: {
     run: (id, name, category, price, stock, rarity, status, bab, sub_bab, location, condition) =>
       db.insert(items).values({ id, name, category, price, stock, rarity, status, bab, sub_bab, location: location || 'Belum Ditentukan', condition: condition || 'READY' }).run()
@@ -171,6 +174,45 @@ const stmts = {
   deleteProductionJob: {
     run: (id) => db.delete(production_jobs).where(eq(production_jobs.id, id)).run()
   },
+  upsertInventoryFromQC: {
+    run: (job, totalLulus) => {
+      // Merakit nama: [Komponen] [Tipe_Remote] ([Kriteria])
+      const kriteriaStr = job.kriteria ? ` (${job.kriteria})` : '';
+      // Contoh: "Casing A75C2656 (Baut)"
+      // Memakai Capitalize Case standard
+      const capitalize = (str) => {
+        if (!str) return '';
+        return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+      };
+      
+      const itemName = `${capitalize(job.komponen)} ${job.tipe_remote.toUpperCase()}${kriteriaStr}`;
+      
+      const existing = db.select().from(items).where(eq(items.name, itemName)).get();
+      
+      if (existing) {
+        db.update(items).set({ stock: existing.stock + totalLulus }).where(eq(items.id, existing.id)).run();
+        return { isNew: false, id: existing.id, name: itemName };
+      } else {
+        const newId = crypto.randomUUID();
+        db.insert(items).values({
+          id: newId,
+          name: itemName,
+          category: 'MISC', // Default, Hermes akan mengubah ini menjadi nama merk
+          price: 0,
+          stock: totalLulus,
+          rarity: 'BIASA',
+          status: 'IN_STOCK',
+          bab: 'Unsorted', // Penting agar Hermes trigger
+          sub_bab: 'Uncategorized',
+          location: 'Gudang QC',
+          condition: 'READY'
+        }).run();
+        return { isNew: true, id: newId, name: itemName };
+      }
+    }
+  },
+
+  // ─── Supply Reports ─────────────────────────────────────────────────────────
   getSupplyReports: {
     all: () => db.select().from(supply_reports).orderBy(desc(supply_reports.timestamp)).all()
   },
