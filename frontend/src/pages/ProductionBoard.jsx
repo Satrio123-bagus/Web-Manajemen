@@ -51,9 +51,10 @@ export default function ProductionBoard({ user }) {
     const [activeTab, setActiveTab] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Tarik Parsial popup state
+    // Tarik Sortir popup state
     const [tarikJob, setTarikJob] = useState(null);
-    const [tarikJumlah, setTarikJumlah] = useState(0);
+    const [tarikBagus, setTarikBagus] = useState(0);
+    const [tarikRusak, setTarikRusak] = useState(0);
     const [tarikTargetStatus, setTarikTargetStatus] = useState('');
 
     // Afkir popup state
@@ -161,11 +162,14 @@ export default function ProductionBoard({ user }) {
     };
 
     const handleTarikSubmit = async () => {
-        if (!tarikJob || tarikJumlah <= 0 || tarikJumlah > tarikJob.alokasi) return;
+        const total = (tarikBagus || 0) + (tarikRusak || 0);
+        if (!tarikJob || total <= 0 || total > tarikJob.alokasi) return;
+        
         playSound('click');
         try {
-            await api.post(`/production/jobs/${tarikJob.id}/tarik`, { 
-                jumlah: tarikJumlah, 
+            await api.post(`/production/jobs/${tarikJob.id}/tarik-sortir`, { 
+                jumlahBagus: tarikBagus, 
+                jumlahRusak: tarikRusak,
                 targetStatus: tarikTargetStatus 
             });
             setTarikJob(null);
@@ -231,6 +235,9 @@ export default function ProductionBoard({ user }) {
         
         // Tab filter
         if (activeTab !== 'ALL' && job.status !== activeTab) return false;
+        
+        // Hide RUSAK for unauthorized roles even in ALL tab
+        if (job.status === 'RUSAK' && user?.role !== 'admin' && user?.role !== 'casing') return false;
 
         // Search filter
         if (searchQuery && !job.tipe_remote.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -368,7 +375,13 @@ export default function ProductionBoard({ user }) {
                     >
                         SEMUA TUGAS
                     </button>
-                    {COLUMNS.map(col => {
+                    {COLUMNS.filter(col => {
+                        // Sembunyikan kolom RUSAK untuk selain Admin dan Casing
+                        if (col.id === 'RUSAK' && user?.role !== 'admin' && user?.role !== 'casing') {
+                            return false;
+                        }
+                        return true;
+                    }).map(col => {
                         const count = jobs.filter(j => j.status === col.id).length;
                         return (
                             <button 
@@ -443,18 +456,18 @@ export default function ProductionBoard({ user }) {
                                             </button>
                                         )}
                                         {job.status === 'GUDANG_CUCI' && (
-                                            <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_CUCI'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-cyan-500/10 text-cyan-400 rounded-lg font-bold hover:bg-cyan-500/30 hover:text-cyan-300 transition-colors border border-cyan-500/30">
-                                                TARIK KE CUCI
+                                            <button onClick={() => { setTarikJob(job); setTarikBagus(job.alokasi); setTarikRusak(0); setTarikTargetStatus('PROSES_CUCI'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-cyan-500/10 text-cyan-400 rounded-lg font-bold hover:bg-cyan-500/30 hover:text-cyan-300 transition-colors border border-cyan-500/30">
+                                                TARIK KE CUCI (SORTIR)
                                             </button>
                                         )}
                                         {job.status === 'GUDANG_CAT' && (
-                                            <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_CAT'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 hover:text-orange-300 transition-colors border border-orange-500/30">
-                                                Tarik ke Proses Cat
+                                            <button onClick={() => { setTarikJob(job); setTarikBagus(job.alokasi); setTarikRusak(0); setTarikTargetStatus('PROSES_CAT'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 hover:text-orange-300 transition-colors border border-orange-500/30">
+                                                Tarik ke Proses Cat (Sortir)
                                             </button>
                                         )}
                                         {job.status === 'GUDANG_KIMIA' && (
-                                            <button onClick={() => { setTarikJob(job); setTarikJumlah(job.alokasi); setTarikTargetStatus('PROSES_KIMIA'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-fuchsia-500/10 text-fuchsia-400 rounded-lg font-bold hover:bg-fuchsia-500/30 hover:text-fuchsia-300 transition-colors border border-fuchsia-500/30">
-                                                Tarik ke Proses Kimia
+                                            <button onClick={() => { setTarikJob(job); setTarikBagus(job.alokasi); setTarikRusak(0); setTarikTargetStatus('PROSES_KIMIA'); }} className="w-full sm:w-auto px-4 py-2.5 text-xs bg-fuchsia-500/10 text-fuchsia-400 rounded-lg font-bold hover:bg-fuchsia-500/30 hover:text-fuchsia-300 transition-colors border border-fuchsia-500/30">
+                                                Tarik ke Proses Kimia (Sortir)
                                             </button>
                                         )}
                                         {job.status === 'PROSES_CUCI' && (
@@ -620,26 +633,51 @@ export default function ProductionBoard({ user }) {
                                 <h3 className={`font-black tracking-wider ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400' : tarikTargetStatus === 'PROSES_KIMIA' ? 'text-fuchsia-400' : 'text-orange-400'}`}>TARIK KE PROSES (Max: {tarikJob.alokasi})</h3>
                                 <button onClick={() => setTarikJob(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
                             </div>
-                            <div className="p-6 space-y-6">
+                            <div className="p-6 space-y-4">
+                                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-4">
+                                    <p className="text-xs text-blue-300 font-medium">Lakukan sortir fisik terlebih dahulu. Pisahkan barang yang bagus dan cacat sebelum ditarik ke meja proses.</p>
+                                </div>
+                                
                                 <div>
-                                    <label className="flex justify-between text-xs font-bold text-gray-400 mb-2">
-                                        JUMLAH YANG AKAN DIKERJAKAN
+                                    <label className="flex justify-between text-xs font-bold text-emerald-400 mb-2">
+                                        BAGUS (Lanjut ke Proses)
                                     </label>
                                     <input 
                                         type="number" 
-                                        min="1" 
+                                        min="0" 
                                         max={tarikJob.alokasi} 
-                                        value={tarikJumlah} 
-                                        onChange={e => setTarikJumlah(parseInt(e.target.value) || 0)} 
-                                        className={`w-full bg-white/5 border rounded-lg p-3 font-mono text-lg text-center ${tarikTargetStatus === 'PROSES_CUCI' ? 'text-cyan-400 border-cyan-500/30' : tarikTargetStatus === 'PROSES_KIMIA' ? 'text-fuchsia-400 border-fuchsia-500/30' : 'text-orange-400 border-orange-500/30'}`} 
+                                        value={tarikBagus} 
+                                        onChange={e => setTarikBagus(parseInt(e.target.value) || 0)} 
+                                        className="w-full bg-black/50 border rounded-lg p-3 font-mono text-lg text-center text-emerald-400 border-emerald-500/30 focus:border-emerald-500 outline-none" 
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="flex justify-between text-xs font-bold text-red-400 mb-2">
+                                        RUSAK / RETAK (Buang ke Gudang Rusak)
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        max={tarikJob.alokasi} 
+                                        value={tarikRusak} 
+                                        onChange={e => setTarikRusak(parseInt(e.target.value) || 0)} 
+                                        className="w-full bg-black/50 border rounded-lg p-3 font-mono text-lg text-center text-red-400 border-red-500/30 focus:border-red-500 outline-none" 
                                     />
                                 </div>
                                 
-                                { (tarikJumlah <= 0 || tarikJumlah > tarikJob.alokasi) ? (
-                                    <div className="text-red-400 text-xs text-center font-bold">JUMLAH TIDAK VALID!</div>
+                                <div className="flex justify-between items-center text-xs font-bold text-gray-400 pt-2 border-t border-white/10">
+                                    <span>Total Ditarik:</span>
+                                    <span className={(tarikBagus + tarikRusak) > tarikJob.alokasi ? 'text-red-400' : 'text-white'}>
+                                        {(tarikBagus + tarikRusak)} / {tarikJob.alokasi}
+                                    </span>
+                                </div>
+                                
+                                { ((tarikBagus + tarikRusak) <= 0 || (tarikBagus + tarikRusak) > tarikJob.alokasi) ? (
+                                    <div className="text-red-400 text-xs text-center font-bold mt-4">TOTAL JUMLAH TIDAK VALID!</div>
                                 ) : (
-                                    <button onClick={handleTarikSubmit} className={`w-full text-white font-bold py-3 rounded-lg transition-colors ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-600 hover:bg-cyan-500' : tarikTargetStatus === 'PROSES_KIMIA' ? 'bg-fuchsia-600 hover:bg-fuchsia-500' : 'bg-orange-600 hover:bg-orange-500'}`}>
-                                        Tarik {tarikJumlah} Pcs
+                                    <button onClick={handleTarikSubmit} className={`w-full mt-4 text-white font-bold py-3 rounded-lg transition-colors ${tarikTargetStatus === 'PROSES_CUCI' ? 'bg-cyan-600 hover:bg-cyan-500' : tarikTargetStatus === 'PROSES_KIMIA' ? 'bg-fuchsia-600 hover:bg-fuchsia-500' : 'bg-orange-600 hover:bg-orange-500'}`}>
+                                        Simpan & Tarik {(tarikBagus + tarikRusak)} Pcs
                                     </button>
                                 )}
                             </div>
