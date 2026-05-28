@@ -1,3 +1,7 @@
-echo "🐶 [Husky] Menjalankan lint-staged (ESLint & Prettier)..."
-npx lint-staged || { echo "❌ [Husky] Gagal! Tolong perbaiki kode yang berantakan sebelum commit!"; exit 1; }
+echo "🐶 [Husky] 1. Memeriksa aturan tata bahasa Frontend (ESLint)..."
+npm run lint --prefix frontend || { echo "❌ [Husky] Gagal! Tolong perbaiki kode yang berantakan sebelum commit!"; exit 1; }
+
+echo "🐶 [Husky] 2. Merapikan format tulisan (Prettier)..."
+npx lint-staged || { echo "❌ [Husky] Gagal merapikan kode!"; exit 1; }
+
 echo "✅ [Husky] Kode bersih & rapi! Melanjutkan commit..."
