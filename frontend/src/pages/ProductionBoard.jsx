@@ -139,14 +139,26 @@ export default function ProductionBoard({ user }) {
 
     // Constants
     const SUPPLIERS = ["Aziz", "Komeng", "Wakil", "Campuran (Lama)"];
+    // Dynamic Merk Options
+    const [customMerks, setCustomMerks] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("custom_merks") || "[]");
+        } catch {
+            return [];
+        }
+    });
+
     const MERK_OPTIONS = [
-        "Panasonic",
-        "Daikin",
-        "Sharp",
-        "Samsung",
-        "LG",
-        "Universal",
-        "Lain-lain",
+        ...new Set([
+            "Panasonic",
+            "Daikin",
+            "Sharp",
+            "Samsung",
+            "LG",
+            "Universal",
+            "Lain-lain",
+            ...customMerks,
+        ]),
     ];
     const SMART_TAGS = [
         "Lengkap",
@@ -196,6 +208,19 @@ export default function ProductionBoard({ user }) {
         try {
             const res = await api.post("/production/jobs", newJob);
             if (res.ok) {
+                // Save custom merk to LocalStorage if it's new
+                if (
+                    !MERK_OPTIONS.includes(newJob.merk) &&
+                    newJob.merk.trim() !== ""
+                ) {
+                    const updated = [...customMerks, newJob.merk];
+                    setCustomMerks(updated);
+                    localStorage.setItem(
+                        "custom_merks",
+                        JSON.stringify(updated)
+                    );
+                }
+
                 playSound("success");
                 fetchData();
                 setShowAddForm(false);
@@ -422,7 +447,8 @@ export default function ProductionBoard({ user }) {
                                 <label className="block text-xs font-bold text-gray-400 mb-2">
                                     MERK REMOTE
                                 </label>
-                                <select
+                                <input
+                                    list="merk-options"
                                     value={newJob.merk}
                                     onChange={(e) =>
                                         setNewJob({
@@ -431,17 +457,13 @@ export default function ProductionBoard({ user }) {
                                         })
                                     }
                                     className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)]"
-                                >
+                                    placeholder="Ketik atau pilih merk..."
+                                />
+                                <datalist id="merk-options">
                                     {MERK_OPTIONS.map((opt) => (
-                                        <option
-                                            key={opt}
-                                            value={opt}
-                                            className="bg-gray-900"
-                                        >
-                                            {opt}
-                                        </option>
+                                        <option key={opt} value={opt} />
                                     ))}
-                                </select>
+                                </datalist>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2">
