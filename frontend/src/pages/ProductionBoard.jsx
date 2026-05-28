@@ -237,7 +237,7 @@ export default function ProductionBoard({ user }) {
         if (activeTab !== 'ALL' && job.status !== activeTab) return false;
         
         // Hide RUSAK for unauthorized roles even in ALL tab
-        if (job.status === 'RUSAK' && user?.role !== 'admin' && user?.role !== 'casing') return false;
+        if (job.status === 'RUSAK' && user?.role !== 'ADMIN' && user?.role !== 'CASING') return false;
 
         // Search filter
         if (searchQuery && !job.tipe_remote.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -377,7 +377,7 @@ export default function ProductionBoard({ user }) {
                     </button>
                     {COLUMNS.filter(col => {
                         // Sembunyikan kolom RUSAK untuk selain Admin dan Casing
-                        if (col.id === 'RUSAK' && user?.role !== 'admin' && user?.role !== 'casing') {
+                        if (col.id === 'RUSAK' && user?.role !== 'ADMIN' && user?.role !== 'CASING') {
                             return false;
                         }
                         return true;
