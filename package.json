@@ -11,8 +11,21 @@
     "postinstall": "npm run build",
     "prepare": "husky"
   },
+  "lint-staged": {
+    "frontend/**/*.{js,jsx}": [
+      "eslint",
+      "prettier --write"
+    ],
+    "backend/**/*.js": [
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "concurrently": "^9.1.2",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
+    "prettier": "^3.8.3"
   }
 }
