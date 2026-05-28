@@ -1,19 +1,21 @@
-const { stmts, refreshInventory } = require('../models/dbStore');
-const hermes = require('./hermesClient');
-const fs = require('fs');
-const path = require('path');
+const { stmts, refreshInventory } = require("../models/dbStore");
+const hermes = require("./hermesClient");
+const fs = require("fs");
+const path = require("path");
 
-const RULES_FILE = path.join(__dirname, '..', 'data', 'prefixRules.json');
+const RULES_FILE = path.join(__dirname, "..", "data", "prefixRules.json");
 
 /**
  * Membaca prefix rules dari file JSON (dinamis, bisa diubah dari Settings)
  */
 function loadPrefixRules() {
     try {
-        const raw = fs.readFileSync(RULES_FILE, 'utf-8');
+        const raw = fs.readFileSync(RULES_FILE, "utf-8");
         return JSON.parse(raw).rules || [];
     } catch (err) {
-        console.warn('[CLASSIFY] Gagal membaca prefixRules.json, gunakan fallback kosong.');
+        console.warn(
+            "[CLASSIFY] Gagal membaca prefixRules.json, gunakan fallback kosong."
+        );
         return [];
     }
 }
@@ -23,11 +25,14 @@ function loadPrefixRules() {
  */
 function buildClassifyPrompt() {
     const rules = loadPrefixRules();
-    const highRules = rules.filter(r => r.confidence === 'high');
-    const mediumRules = rules.filter(r => r.confidence === 'medium');
-    const lowRules = rules.filter(r => r.confidence === 'low');
+    const highRules = rules.filter((r) => r.confidence === "high");
+    const mediumRules = rules.filter((r) => r.confidence === "medium");
+    const lowRules = rules.filter((r) => r.confidence === "low");
 
-    const formatList = (arr) => arr.map((r, i) => `${i+1}. ${r.brand}: "${r.prefix}..." (${r.type})`).join('\n');
+    const formatList = (arr) =>
+        arr
+            .map((r, i) => `${i + 1}. ${r.brand}: "${r.prefix}..." (${r.type})`)
+            .join("\n");
 
     return `Kamu adalah sistem pakar klasifikasi untuk toko elektronik INSERT3COINS.
 
@@ -36,13 +41,13 @@ Tugasmu: Berikan klasifikasi MERK (bab) dan JENIS produk (sub_bab) berdasarkan N
 ATURAN KODE SERI REMOT:
 
 --- PREFIX YANG BISA DIPASTIKAN (100% akurat, langsung klasifikasi) ---
-${highRules.length > 0 ? formatList(highRules) : '(Tidak ada)'}
+${highRules.length > 0 ? formatList(highRules) : "(Tidak ada)"}
 
 --- PREFIX CUKUP YAKIN (auto-klasifikasi, tapi tandai medium) ---
-${mediumRules.length > 0 ? formatList(mediumRules) : '(Tidak ada)'}
+${mediumRules.length > 0 ? formatList(mediumRules) : "(Tidak ada)"}
 
 --- PREFIX AMBIGU (JANGAN langsung diasumsikan, tandai "confidence": "low") ---
-${lowRules.length > 0 ? lowRules.map((r, i) => `${i+1}. "${r.prefix}..." → Kemungkinan ${r.brand} (${r.type}), tapi BISA brand lain. Tandai "confidence": "low".`).join('\n') : '(Tidak ada)'}
+${lowRules.length > 0 ? lowRules.map((r, i) => `${i + 1}. "${r.prefix}..." → Kemungkinan ${r.brand} (${r.type}), tapi BISA brand lain. Tandai "confidence": "low".`).join("\n") : "(Tidak ada)"}
 
 ATURAN DEDUKSI MEREK CHINA/LOKAL:
 Jika nama produk TIDAK mengandung kode seri jelas tapi hanya ada tipe AC seperti "05CR", "09CR", tebak itu brand China populer (Midea/Changhong/TCL) atau jika terdapat nama merknya langsung (contoh: "Remote AC Beko", "Remote TV Changhong L32"), LANGSUNG tangkap merk tersebut!
@@ -72,13 +77,63 @@ Aturan Output:
 async function classifyItem(itemName) {
     if (!itemName || itemName.trim().length < 2) return null;
 
+    // --- 1. PRE-PROCESSOR DETERMINISTIK (HYBRID ENGINE) ---
+    const lowerName = itemName.toLowerCase();
+
+    // a. Deteksi Sub Bab (Sparepart vs Remote)
+    const sparepartKeywords = ["casing", "pcb", "mesin", "tutup"];
+    let detectedSubBab = "Remote"; // Default fallback
+    if (sparepartKeywords.some((kw) => lowerName.includes(kw))) {
+        detectedSubBab = "Sparepart";
+    }
+
+    // b. Deteksi Bab (Merek) berdasarkan prefixRules.json
+    const rules = loadPrefixRules();
+    let detectedBab = null;
+    let ruleConfidence = "high";
+
+    // Urutkan rule dari yang terpanjang ke yang terpendek agar rule spesifik ("RCS-") didahulukan dari yang pendek ("RC")
+    const sortedRules = [...rules].sort(
+        (a, b) => b.prefix.length - a.prefix.length
+    );
+
+    for (const rule of sortedRules) {
+        if (lowerName.includes(rule.prefix.toLowerCase())) {
+            detectedBab = rule.brand;
+            ruleConfidence = rule.confidence || "high";
+            // Jika bukan sparepart, setidaknya kita jadikan Remote AC atau Remote TV berdasarkan JSON
+            if (detectedSubBab !== "Sparepart") {
+                if (rule.type.toLowerCase().includes("tv"))
+                    detectedSubBab = "Remote TV";
+                else if (rule.type.toLowerCase().includes("ac"))
+                    detectedSubBab = "Remote AC";
+            }
+            break; // Berhenti mencari, kecocokan mutlak ditemukan
+        }
+    }
+
+    // Jika ketahuan 100% dari Node.js, langsung return (Hemat API dan bebas Halusinasi!)
+    if (detectedBab) {
+        console.log(
+            `[CLASSIFY-HYBRID] Deteksi Deterministik berhasil: "${itemName}" → Bab: ${detectedBab}, Sub: ${detectedSubBab}, Confidence: ${ruleConfidence}`
+        );
+        return {
+            bab: detectedBab,
+            sub_bab: detectedSubBab,
+            confidence: ruleConfidence,
+        };
+    }
+
+    // --- 2. FALLBACK KE HERMES AI (JIKA ATURAN DETERMINISTIK GAGAL) ---
     // Cek ketersediaan Hermes
     let available = await hermes.isAvailable();
     if (!available) {
-        console.warn('[CLASSIFY] Hermes model tidak tersedia. Mencoba pull model...');
+        console.warn(
+            "[CLASSIFY] Hermes model tidak tersedia. Mencoba pull model..."
+        );
         const pulled = await hermes.pullModel();
         if (!pulled) {
-            console.error('[CLASSIFY] Gagal pull model. Hermes tidak aktif.');
+            console.error("[CLASSIFY] Gagal pull model. Hermes tidak aktif.");
             return null;
         }
         available = true;
@@ -94,20 +149,27 @@ async function classifyItem(itemName) {
         });
 
         if (!result || !result.bab) {
-            console.warn(`[CLASSIFY] Gagal klasifikasi "${itemName}" — respons tidak valid.`);
+            console.warn(
+                `[CLASSIFY] Gagal klasifikasi "${itemName}" — respons tidak valid.`
+            );
             return null;
         }
 
         // Hapus rarity dari hasil Hermes jika ada — rarity adalah hak pemilik toko
         delete result.rarity;
 
-        const confidence = result.confidence || 'high';
+        const confidence = result.confidence || "high";
         delete result.confidence; // Jangan simpan confidence ke DB
 
-        console.log(`[CLASSIFY] "${itemName}" → Bab: ${result.bab}, Sub: ${result.sub_bab}, Confidence: ${confidence} (rarity tidak diubah)`);
+        console.log(
+            `[CLASSIFY] "${itemName}" → Bab: ${result.bab}, Sub: ${result.sub_bab}, Confidence: ${confidence} (rarity tidak diubah)`
+        );
         return { ...result, confidence };
     } catch (err) {
-        console.error(`[CLASSIFY] Error saat klasifikasi "${itemName}":`, err.message);
+        console.error(
+            `[CLASSIFY] Error saat klasifikasi "${itemName}":`,
+            err.message
+        );
         return null;
     }
 }
@@ -120,7 +182,7 @@ async function classifyItem(itemName) {
 async function autoClassifyIfNeeded(itemId) {
     try {
         console.log(`[CLASSIFY] ── Mulai klasifikasi untuk ID: ${itemId} ──`);
-        
+
         const item = stmts.getItemById.get(itemId);
         if (!item) {
             console.error(`[CLASSIFY] ✗ Item ${itemId} tidak ditemukan di DB!`);
@@ -128,68 +190,82 @@ async function autoClassifyIfNeeded(itemId) {
         }
 
         // Hanya klasifikasi jika bab masih "Unsorted" atau "Uncategorized"
-        const needsClassify = !item.bab || item.bab === 'Unsorted' || item.bab === 'Uncategorized';
+        const needsClassify =
+            !item.bab ||
+            item.bab === "Unsorted" ||
+            item.bab === "Uncategorized";
         if (!needsClassify) {
-            console.log(`[CLASSIFY] ─ Item "${item.name}" sudah terklasifikasi (${item.bab}), skip.`);
+            console.log(
+                `[CLASSIFY] ─ Item "${item.name}" sudah terklasifikasi (${item.bab}), skip.`
+            );
             return;
         }
 
-        console.log(`[CLASSIFY] → Mengirim "${item.name}" ke Hermes untuk analisis...`);
+        console.log(
+            `[CLASSIFY] → Mengirim "${item.name}" ke Hermes untuk analisis...`
+        );
 
         const classification = await classifyItem(item.name);
         if (!classification) {
-            console.error(`[CLASSIFY] ✗ Hermes gagal mengklasifikasi "${item.name}" — hasil null.`);
+            console.error(
+                `[CLASSIFY] ✗ Hermes gagal mengklasifikasi "${item.name}" — hasil null.`
+            );
             return;
         }
 
         // Jika confidence rendah, JANGAN auto-klasifikasi. Biarkan user konfirmasi.
-        if (classification.confidence === 'low') {
+        if (classification.confidence === "low") {
             const warnMsg = `[HERMES] ⚠️ Prefix ambigu terdeteksi untuk "${item.name}". Kemungkinan: ${classification.bab} (${classification.sub_bab}). Silakan konfirmasi atau ubah manual jika salah.`;
-            console.log(`[CLASSIFY] ⚠️ Confidence LOW untuk "${item.name}" — SKIP auto-classify, broadcast peringatan.`);
-            
-            const eventEmitter = require('../services/eventEmitter');
-            eventEmitter.emit('terminal_broadcast', {
-                type: 'broadcast',
+            console.log(
+                `[CLASSIFY] ⚠️ Confidence LOW untuk "${item.name}" — SKIP auto-classify, broadcast peringatan.`
+            );
+
+            const eventEmitter = require("../services/eventEmitter");
+            eventEmitter.emit("terminal_broadcast", {
+                type: "broadcast",
                 timestamp: new Date().toISOString(),
-                output: [warnMsg]
+                output: [warnMsg],
             });
             return; // Tidak mengubah database — user harus konfirmasi manual
         }
 
-        console.log(`[CLASSIFY] ← Hermes menjawab: bab="${classification.bab}", sub_bab="${classification.sub_bab}", confidence="${classification.confidence}"`);
+        console.log(
+            `[CLASSIFY] ← Hermes menjawab: bab="${classification.bab}", sub_bab="${classification.sub_bab}", confidence="${classification.confidence}"`
+        );
 
         // Update item di database — rarity TIDAK disentuh, diambil dari data existing
         // Rarity hanya boleh diubah oleh pemilik toko secara manual
         stmts.updateItem.run(
             item.name,
-            classification.bab,     // category = bab
+            classification.bab, // category = bab
             item.price,
             item.stock,
-            item.rarity,            // ← Pertahankan rarity dari DB, Hermes tidak boleh ubah ini
+            item.rarity, // ← Pertahankan rarity dari DB, Hermes tidak boleh ubah ini
             item.status,
             classification.bab,
             classification.sub_bab,
             item.id,
-            item.location || 'Belum Ditentukan'  // ← Pertahankan lokasi dari DB
+            item.location || "Belum Ditentukan" // ← Pertahankan lokasi dari DB
         );
         refreshInventory();
 
         const successMsg = `[HERMES] Analisis Selesai: "${item.name}" kini disorting ke Rak ${classification.bab} / ${classification.sub_bab}.`;
-        console.log(`[CLASSIFY] ✓ "${item.name}" → ${classification.bab} / ${classification.sub_bab} | Rarity tetap: ${item.rarity}`);
-        
+        console.log(
+            `[CLASSIFY] ✓ "${item.name}" → ${classification.bab} / ${classification.sub_bab} | Rarity tetap: ${item.rarity}`
+        );
+
         // Siarkan pembaruan langsung ke layar Terminal AI Manager melalui SSE
-        const eventEmitter = require('../services/eventEmitter');
+        const eventEmitter = require("../services/eventEmitter");
         console.log(`[CLASSIFY] 📡 Menyiarkan ke SSE...`);
-        eventEmitter.emit('terminal_broadcast', {
-            type: 'broadcast',
+        eventEmitter.emit("terminal_broadcast", {
+            type: "broadcast",
             timestamp: new Date().toISOString(),
-            output: [successMsg]
+            output: [successMsg],
         });
         console.log(`[CLASSIFY] ✓ Siaran SSE terkirim.`);
-
     } catch (err) {
         // Non-fatal — jangan crash backend jika klasifikasi gagal
-        console.error('[CLASSIFY] Auto-classify error:', err.message);
+        console.error("[CLASSIFY] Auto-classify error:", err.message);
     }
 }
 
