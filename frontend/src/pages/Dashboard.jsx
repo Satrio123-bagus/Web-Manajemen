@@ -468,7 +468,7 @@ export function InventoryModal({ isOpen, onClose, onSave, initialData }) {
     const [form, setForm] = useState(empty);
 
     // Sync form with modal open/close
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     const formData = isOpen ? (initialData ? { ...initialData, price: String(initialData.price), stock: String(initialData.stock), bab: initialData.bab || initialData.category || '', sub_bab: initialData.sub_bab || '', location: initialData.location || '' } : empty) : null;
 
     // Use effect equivalent inline

@@ -159,7 +159,6 @@ export default function Terminal() {
         fetchInventoryNames();
         // Refresh setiap 60 detik agar item baru langsung tersedia di autocomplete
         const refreshInterval = setInterval(fetchInventoryNames, 60_000);
-        return () => clearInterval(refreshInterval);
 
         const addLine = (text, delay) =>
             new Promise(resolve => setTimeout(() => {
@@ -200,6 +199,8 @@ export default function Terminal() {
                 }
             }
         })();
+
+        return () => clearInterval(refreshInterval);
     }, []);
 
     // ─── SSE: Dengarkan siaran langsung dari Backend (Live Terminal Broadcasts) ───
@@ -286,7 +287,7 @@ export default function Terminal() {
             })
             // Remove bullet points/numbering at start of lines for smoother flow
             .replace(/^\d+\.\s*/gm, '')
-            .replace(/^\-\s*/gm, '')
+            .replace(/^-\s*/gm, '')
             // Cleanup spaces
             .replace(/\s+/g, ' ')
             .trim();

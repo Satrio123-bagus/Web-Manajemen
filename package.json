@@ -1,16 +1,18 @@
 {
-    "name": "insert3coins-monorepo",
-    "version": "1.0.0",
-    "private": true,
-    "description": "INSERT3COINS Full Stack — Cyberpunk Inventory System",
-    "scripts": {
-        "dev": "concurrently -n FRONTEND,BACKEND -c cyan,magenta \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
-        "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend",
-        "build": "npm run build --prefix frontend",
-        "start": "node backend/src/index.js",
-        "postinstall": "npm run build"
-    },
-    "devDependencies": {
-        "concurrently": "^9.1.2"
-    }
+  "name": "insert3coins-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "INSERT3COINS Full Stack — Cyberpunk Inventory System",
+  "scripts": {
+    "dev": "concurrently -n FRONTEND,BACKEND -c cyan,magenta \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
+    "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "start": "node backend/src/index.js",
+    "postinstall": "npm run build",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7"
+  }
 }
