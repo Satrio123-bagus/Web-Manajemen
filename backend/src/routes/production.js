@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { stmts } = require('../models/dbStore');
+const { stmts, refreshInventory } = require('../models/dbStore');
 const { autoClassifyIfNeeded } = require('../agents/classifyAgent');
 
 // Middleware untuk memverifikasi role bisa ditambahkan jika ada middleware global JWT
@@ -133,6 +133,7 @@ router.post('/jobs/:id/qc', (req, res) => {
         const totalLulus = (qcJual || 0) + (qcRakit || 0);
         if (totalLulus > 0) {
             const inventoryResult = stmts.upsertInventoryFromQC.run(job, totalLulus);
+            refreshInventory(); // <--- This ensures the frontend gets the new data
             if (inventoryResult && inventoryResult.isNew) {
                 // Trigger Hermes untuk klasifikasi otomatis
                 autoClassifyIfNeeded(inventoryResult.id).catch(e => console.error('[HERMES] Gagal memicu autoClassify:', e.message));
