@@ -683,6 +683,12 @@ export default function ProductionBoard({ user }) {
                         ) {
                             return false;
                         }
+
+                        // Sembunyikan kolom QC CEK untuk selain Admin
+                        if (col.id === "QC_CEK" && user?.role !== "ADMIN") {
+                            return false;
+                        }
+
                         return true;
                     }).map((col) => {
                         const count = jobs.filter(
