@@ -24,10 +24,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Job 2: Melakukan Deploy ke VPS
+  # Job 2: Tes Build Aplikasi (Pre-flight Check Anti-Crash)
+  build-check:
+    name: 🏗️ Test App Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 📦 Install Dependencies
+        run: npm run install:all
+
+      - name: 🛠️ Test Build Frontend
+        run: npm run build
+
+  # Job 3: Melakukan Deploy ke VPS
   deploy:
     name: Deploy to Production VPS
-    needs: security-scan # ⚠️ Menahan proses Deploy. Hanya berjalan jika security-scan lolos (tidak ada rahasia bocor)
+    needs: [security-scan, build-check] # ⚠️ Menahan proses Deploy. Hanya berjalan jika lulus scan & build
     runs-on: ubuntu-latest
 
     steps:
@@ -60,11 +79,10 @@ jobs:
             echo "⬇️  Pulling latest code from GitHub..."
             git pull origin main
 
-            echo "🐳 Rebuilding and restarting Docker containers..."
-            # Menambahkan sudo -S agar bisa menerima password dari GitHub Secrets
-            # tanpa terblokir prompt interaktif
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S docker compose down
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S docker compose build --no-cache
+            echo "🐳 Building Docker containers (Menggunakan Cache untuk kecepatan)..."
+            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S docker compose build
+
+            echo "🔄 Restarting containers with Zero-Downtime replacement..."
             echo "${{ secrets.VPS_PASSWORD }}" | sudo -S docker compose up -d
 
             echo "🧠 Pulling Hermes 3B model (skip jika sudah ada)..."
@@ -80,5 +98,8 @@ jobs:
 
             echo "✅ Verifying containers are running..."
             echo "${{ secrets.VPS_PASSWORD }}" | sudo -S docker compose ps
+
+            echo "🗑️ Membersihkan sisa memori cache Docker (Dangling images)..."
+            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S docker image prune -f
 
             echo "🎉 Deployment complete!"
