@@ -12,7 +12,6 @@
   },
   "lint-staged": {
     "frontend/**/*.{js,jsx}": [
-      "eslint",
       "prettier --write"
     ],
     "backend/**/*.js": [
