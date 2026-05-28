@@ -1,17 +1,27 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { CheckCircle, AlertTriangle, Send, Activity, Target, MessageSquare, Briefcase, Zap, Check } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import api from '../api';
-import { useSound } from '../hooks/useSound';
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import {
+    CheckCircle,
+    AlertTriangle,
+    Send,
+    Activity,
+    Target,
+    MessageSquare,
+    Briefcase,
+    Zap,
+    Check,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import api from "../api";
+import { useSound } from "../hooks/useSound";
 
-const NEON_CYAN = '#00f3ff';
-const NEON_PURPLE = '#bc13fe';
-const EMERALD = '#10b981';
-const RED = '#ef4444';
+const NEON_CYAN = "#00f3ff";
+const NEON_PURPLE = "#bc13fe";
+const EMERALD = "#10b981";
+const RED = "#ef4444";
 
-function GlassCard({ children, className = '', delay = 0 }) {
+function GlassCard({ children, className = "", delay = 0 }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.97 }}
@@ -27,18 +37,20 @@ function GlassCard({ children, className = '', delay = 0 }) {
 export default function WorkerDashboard({ user }) {
     const [jobs, setJobs] = useState([]);
     const [reports, setReports] = useState([]);
-    const [reportText, setReportText] = useState('');
+    const [reportText, setReportText] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [adminMessage, setAdminMessage] = useState("");
     const { playSound } = useSound();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [resJobs, resSupplies] = await Promise.all([
-                    api.get('/production/jobs'),
-                    api.get('/production/supplies')
+                const [resJobs, resSupplies, resConfig] = await Promise.all([
+                    api.get("/production/jobs"),
+                    api.get("/production/supplies"),
+                    api.get("/settings/config"),
                 ]);
-                
+
                 if (resJobs.ok) {
                     const data = await resJobs.json();
                     setJobs(data.jobs);
@@ -47,8 +59,12 @@ export default function WorkerDashboard({ user }) {
                     const data = await resSupplies.json();
                     setReports(data.reports);
                 }
+                if (resConfig.ok) {
+                    const data = await resConfig.json();
+                    setAdminMessage(data.adminMessage || "");
+                }
             } catch (error) {
-                console.error('Fetch error:', error);
+                console.error("Fetch error:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -62,15 +78,15 @@ export default function WorkerDashboard({ user }) {
     const sendReport = async () => {
         if (!reportText.trim()) return;
         try {
-            playSound('click');
-            const res = await api.post('/production/supplies', {
+            playSound("click");
+            const res = await api.post("/production/supplies", {
                 pekerja: user.username,
-                laporan: reportText
+                laporan: reportText,
             });
             if (res.ok) {
-                setReportText('');
+                setReportText("");
                 // Fetch reports again
-                const repRes = await api.get('/production/supplies');
+                const repRes = await api.get("/production/supplies");
                 if (repRes.ok) {
                     const data = await repRes.json();
                     setReports(data.reports);
@@ -82,33 +98,48 @@ export default function WorkerDashboard({ user }) {
     };
 
     // Filter data based on role
-    const myJobs = jobs.filter(job => {
-        if (user?.role === 'CASING') return job.komponen === 'CASING';
-        if (user?.role === 'MESIN') return job.komponen === 'MESIN' || job.komponen === 'LAYAR';
+    const myJobs = jobs.filter((job) => {
+        if (user?.role === "CASING") return job.komponen === "CASING";
+        if (user?.role === "MESIN")
+            return job.komponen === "MESIN" || job.komponen === "LAYAR";
         return true;
     });
 
-    const myReports = reports.filter(r => r.pekerja === user?.username);
+    const myReports = reports.filter((r) => r.pekerja === user?.username);
 
     // Calculate Quality Yield
-    const totalBagus = myJobs.filter(j => ['QC_CEK', 'SELESAI_JUAL', 'SELESAI_RAKIT'].includes(j.status)).reduce((acc, j) => acc + j.alokasi, 0);
-    const totalRusak = myJobs.filter(j => j.status === 'RUSAK').reduce((acc, j) => acc + j.alokasi, 0);
+    const totalBagus = myJobs
+        .filter((j) =>
+            ["QC_CEK", "SELESAI_JUAL", "SELESAI_RAKIT"].includes(j.status)
+        )
+        .reduce((acc, j) => acc + j.alokasi, 0);
+    const totalRusak = myJobs
+        .filter((j) => j.status === "RUSAK")
+        .reduce((acc, j) => acc + j.alokasi, 0);
     const totalProcessed = totalBagus + totalRusak;
-    const yieldRate = totalProcessed > 0 ? Math.round((totalBagus / totalProcessed) * 100) : 0;
+    const yieldRate =
+        totalProcessed > 0
+            ? Math.round((totalBagus / totalProcessed) * 100)
+            : 0;
 
     const chartData = [
-        { name: 'Berhasil Diselamatkan', value: totalBagus, color: EMERALD },
-        { name: 'Rusak/Gagal', value: totalRusak, color: RED }
+        { name: "Berhasil Diselamatkan", value: totalBagus, color: EMERALD },
+        { name: "Rusak/Gagal", value: totalRusak, color: RED },
     ];
 
     // Calculate Queue
-    const waitingJobsCount = myJobs.filter(j => j.status === 'MENTAH').reduce((acc, j) => acc + j.alokasi, 0);
-    const inProgressCount = myJobs.filter(j => j.status === 'PROSES').reduce((acc, j) => acc + j.alokasi, 0);
+    const waitingJobsCount = myJobs
+        .filter((j) => j.status === "MENTAH")
+        .reduce((acc, j) => acc + j.alokasi, 0);
+    const inProgressCount = myJobs
+        .filter((j) => j.status === "PROSES")
+        .reduce((acc, j) => acc + j.alokasi, 0);
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-[60vh] font-mono text-[var(--color-neon-cyan)]">
-                <Activity className="w-6 h-6 animate-spin mr-3" /> MEMUAT_DASHBOARD...
+                <Activity className="w-6 h-6 animate-spin mr-3" />{" "}
+                MEMUAT_DASHBOARD...
             </div>
         );
     }
@@ -126,12 +157,17 @@ export default function WorkerDashboard({ user }) {
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* WIDGET 1: QUALITY YIELD */}
-                <GlassCard delay={0.1} className="xl:col-span-1 border-t-4 border-t-emerald-500">
+                <GlassCard
+                    delay={0.1}
+                    className="xl:col-span-1 border-t-4 border-t-emerald-500"
+                >
                     <div className="flex items-center gap-2 mb-6">
                         <Target className="w-5 h-5 text-emerald-400" />
-                        <h2 className="text-sm font-black tracking-widest text-white uppercase">Skor Kualitas Anda</h2>
+                        <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                            Skor Kualitas Anda
+                        </h2>
                     </div>
-                    
+
                     <div className="relative h-48 flex items-center justify-center mb-4">
                         {totalProcessed === 0 ? (
                             <div className="text-gray-500 font-mono text-xs text-center border border-dashed border-gray-600 rounded-full w-40 h-40 flex items-center justify-center p-4">
@@ -151,94 +187,152 @@ export default function WorkerDashboard({ user }) {
                                         stroke="none"
                                     >
                                         {chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={entry.color}
+                                            />
                                         ))}
                                     </Pie>
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#333', borderRadius: '8px' }}
-                                        itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "rgba(0,0,0,0.8)",
+                                            borderColor: "#333",
+                                            borderRadius: "8px",
+                                        }}
+                                        itemStyle={{
+                                            color: "#fff",
+                                            fontSize: "12px",
+                                            fontWeight: "bold",
+                                        }}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
                         )}
                         {totalProcessed > 0 && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-3xl font-black text-white">{yieldRate}%</span>
-                                <span className="text-[10px] font-mono text-gray-400 uppercase">YIELD RATE</span>
+                                <span className="text-3xl font-black text-white">
+                                    {yieldRate}%
+                                </span>
+                                <span className="text-[10px] font-mono text-gray-400 uppercase">
+                                    YIELD RATE
+                                </span>
                             </div>
                         )}
                     </div>
 
                     <div className="flex justify-between items-center text-xs font-mono bg-black/40 p-3 rounded-lg border border-white/5">
-                        <div className="text-emerald-400 font-bold">{totalBagus} Diselamatkan</div>
-                        <div className="text-red-400 font-bold">{totalRusak} Gagal</div>
+                        <div className="text-emerald-400 font-bold">
+                            {totalBagus} Diselamatkan
+                        </div>
+                        <div className="text-red-400 font-bold">
+                            {totalRusak} Gagal
+                        </div>
                     </div>
                 </GlassCard>
 
                 {/* WIDGET 2: BRIEFING & ANTREAN */}
                 <div className="xl:col-span-1 space-y-6">
-                    <GlassCard delay={0.2} className="border-t-4 border-t-[var(--color-neon-cyan)]">
+                    <GlassCard
+                        delay={0.2}
+                        className="border-t-4 border-t-[var(--color-neon-cyan)]"
+                    >
                         <div className="flex items-center gap-2 mb-4">
                             <Briefcase className="w-5 h-5 text-[var(--color-neon-cyan)]" />
-                            <h2 className="text-sm font-black tracking-widest text-white uppercase">Status Antrean</h2>
+                            <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                                Status Antrean
+                            </h2>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-gray-500/10 border border-gray-500/30 rounded-xl p-4 text-center">
-                                <div className="text-3xl font-black text-gray-300 mb-1">{waitingJobsCount}</div>
-                                <div className="text-[10px] font-mono text-gray-400 uppercase">Menunggu (Mentah)</div>
+                                <div className="text-3xl font-black text-gray-300 mb-1">
+                                    {waitingJobsCount}
+                                </div>
+                                <div className="text-[10px] font-mono text-gray-400 uppercase">
+                                    Menunggu (Mentah)
+                                </div>
                             </div>
                             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2">
-                                    {inProgressCount > 0 && <span className="flex w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+                                    {inProgressCount > 0 && (
+                                        <span className="flex w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                                    )}
                                 </div>
-                                <div className="text-3xl font-black text-amber-400 mb-1">{inProgressCount}</div>
-                                <div className="text-[10px] font-mono text-amber-500/70 uppercase">Sedang Dikerjakan</div>
+                                <div className="text-3xl font-black text-amber-400 mb-1">
+                                    {inProgressCount}
+                                </div>
+                                <div className="text-[10px] font-mono text-amber-500/70 uppercase">
+                                    Sedang Dikerjakan
+                                </div>
                             </div>
                         </div>
 
-                        <Link to="/production" className="mt-4 w-full flex items-center justify-center gap-2 bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] font-bold py-3 rounded-xl border border-[var(--color-neon-cyan)]/30 transition-all">
+                        <Link
+                            to="/production"
+                            className="mt-4 w-full flex items-center justify-center gap-2 bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] font-bold py-3 rounded-xl border border-[var(--color-neon-cyan)]/30 transition-all"
+                        >
                             <Zap className="w-4 h-4" /> BUKA PAPAN KERJA
                         </Link>
                     </GlassCard>
 
-                    <GlassCard delay={0.3} className="bg-blue-500/5 border-blue-500/20">
+                    <GlassCard
+                        delay={0.3}
+                        className="bg-blue-500/5 border-blue-500/20"
+                    >
                         <div className="flex items-center gap-2 mb-2">
                             <MessageSquare className="w-4 h-4 text-blue-400" />
-                            <h2 className="text-[10px] font-bold tracking-widest text-blue-400 uppercase">Pesan Admin Hari Ini</h2>
+                            <h2 className="text-[10px] font-bold tracking-widest text-blue-400 uppercase">
+                                Pesan Admin Hari Ini
+                            </h2>
                         </div>
-                        <p className="text-sm font-medium text-blue-100 italic">
-                            "Utamakan kualitas daripada kecepatan. Mari selamatkan mesin sebanyak mungkin!"
+                        <p className="text-sm font-medium text-blue-100 italic whitespace-pre-wrap">
+                            {adminMessage ? (
+                                `"${adminMessage}"`
+                            ) : (
+                                <span className="text-blue-500/50">
+                                    Belum ada pesan admin.
+                                </span>
+                            )}
                         </p>
                     </GlassCard>
                 </div>
 
                 {/* WIDGET 3: SUPPLY NOTES / LAPORAN ALAT */}
-                <GlassCard delay={0.4} className="xl:col-span-1 flex flex-col h-full border-t-4 border-t-amber-500">
+                <GlassCard
+                    delay={0.4}
+                    className="xl:col-span-1 flex flex-col h-full border-t-4 border-t-amber-500"
+                >
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <AlertTriangle className="w-5 h-5 text-amber-400" />
-                            <h2 className="text-sm font-black tracking-widest text-white uppercase">Laporan Perlengkapan</h2>
+                            <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                                Laporan Perlengkapan
+                            </h2>
                         </div>
                     </div>
-                    
+
                     {/* Input box */}
                     <div className="flex gap-2 mb-4">
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             value={reportText}
-                            onChange={e => setReportText(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && sendReport()}
-                            placeholder="Contoh: Kardus sisa 1 ikat..." 
+                            onChange={(e) => setReportText(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && sendReport()}
+                            placeholder="Contoh: Kardus sisa 1 ikat..."
                             className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
                         />
-                        <button onClick={sendReport} className="bg-amber-500/20 text-amber-400 p-3 rounded-xl hover:bg-amber-500 hover:text-black transition-colors shrink-0 flex items-center justify-center">
+                        <button
+                            onClick={sendReport}
+                            className="bg-amber-500/20 text-amber-400 p-3 rounded-xl hover:bg-amber-500 hover:text-black transition-colors shrink-0 flex items-center justify-center"
+                        >
                             <Send className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <h3 className="text-[10px] font-mono text-gray-500 uppercase mb-2">Riwayat Laporan Saya</h3>
-                    
+                    <h3 className="text-[10px] font-mono text-gray-500 uppercase mb-2">
+                        Riwayat Laporan Saya
+                    </h3>
+
                     {/* History List */}
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar min-h-[150px]">
                         {myReports.length === 0 ? (
@@ -246,35 +340,46 @@ export default function WorkerDashboard({ user }) {
                                 BELUM ADA LAPORAN
                             </div>
                         ) : (
-                            myReports.map(report => (
-                                <div key={report.id} className={`rounded-xl p-3 border transition-all ${
-                                    report.status === 'RESOLVED' 
-                                        ? 'bg-emerald-500/10 border-emerald-500/30' 
-                                        : 'bg-white/5 border-white/10'
-                                }`}>
+                            myReports.map((report) => (
+                                <div
+                                    key={report.id}
+                                    className={`rounded-xl p-3 border transition-all ${
+                                        report.status === "RESOLVED"
+                                            ? "bg-emerald-500/10 border-emerald-500/30"
+                                            : "bg-white/5 border-white/10"
+                                    }`}
+                                >
                                     <div className="flex justify-between items-start mb-1">
-                                        <p className={`text-sm ${report.status === 'RESOLVED' ? 'text-emerald-100' : 'text-gray-300'}`}>
+                                        <p
+                                            className={`text-sm ${report.status === "RESOLVED" ? "text-emerald-100" : "text-gray-300"}`}
+                                        >
                                             {report.laporan}
                                         </p>
-                                        {report.status === 'RESOLVED' ? (
+                                        {report.status === "RESOLVED" ? (
                                             <span className="flex items-center gap-1 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full shrink-0 ml-2">
-                                                <Check className="w-3 h-3" /> DIBELIKAN
+                                                <Check className="w-3 h-3" />{" "}
+                                                DIBELIKAN
                                             </span>
                                         ) : (
                                             <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full shrink-0 ml-2">
-                                                <Activity className="w-3 h-3" /> MENUNGGU
+                                                <Activity className="w-3 h-3" />{" "}
+                                                MENUNGGU
                                             </span>
                                         )}
                                     </div>
                                     <div className="text-[9px] font-mono text-gray-500">
-                                        {new Date(report.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                        {new Date(
+                                            report.timestamp
+                                        ).toLocaleTimeString("id-ID", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
                 </GlassCard>
-
             </div>
         </div>
     );
