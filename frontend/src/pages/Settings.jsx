@@ -1,23 +1,76 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 // eslint-disable-next-line no-unused-vars
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from "framer-motion";
 import {
-    Settings as SettingsIcon, Palette, Volume2, VolumeX,
-    Monitor, Info, Cpu, ShieldCheck, Zap, Check, Bell, BellOff, Send,
-    ScanLine, Plus, Trash2, Save, RefreshCw
-} from 'lucide-react';
-import { useSettings } from '../context/SettingsContext';
-import { usePushNotification } from '../hooks/usePushNotification';
-import api from '../api';
+    Settings as SettingsIcon,
+    Palette,
+    Volume2,
+    VolumeX,
+    Monitor,
+    Info,
+    Cpu,
+    ShieldCheck,
+    Zap,
+    Check,
+    Bell,
+    BellOff,
+    Send,
+    ScanLine,
+    Plus,
+    Trash2,
+    Save,
+    RefreshCw,
+    MessageSquare,
+    AlertTriangle,
+} from "lucide-react";
+import { useSettings } from "../context/SettingsContext";
+import { usePushNotification } from "../hooks/usePushNotification";
+import api from "../api";
 
 /* ─── Accent color palette ─── */
 const ACCENT_THEMES = [
-    { id: 'cyan',      label: 'DEFAULT',     color: '#00f3ff', color2: '#bc13fe', bg: 'rgba(0,243,255,0.08)' },
-    { id: 'synthwave', label: 'SYNTHWAVE',   color: '#ec4899', color2: '#f97316', bg: 'rgba(236,72,153,0.08)' },
-    { id: 'matrix',    label: 'BIO-MATRIX',  color: '#22c55e', color2: '#14b8a6', bg: 'rgba(34,197,94,0.08)' },
-    { id: 'imperial',  label: 'IMPERIAL',    color: '#fbbf24', color2: '#ef4444', bg: 'rgba(251,191,36,0.08)' },
-    { id: 'void',      label: 'DEEP VOID',   color: '#3b82f6', color2: '#6366f1', bg: 'rgba(59,130,246,0.08)' },
-    { id: 'sith',      label: 'DANGER',      color: '#dc2626', color2: '#ea580c', bg: 'rgba(220,38,38,0.08)' },
+    {
+        id: "cyan",
+        label: "DEFAULT",
+        color: "#00f3ff",
+        color2: "#bc13fe",
+        bg: "rgba(0,243,255,0.08)",
+    },
+    {
+        id: "synthwave",
+        label: "SYNTHWAVE",
+        color: "#ec4899",
+        color2: "#f97316",
+        bg: "rgba(236,72,153,0.08)",
+    },
+    {
+        id: "matrix",
+        label: "BIO-MATRIX",
+        color: "#22c55e",
+        color2: "#14b8a6",
+        bg: "rgba(34,197,94,0.08)",
+    },
+    {
+        id: "imperial",
+        label: "IMPERIAL",
+        color: "#fbbf24",
+        color2: "#ef4444",
+        bg: "rgba(251,191,36,0.08)",
+    },
+    {
+        id: "void",
+        label: "DEEP VOID",
+        color: "#3b82f6",
+        color2: "#6366f1",
+        bg: "rgba(59,130,246,0.08)",
+    },
+    {
+        id: "sith",
+        label: "DANGER",
+        color: "#dc2626",
+        color2: "#ea580c",
+        bg: "rgba(220,38,38,0.08)",
+    },
 ];
 
 export default function Settings() {
@@ -31,35 +84,86 @@ export default function Settings() {
     const [prefixSaving, setPrefixSaving] = useState(false);
     const [prefixDirty, setPrefixDirty] = useState(false);
     const [prefixToast, setPrefixToast] = useState(null);
-    const [newPrefix, setNewPrefix] = useState({ prefix: '', brand: '', type: 'Remote AC', confidence: 'high' });
+    const [newPrefix, setNewPrefix] = useState({
+        prefix: "",
+        brand: "",
+        type: "Remote AC",
+        confidence: "high",
+    });
 
-    // Fetch prefix rules saat pertama kali
+    // ─── Admin Message State ────────────────────────────────────────────────
+    const [adminMessage, setAdminMessage] = useState("");
+    const [adminMessageSaving, setAdminMessageSaving] = useState(false);
+    const [adminMessageToast, setAdminMessageToast] = useState(null);
+
+    // Fetch config & prefix rules saat pertama kali
     useEffect(() => {
         (async () => {
             try {
-                const res = await api.get('/settings/prefixes');
-                if (res.ok) {
-                    const data = await res.json();
+                const [resPrefixes, resConfig] = await Promise.all([
+                    api.get("/settings/prefixes"),
+                    api.get("/settings/config"),
+                ]);
+
+                if (resPrefixes.ok) {
+                    const data = await resPrefixes.json();
                     setPrefixRules(data.rules || []);
                 }
-            } catch (e) { console.error(e); }
-            finally { setPrefixLoading(false); }
+
+                if (resConfig.ok) {
+                    const data = await resConfig.json();
+                    setAdminMessage(data.adminMessage || "");
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setPrefixLoading(false);
+            }
         })();
     }, []);
+
+    const saveAdminMessage = async () => {
+        setAdminMessageSaving(true);
+        try {
+            const res = await api.put("/settings/config", { adminMessage });
+            if (res.ok) {
+                setAdminMessageToast({
+                    msg: "Pesan admin tersimpan!",
+                    type: "success",
+                });
+            } else {
+                setAdminMessageToast({
+                    msg: "Gagal menyimpan pesan",
+                    type: "error",
+                });
+            }
+        } catch (e) {
+            setAdminMessageToast({ msg: "Kesalahan jaringan", type: "error" });
+        } finally {
+            setAdminMessageSaving(false);
+            setTimeout(() => setAdminMessageToast(null), 3000);
+        }
+    };
 
     const savePrefixRules = async (rules) => {
         setPrefixSaving(true);
         try {
-            const res = await api.put('/settings/prefixes', { rules });
+            const res = await api.put("/settings/prefixes", { rules });
             if (res.ok) {
                 setPrefixDirty(false);
-                setPrefixToast({ msg: 'Prefix rules tersimpan!', type: 'success' });
+                setPrefixToast({
+                    msg: "Prefix rules tersimpan!",
+                    type: "success",
+                });
             } else {
                 const err = await res.json();
-                setPrefixToast({ msg: err.error || 'Gagal menyimpan', type: 'error' });
+                setPrefixToast({
+                    msg: err.error || "Gagal menyimpan",
+                    type: "error",
+                });
             }
         } catch (e) {
-            setPrefixToast({ msg: 'Network error', type: 'error' });
+            setPrefixToast({ msg: "Network error", type: "error" });
         }
         setPrefixSaving(false);
         setTimeout(() => setPrefixToast(null), 3000);
@@ -67,10 +171,22 @@ export default function Settings() {
 
     const addPrefixRule = () => {
         if (!newPrefix.prefix.trim() || !newPrefix.brand.trim()) return;
-        const updated = [...prefixRules, { ...newPrefix, prefix: newPrefix.prefix.trim().toUpperCase(), brand: newPrefix.brand.trim() }];
+        const updated = [
+            ...prefixRules,
+            {
+                ...newPrefix,
+                prefix: newPrefix.prefix.trim().toUpperCase(),
+                brand: newPrefix.brand.trim(),
+            },
+        ];
         setPrefixRules(updated);
         setPrefixDirty(true);
-        setNewPrefix({ prefix: '', brand: '', type: 'Remote AC', confidence: 'high' });
+        setNewPrefix({
+            prefix: "",
+            brand: "",
+            type: "Remote AC",
+            confidence: "high",
+        });
     };
 
     const removePrefixRule = (index) => {
@@ -83,42 +199,74 @@ export default function Settings() {
         const updated = [...prefixRules];
         const current = updated[index].confidence;
         // Cycle: high → medium → low → high
-        updated[index].confidence = current === 'high' ? 'medium' : current === 'medium' ? 'low' : 'high';
+        updated[index].confidence =
+            current === "high"
+                ? "medium"
+                : current === "medium"
+                  ? "low"
+                  : "high";
         setPrefixRules(updated);
         setPrefixDirty(true);
     };
 
-    const toggle    = (key)         => toggleSetting(key);
-    const setAccent = (theme)       => setSetting('accentTheme', theme);
+    const toggle = (key) => toggleSetting(key);
+    const setAccent = (theme) => setSetting("accentTheme", theme);
 
-    const activeAccent = ACCENT_THEMES.find(t => t.id === settings.accentTheme) ?? ACCENT_THEMES[0];
+    const activeAccent =
+        ACCENT_THEMES.find((t) => t.id === settings.accentTheme) ??
+        ACCENT_THEMES[0];
 
     const confidenceColors = {
-        high:   { label: 'AUTO',   color: '#22c55e', desc: 'Langsung klasifikasi otomatis' },
-        medium: { label: 'MEDIUM', color: '#f59e0b', desc: 'Auto-klasifikasi dengan peringatan' },
-        low:    { label: 'TANYA',  color: '#f43f5e', desc: 'Hermes tidak auto-klasifikasi, minta konfirmasi Anda' },
+        high: {
+            label: "AUTO",
+            color: "#22c55e",
+            desc: "Langsung klasifikasi otomatis",
+        },
+        medium: {
+            label: "MEDIUM",
+            color: "#f59e0b",
+            desc: "Auto-klasifikasi dengan peringatan",
+        },
+        low: {
+            label: "TANYA",
+            color: "#f43f5e",
+            desc: "Hermes tidak auto-klasifikasi, minta konfirmasi Anda",
+        },
     };
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pb-10">
-
             {/* ── Page Header ── */}
-            <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <motion.div
+                initial={{ opacity: 0, y: -16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+            >
                 <div className="flex items-center gap-3 mb-1">
-                    <div className="p-2 rounded-xl border border-white/10 bg-white/5"
-                        style={{ boxShadow: `0 0 18px ${activeAccent.color}33` }}>
-                        <SettingsIcon className="w-5 h-5" style={{ color: activeAccent.color }} />
+                    <div
+                        className="p-2 rounded-xl border border-white/10 bg-white/5"
+                        style={{
+                            boxShadow: `0 0 18px ${activeAccent.color}33`,
+                        }}
+                    >
+                        <SettingsIcon
+                            className="w-5 h-5"
+                            style={{ color: activeAccent.color }}
+                        />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-white tracking-tight">System Settings</h2>
-                        <p className="text-[11px] font-mono text-gray-600 mt-0.5">Configuration persisted to localStorage</p>
+                        <h2 className="text-2xl font-bold text-white tracking-tight">
+                            System Settings
+                        </h2>
+                        <p className="text-[11px] font-mono text-gray-600 mt-0.5">
+                            Configuration persisted to localStorage
+                        </p>
                     </div>
                 </div>
             </motion.div>
 
             {/* ── Section: Display ── */}
             <Section label="DISPLAY & PERFORMANCE" icon={Monitor} delay={0.05}>
-
                 {/* Low Graphics Mode */}
                 <SettingRow
                     icon={Cpu}
@@ -126,11 +274,15 @@ export default function Settings() {
                     iconColor="var(--color-neon-cyan)"
                     title="Low Graphics Mode"
                     description="Nonaktifkan animasi berat & efek blur untuk performa maksimal di perangkat lama atau HP."
-                    badge={settings.lowGraphics ? { label: 'AKTIF', color: '#00f3ff' } : { label: 'NONAKTIF', color: '#555' }}
+                    badge={
+                        settings.lowGraphics
+                            ? { label: "AKTIF", color: "#00f3ff" }
+                            : { label: "NONAKTIF", color: "#555" }
+                    }
                 >
                     <ToggleSwitch
                         enabled={settings.lowGraphics}
-                        onToggle={() => toggle('lowGraphics')}
+                        onToggle={() => toggle("lowGraphics")}
                         activeColor="var(--color-neon-cyan)"
                         id="toggle-low-graphics"
                     />
@@ -143,11 +295,15 @@ export default function Settings() {
                     iconColor="var(--color-neon-purple)"
                     title="Sound Effects"
                     description="Aktifkan atau nonaktifkan efek suara UI dan notifikasi audio pada antarmuka."
-                    badge={settings.soundEnabled ? { label: 'ON', color: '#bc13fe' } : { label: 'OFF', color: '#555' }}
+                    badge={
+                        settings.soundEnabled
+                            ? { label: "ON", color: "#bc13fe" }
+                            : { label: "OFF", color: "#555" }
+                    }
                 >
                     <ToggleSwitch
                         enabled={settings.soundEnabled}
-                        onToggle={() => toggle('soundEnabled')}
+                        onToggle={() => toggle("soundEnabled")}
                         activeColor="var(--color-neon-purple)"
                         id="toggle-sound"
                     />
@@ -162,7 +318,11 @@ export default function Settings() {
                         <span>Warna aktif:</span>
                         <span
                             className="font-bold tracking-widest px-2 py-0.5 rounded-md text-[10px]"
-                            style={{ color: activeAccent.color, backgroundColor: activeAccent.bg, border: `1px solid ${activeAccent.color}40` }}
+                            style={{
+                                color: activeAccent.color,
+                                backgroundColor: activeAccent.bg,
+                                border: `1px solid ${activeAccent.color}40`,
+                            }}
                         >
                             {activeAccent.label}
                         </span>
@@ -178,7 +338,9 @@ export default function Settings() {
                                     key={theme.id}
                                     id={`accent-${theme.id}`}
                                     onClick={() => setAccent(theme.id)}
-                                    onMouseEnter={() => setHoveredAccent(theme.id)}
+                                    onMouseEnter={() =>
+                                        setHoveredAccent(theme.id)
+                                    }
                                     onMouseLeave={() => setHoveredAccent(null)}
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
@@ -186,9 +348,19 @@ export default function Settings() {
                                     whileTap={{ scale: 0.92 }}
                                     className="relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-200"
                                     style={{
-                                        borderColor: isActive ? theme.color : (isHovered ? theme.color + '60' : 'rgba(255,255,255,0.07)'),
-                                        backgroundColor: isActive ? theme.bg : (isHovered ? theme.bg : 'rgba(255,255,255,0.02)'),
-                                        boxShadow: isActive ? `0 0 18px ${theme.color}40` : 'none',
+                                        borderColor: isActive
+                                            ? theme.color
+                                            : isHovered
+                                              ? theme.color + "60"
+                                              : "rgba(255,255,255,0.07)",
+                                        backgroundColor: isActive
+                                            ? theme.bg
+                                            : isHovered
+                                              ? theme.bg
+                                              : "rgba(255,255,255,0.02)",
+                                        boxShadow: isActive
+                                            ? `0 0 18px ${theme.color}40`
+                                            : "none",
                                     }}
                                 >
                                     {/* Color swatch */}
@@ -196,13 +368,21 @@ export default function Settings() {
                                         className="w-6 h-6 rounded-full transition-all duration-200"
                                         style={{
                                             background: `linear-gradient(135deg, ${theme.color}, ${theme.color2})`,
-                                            boxShadow: isActive ? `0 0 15px ${theme.color}80` : 'none',
-                                            transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                                            boxShadow: isActive
+                                                ? `0 0 15px ${theme.color}80`
+                                                : "none",
+                                            transform: isActive
+                                                ? "scale(1.15)"
+                                                : "scale(1)",
                                         }}
                                     />
                                     <span
                                         className="text-[9px] font-mono tracking-widest leading-tight text-center"
-                                        style={{ color: isActive ? theme.color : '#666' }}
+                                        style={{
+                                            color: isActive
+                                                ? theme.color
+                                                : "#666",
+                                        }}
                                     >
                                         {theme.label}
                                     </span>
@@ -210,11 +390,20 @@ export default function Settings() {
                                     <AnimatePresence>
                                         {isActive && (
                                             <motion.div
-                                                initial={{ scale: 0, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
+                                                initial={{
+                                                    scale: 0,
+                                                    opacity: 0,
+                                                }}
+                                                animate={{
+                                                    scale: 1,
+                                                    opacity: 1,
+                                                }}
                                                 exit={{ scale: 0, opacity: 0 }}
                                                 className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
-                                                style={{ backgroundColor: theme.color }}
+                                                style={{
+                                                    backgroundColor:
+                                                        theme.color,
+                                                }}
                                             >
                                                 <Check className="w-2.5 h-2.5 text-black" />
                                             </motion.div>
@@ -231,34 +420,48 @@ export default function Settings() {
             <Section label="PUSH NOTIFICATIONS" icon={Bell} delay={0.2}>
                 <SettingRow
                     icon={push.isSubscribed ? Bell : BellOff}
-                    iconBg={push.isSubscribed ? 'rgba(0,243,255,0.12)' : 'rgba(100,100,100,0.1)'}
-                    iconColor={push.isSubscribed ? 'var(--color-neon-cyan)' : '#666'}
+                    iconBg={
+                        push.isSubscribed
+                            ? "rgba(0,243,255,0.12)"
+                            : "rgba(100,100,100,0.1)"
+                    }
+                    iconColor={
+                        push.isSubscribed ? "var(--color-neon-cyan)" : "#666"
+                    }
                     title="Notifikasi Browser"
                     description={
                         !push.isSupported
-                            ? 'Browser kamu tidak mendukung push notification.'
-                            : push.permission === 'denied'
-                                ? 'Izin ditolak. Reset izin di pengaturan browser.'
-                                : push.isSubscribed
-                                    ? 'Aktif — kamu akan menerima alert stok kritis & laporan harian.'
-                                    : 'Aktifkan untuk menerima notifikasi bahkan saat tab ditutup.'
+                            ? "Browser kamu tidak mendukung push notification."
+                            : push.permission === "denied"
+                              ? "Izin ditolak. Reset izin di pengaturan browser."
+                              : push.isSubscribed
+                                ? "Aktif — kamu akan menerima alert stok kritis & laporan harian."
+                                : "Aktifkan untuk menerima notifikasi bahkan saat tab ditutup."
                     }
                     badge={
                         !push.isSupported
-                            ? { label: 'TIDAK DIDUKUNG', color: '#666' }
-                            : push.permission === 'denied'
-                                ? { label: 'DIBLOKIR', color: '#f43f5e' }
-                                : push.isSubscribed
-                                    ? { label: 'AKTIF', color: '#00f3ff' }
-                                    : { label: 'NONAKTIF', color: '#555' }
+                            ? { label: "TIDAK DIDUKUNG", color: "#666" }
+                            : push.permission === "denied"
+                              ? { label: "DIBLOKIR", color: "#f43f5e" }
+                              : push.isSubscribed
+                                ? { label: "AKTIF", color: "#00f3ff" }
+                                : { label: "NONAKTIF", color: "#555" }
                     }
                 >
                     <ToggleSwitch
                         enabled={push.isSubscribed}
-                        onToggle={push.isSubscribed ? push.unsubscribe : push.subscribe}
+                        onToggle={
+                            push.isSubscribed
+                                ? push.unsubscribe
+                                : push.subscribe
+                        }
                         activeColor="var(--color-neon-cyan)"
                         id="toggle-push"
-                        disabled={!push.isSupported || push.permission === 'denied' || push.isLoading}
+                        disabled={
+                            !push.isSupported ||
+                            push.permission === "denied" ||
+                            push.isLoading
+                        }
                     />
                 </SettingRow>
 
@@ -272,7 +475,7 @@ export default function Settings() {
                             id="btn-test-push"
                             onClick={async () => {
                                 const r = await push.sendTest();
-                                if (!r.success) alert('Gagal: ' + r.error);
+                                if (!r.success) alert("Gagal: " + r.error);
                             }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#00f3ff]/30 text-[#00f3ff] text-[10px] font-mono hover:bg-[#00f3ff]/10 transition-all"
                         >
@@ -289,14 +492,90 @@ export default function Settings() {
                 )}
             </Section>
 
+            {/* ── Section: Pengumuman Pekerja ── */}
+            <Section
+                label="PENGUMUMAN PEKERJA"
+                icon={MessageSquare}
+                delay={0.25}
+            >
+                <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="text-sm font-bold text-white">
+                                Pesan Admin Hari Ini
+                            </h4>
+                            <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase tracking-wider">
+                                Pesan yang akan tampil di Dashboard pekerja
+                                casing
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <textarea
+                            value={adminMessage}
+                            onChange={(e) => setAdminMessage(e.target.value)}
+                            placeholder="Ketik pesan motivasi atau instruksi di sini... (kosongkan jika tidak ada pesan)"
+                            className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-[var(--color-neon-cyan)] min-h-[100px] resize-y"
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <div className="h-6">
+                            <AnimatePresence>
+                                {adminMessageToast && (
+                                    <motion.span
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className={`text-xs font-mono px-3 py-1 rounded flex items-center gap-1 ${
+                                            adminMessageToast.type === "success"
+                                                ? "text-emerald-400 bg-emerald-400/10"
+                                                : "text-red-400 bg-red-400/10"
+                                        }`}
+                                    >
+                                        {adminMessageToast.type ===
+                                        "success" ? (
+                                            <Check className="w-3 h-3" />
+                                        ) : (
+                                            <AlertTriangle className="w-3 h-3" />
+                                        )}
+                                        {adminMessageToast.msg}
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        <button
+                            onClick={saveAdminMessage}
+                            disabled={adminMessageSaving}
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[var(--color-neon-cyan)] text-black text-sm font-bold hover:bg-white hover:text-black transition-colors"
+                        >
+                            {adminMessageSaving ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            SIMPAN PESAN
+                        </button>
+                    </div>
+                </div>
+            </Section>
+
             {/* ── Section: Prefix Manager (Hermes Logic) ── */}
-            <Section label="PREFIX CLASSIFICATION MANAGER" icon={ScanLine} delay={0.25}>
+            <Section
+                label="PREFIX CLASSIFICATION MANAGER"
+                icon={ScanLine}
+                delay={0.25}
+            >
                 <div className="p-5 space-y-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h4 className="text-sm font-bold text-white">Smart Prefix Rules</h4>
+                            <h4 className="text-sm font-bold text-white">
+                                Smart Prefix Rules
+                            </h4>
                             <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase tracking-wider">
-                                Mengatur cara Hermes mengklasifikasikan item baru berdasarkan awalan kode
+                                Mengatur cara Hermes mengklasifikasikan item
+                                baru berdasarkan awalan kode
                             </p>
                         </div>
                         {prefixDirty && (
@@ -307,7 +586,11 @@ export default function Settings() {
                                 disabled={prefixSaving}
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-black text-xs font-bold hover:bg-emerald-400 transition-colors shadow-[0_0_15px_rgba(34,197,94,0.4)]"
                             >
-                                {prefixSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                {prefixSaving ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                    <Save className="w-3 h-3" />
+                                )}
                                 SIMPAN PERUBAHAN
                             </motion.button>
                         )}
@@ -318,57 +601,104 @@ export default function Settings() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-white/[0.03] text-[10px] font-mono text-gray-500 uppercase tracking-widest border-b border-white/5">
-                                    <th className="px-4 py-3 font-medium">Prefix</th>
-                                    <th className="px-4 py-3 font-medium">Dugaan Merk</th>
-                                    <th className="px-4 py-3 font-medium">Mode</th>
-                                    <th className="px-4 py-3 font-medium text-right">Aksi</th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Prefix
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Dugaan Merk
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Mode
+                                    </th>
+                                    <th className="px-4 py-3 font-medium text-right">
+                                        Aksi
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.03]">
                                 {prefixLoading ? (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-10 text-center text-xs font-mono text-gray-600">
+                                        <td
+                                            colSpan="4"
+                                            className="px-4 py-10 text-center text-xs font-mono text-gray-600"
+                                        >
                                             <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2" />
                                             MENGUNDUH DATA DARI MAINFRAME...
                                         </td>
                                     </tr>
                                 ) : prefixRules.length === 0 ? (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-10 text-center text-xs font-mono text-gray-600">
+                                        <td
+                                            colSpan="4"
+                                            className="px-4 py-10 text-center text-xs font-mono text-gray-600"
+                                        >
                                             TIDAK ADA ATURAN PREFIX TERDAFTAR
                                         </td>
                                     </tr>
                                 ) : (
                                     prefixRules.map((rule, idx) => (
-                                        <tr key={idx} className="group hover:bg-white/[0.01] transition-colors">
-                                            <td className="px-4 py-3 text-xs font-mono font-bold text-[#00f3ff]">{rule.prefix}</td>
+                                        <tr
+                                            key={idx}
+                                            className="group hover:bg-white/[0.01] transition-colors"
+                                        >
+                                            <td className="px-4 py-3 text-xs font-mono font-bold text-[#00f3ff]">
+                                                {rule.prefix}
+                                            </td>
                                             <td className="px-4 py-3">
-                                                <div className="text-xs font-bold text-white">{rule.brand}</div>
-                                                <div className="text-[10px] text-gray-600 font-mono">{rule.type}</div>
+                                                <div className="text-xs font-bold text-white">
+                                                    {rule.brand}
+                                                </div>
+                                                <div className="text-[10px] text-gray-600 font-mono">
+                                                    {rule.type}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <button
-                                                    onClick={() => togglePrefixConfidence(idx)}
+                                                    onClick={() =>
+                                                        togglePrefixConfidence(
+                                                            idx
+                                                        )
+                                                    }
                                                     className="flex flex-col items-start gap-1 group/btn text-left"
                                                 >
                                                     <span
                                                         className="text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded border transition-colors"
                                                         style={{
-                                                            color: confidenceColors[rule.confidence].color,
-                                                            borderColor: confidenceColors[rule.confidence].color + '40',
-                                                            backgroundColor: confidenceColors[rule.confidence].color + '10'
+                                                            color: confidenceColors[
+                                                                rule.confidence
+                                                            ].color,
+                                                            borderColor:
+                                                                confidenceColors[
+                                                                    rule
+                                                                        .confidence
+                                                                ].color + "40",
+                                                            backgroundColor:
+                                                                confidenceColors[
+                                                                    rule
+                                                                        .confidence
+                                                                ].color + "10",
                                                         }}
                                                     >
-                                                        {confidenceColors[rule.confidence].label}
+                                                        {
+                                                            confidenceColors[
+                                                                rule.confidence
+                                                            ].label
+                                                        }
                                                     </span>
                                                     <span className="text-[8px] text-gray-600 hidden group-hover/btn:block">
-                                                        {confidenceColors[rule.confidence].desc}
+                                                        {
+                                                            confidenceColors[
+                                                                rule.confidence
+                                                            ].desc
+                                                        }
                                                     </span>
                                                 </button>
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <button
-                                                    onClick={() => removePrefixRule(idx)}
+                                                    onClick={() =>
+                                                        removePrefixRule(idx)
+                                                    }
                                                     className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
@@ -388,30 +718,51 @@ export default function Settings() {
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div className="space-y-1">
-                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">Prefix</label>
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">
+                                    Prefix
+                                </label>
                                 <input
                                     type="text"
                                     placeholder="Contoh: A75C"
                                     value={newPrefix.prefix}
-                                    onChange={e => setNewPrefix({ ...newPrefix, prefix: e.target.value })}
+                                    onChange={(e) =>
+                                        setNewPrefix({
+                                            ...newPrefix,
+                                            prefix: e.target.value,
+                                        })
+                                    }
                                     className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#00f3ff]/50 outline-none font-mono"
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">Merk</label>
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">
+                                    Merk
+                                </label>
                                 <input
                                     type="text"
                                     placeholder="Panasonic"
                                     value={newPrefix.brand}
-                                    onChange={e => setNewPrefix({ ...newPrefix, brand: e.target.value })}
+                                    onChange={(e) =>
+                                        setNewPrefix({
+                                            ...newPrefix,
+                                            brand: e.target.value,
+                                        })
+                                    }
                                     className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#00f3ff]/50 outline-none"
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">Jenis</label>
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">
+                                    Jenis
+                                </label>
                                 <select
                                     value={newPrefix.type}
-                                    onChange={e => setNewPrefix({ ...newPrefix, type: e.target.value })}
+                                    onChange={(e) =>
+                                        setNewPrefix({
+                                            ...newPrefix,
+                                            type: e.target.value,
+                                        })
+                                    }
                                     className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-2 text-xs text-white focus:border-[#00f3ff]/50 outline-none"
                                 >
                                     <option>Remote AC</option>
@@ -424,7 +775,9 @@ export default function Settings() {
                             <div className="flex items-end">
                                 <button
                                     onClick={addPrefixRule}
-                                    disabled={!newPrefix.prefix || !newPrefix.brand}
+                                    disabled={
+                                        !newPrefix.prefix || !newPrefix.brand
+                                    }
                                     className="w-full h-[34px] flex items-center justify-center gap-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                     <Plus className="w-3.5 h-3.5" /> TAMBAH
@@ -441,7 +794,9 @@ export default function Settings() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
                                 className={`p-3 rounded-lg text-[10px] font-mono text-center border ${
-                                    prefixToast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+                                    prefixToast.type === "success"
+                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                        : "bg-red-500/10 border-red-500/20 text-red-400"
                                 }`}
                             >
                                 {prefixToast.msg}
@@ -456,12 +811,42 @@ export default function Settings() {
                 <div className="p-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
                         {[
-                            { label: 'VERSION',  value: 'v3.1.0',             icon: '🏷️',  color: activeAccent.color },
-                            { label: 'ENGINE',   value: 'React + Vite',       icon: '⚛️',  color: '#38bdf8' },
-                            { label: 'BACKEND',  value: 'Node.js + Express',  icon: '🖥️',  color: '#22c55e' },
-                            { label: 'SECURITY', value: 'Helmet + RateLimit', icon: '🛡️',  color: '#a855f7' },
-                            { label: 'STYLING',  value: 'Tailwind CSS v4',    icon: '🎨',  color: '#f59e0b' },
-                            { label: 'MOTION',   value: 'Framer Motion',      icon: '✨',  color: '#f43f5e' },
+                            {
+                                label: "VERSION",
+                                value: "v3.1.0",
+                                icon: "🏷️",
+                                color: activeAccent.color,
+                            },
+                            {
+                                label: "ENGINE",
+                                value: "React + Vite",
+                                icon: "⚛️",
+                                color: "#38bdf8",
+                            },
+                            {
+                                label: "BACKEND",
+                                value: "Node.js + Express",
+                                icon: "🖥️",
+                                color: "#22c55e",
+                            },
+                            {
+                                label: "SECURITY",
+                                value: "Helmet + RateLimit",
+                                icon: "🛡️",
+                                color: "#a855f7",
+                            },
+                            {
+                                label: "STYLING",
+                                value: "Tailwind CSS v4",
+                                icon: "🎨",
+                                color: "#f59e0b",
+                            },
+                            {
+                                label: "MOTION",
+                                value: "Framer Motion",
+                                icon: "✨",
+                                color: "#f43f5e",
+                            },
                         ].map(({ label, value, icon, color }, i) => (
                             <motion.div
                                 key={label}
@@ -472,9 +857,16 @@ export default function Settings() {
                             >
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm">{icon}</span>
-                                    <span className="text-gray-600 group-hover:text-gray-500 transition-colors">{label}</span>
+                                    <span className="text-gray-600 group-hover:text-gray-500 transition-colors">
+                                        {label}
+                                    </span>
                                 </div>
-                                <span className="font-semibold" style={{ color }}>{value}</span>
+                                <span
+                                    className="font-semibold"
+                                    style={{ color }}
+                                >
+                                    {value}
+                                </span>
                             </motion.div>
                         ))}
                     </div>
@@ -487,7 +879,10 @@ export default function Settings() {
                         className="mt-4 flex items-center gap-2 text-[10px] font-mono text-gray-600 border-t border-white/5 pt-4"
                     >
                         <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                        <span>Semua konfigurasi tersimpan secara lokal. Tidak ada data yang dikirim ke server.</span>
+                        <span>
+                            Semua konfigurasi tersimpan secara lokal. Tidak ada
+                            data yang dikirim ke server.
+                        </span>
                     </motion.div>
                 </div>
             </Section>
@@ -508,7 +903,9 @@ function Section({ label, icon: Icon, delay = 0, children }) {
             {/* Section header */}
             <div className="flex items-center gap-2 mb-3 px-1">
                 <Icon className="w-3.5 h-3.5 text-gray-600" />
-                <span className="text-[10px] font-mono tracking-[0.2em] text-gray-600 uppercase">{label}</span>
+                <span className="text-[10px] font-mono tracking-[0.2em] text-gray-600 uppercase">
+                    {label}
+                </span>
                 <div className="flex-1 h-px bg-white/5" />
             </div>
 
@@ -520,7 +917,15 @@ function Section({ label, icon: Icon, delay = 0, children }) {
 }
 
 /* ── Setting Row ── */
-function SettingRow({ icon: Icon, iconBg, iconColor, title, description, badge, children }) {
+function SettingRow({
+    icon: Icon,
+    iconBg,
+    iconColor,
+    title,
+    description,
+    badge,
+    children,
+}) {
     return (
         <div className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors group">
             <div className="flex items-center gap-4 min-w-0">
@@ -529,26 +934,33 @@ function SettingRow({ icon: Icon, iconBg, iconColor, title, description, badge, 
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-white/10 transition-transform group-hover:scale-105"
                     style={{ backgroundColor: iconBg }}
                 >
-                    <Icon className="w-4.5 h-4.5" style={{ color: iconColor }} />
+                    <Icon
+                        className="w-4.5 h-4.5"
+                        style={{ color: iconColor }}
+                    />
                 </div>
 
                 {/* Text */}
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-bold text-white">{title}</h4>
+                        <h4 className="text-sm font-bold text-white">
+                            {title}
+                        </h4>
                         {/* Status badge */}
                         <span
                             className="text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded-md border"
                             style={{
                                 color: badge.color,
-                                borderColor: badge.color + '40',
-                                backgroundColor: badge.color + '15',
+                                borderColor: badge.color + "40",
+                                backgroundColor: badge.color + "15",
                             }}
                         >
                             {badge.label}
                         </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed truncate max-w-xs">{description}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed truncate max-w-xs">
+                        {description}
+                    </p>
                 </div>
             </div>
 
@@ -566,17 +978,24 @@ function ToggleSwitch({ enabled, onToggle, activeColor, id }) {
             onClick={onToggle}
             aria-pressed={enabled}
             className={`relative w-14 h-7 rounded-full transition-all duration-300 shrink-0 border ${
-                enabled ? 'border-transparent' : 'bg-white/5 border-white/10'
+                enabled ? "border-transparent" : "bg-white/5 border-white/10"
             }`}
-            style={enabled ? { backgroundColor: activeColor + '30', borderColor: activeColor + '50' } : {}}
+            style={
+                enabled
+                    ? {
+                          backgroundColor: activeColor + "30",
+                          borderColor: activeColor + "50",
+                      }
+                    : {}
+            }
         >
             <motion.div
                 animate={{ x: enabled ? 26 : 2 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 className="absolute top-1 w-5 h-5 rounded-full"
                 style={{
-                    backgroundColor: enabled ? activeColor : '#555',
-                    boxShadow: enabled ? `0 0 10px ${activeColor}` : 'none',
+                    backgroundColor: enabled ? activeColor : "#555",
+                    boxShadow: enabled ? `0 0 10px ${activeColor}` : "none",
                 }}
             />
         </button>
