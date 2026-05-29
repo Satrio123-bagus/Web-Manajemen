@@ -890,12 +890,12 @@ export default function ProductionBoard({ user }) {
                                                 onClick={() =>
                                                     handleMoveJob(
                                                         job.id,
-                                                        "GUDANG_CAT"
+                                                        "PROSES_CAT"
                                                     )
                                                 }
                                                 className="w-full sm:w-auto px-4 py-2.5 text-xs bg-pink-500/10 text-pink-400 rounded-lg font-bold hover:bg-pink-500/30 hover:text-pink-300 transition-colors border border-pink-500/30"
                                             >
-                                                ✓ Selesai Kimia (Kirim Gudang
+                                                ✓ Selesai Kimia (Lanjut Proses
                                                 Cat)
                                             </button>
                                         )}
