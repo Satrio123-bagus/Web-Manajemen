@@ -1,19 +1,19 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import NotificationPanel from "./NotificationPanel";
-import { Search, Bell, User, Zap, Menu } from "lucide-react";
+import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from './Sidebar';
+import NotificationPanel from './NotificationPanel';
+import { Search, Bell, User, Zap, Menu } from 'lucide-react';
 export default function Layout({ children, activePage, onSearch, user }) {
     const [sidebarCollapsed] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [headerSearch, setHeaderSearch] = useState("");
+    const [headerSearch, setHeaderSearch] = useState('');
     const navigate = useNavigate();
 
     // Handle search: navigate to inventory and trigger search
     const handleHeaderSearch = (e) => {
-        if (e.key === "Enter" && onSearch) {
+        if (e.key === 'Enter' && onSearch) {
             onSearch(headerSearch);
-            navigate("/inventory");
+            navigate('/inventory');
         }
     };
 
@@ -29,7 +29,7 @@ export default function Layout({ children, activePage, onSearch, user }) {
     const handleTouchEnd = (e) => {
         const touchEndX = e.changedTouches[0].clientX;
         const touchEndY = e.changedTouches[0].clientY;
-
+        
         const swipeDistanceX = touchEndX - touchStartX.current;
         const swipeDistanceY = Math.abs(touchEndY - touchStartY.current);
 
@@ -47,7 +47,7 @@ export default function Layout({ children, activePage, onSearch, user }) {
     };
 
     return (
-        <div
+        <div 
             className="min-h-screen bg-[var(--color-dark-bg)] text-gray-200 font-sans relative overflow-hidden"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -55,25 +55,19 @@ export default function Layout({ children, activePage, onSearch, user }) {
             {/* ── Ambient Background ── */}
             <div className="fixed inset-0 pointer-events-none z-0">
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[var(--color-neon-purple)] rounded-full blur-[180px] opacity-[0.12] animate-pulse" />
-                <div
-                    className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[var(--color-neon-cyan)] rounded-full blur-[180px] opacity-[0.08] animate-pulse"
-                    style={{ animationDelay: "1s" }}
-                />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[var(--color-neon-cyan)] rounded-full blur-[180px] opacity-[0.08] animate-pulse" style={{ animationDelay: '1s' }} />
                 {/* Scanline grid */}
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,#000_60%,transparent_100%)]" />
             </div>
 
             {/* ── Sidebar ── */}
-            <Sidebar
-                isOpen={mobileSidebarOpen}
-                onClose={() => setMobileSidebarOpen(false)}
-                user={user}
-            />
+            <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} user={user} />
 
             {/* ── Main Wrapper (shifts right for sidebar) ── */}
             <div className={`transition-all duration-300 ml-0 md:ml-64`}>
+
                 {/* ── Header ── */}
-                <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-8 bg-[#08080a] border-b border-white/5">
+                <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-8 bg-black/50 backdrop-blur-xl border-b border-white/5">
                     {/* Left — Page title */}
                     <div className="flex items-center gap-3">
                         <button
@@ -84,10 +78,8 @@ export default function Layout({ children, activePage, onSearch, user }) {
                         </button>
                         <div className="w-2 h-2 rounded-full bg-[var(--color-neon-cyan)] shadow-[0_0_8px_var(--color-neon-cyan)] animate-pulse" />
                         <h2 className="text-sm font-mono tracking-[0.15em] text-gray-400 uppercase">
-                            {activePage || "dashboard"}
-                            <span className="text-[var(--color-neon-cyan)] animate-[flicker_2s_infinite]">
-                                _
-                            </span>
+                            {activePage || 'dashboard'}
+                            <span className="text-[var(--color-neon-cyan)] animate-[flicker_2s_infinite]">_</span>
                         </h2>
                     </div>
 
@@ -99,9 +91,7 @@ export default function Layout({ children, activePage, onSearch, user }) {
                             <input
                                 type="text"
                                 value={headerSearch}
-                                onChange={(e) =>
-                                    setHeaderSearch(e.target.value)
-                                }
+                                onChange={e => setHeaderSearch(e.target.value)}
                                 onKeyDown={handleHeaderSearch}
                                 placeholder="Search items... (Enter)"
                                 className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-600 w-full font-mono"
@@ -123,12 +113,9 @@ export default function Layout({ children, activePage, onSearch, user }) {
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0a0a0c] shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
                             </div>
                             <div className="hidden lg:block text-left">
-                                <p className="text-xs font-bold text-gray-300 uppercase">
-                                    {user?.username || "OPERATOR"}
-                                </p>
+                                <p className="text-xs font-bold text-gray-300 uppercase">{user?.username || 'OPERATOR'}</p>
                                 <p className="text-[10px] font-mono text-gray-600 flex items-center gap-1 uppercase">
-                                    <Zap className="w-3 h-3 text-amber-400" />{" "}
-                                    {user?.role || "ADMIN_LV9"}
+                                    <Zap className="w-3 h-3 text-amber-400" /> {user?.role || 'ADMIN_LV9'}
                                 </p>
                             </div>
                         </button>
