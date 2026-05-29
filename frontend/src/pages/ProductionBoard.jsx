@@ -734,17 +734,17 @@ export default function ProductionBoard({ user }) {
                                     key={job.id}
                                     className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 hover:border-white/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group shadow-md hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-start sm:items-center gap-4 min-w-0 w-full">
                                         <div
-                                            className={`p-3 rounded-xl ${colConfig.bg} ${colConfig.border} border shadow-inner`}
+                                            className={`p-3 rounded-xl ${colConfig.bg} ${colConfig.border} border shadow-inner shrink-0 mt-1 sm:mt-0`}
                                         >
                                             <Icon
                                                 className={`w-6 h-6 ${colConfig.color}`}
                                             />
                                         </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="text-[var(--color-neon-cyan)] font-bold font-mono tracking-wider text-sm sm:text-base break-words">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                <h3 className="text-[var(--color-neon-cyan)] font-bold font-mono tracking-wider text-sm sm:text-base break-words min-w-0">
                                                     <span className="text-xs text-gray-400 mr-2">
                                                         [
                                                         {job.merk?.toUpperCase() ||
