@@ -159,26 +159,22 @@ function logColor(type) {
 export default function DashboardHome() {
     const [analytics, setAnalytics] = useState(null);
     const [terminalLogs, setTerminalLogs] = useState([]);
-    const [supplyReports, setSupplyReports] = useState([]); // State laporan alat pekerja
-    const [orders, setOrders] = useState([]); // State pesanan aktif
+    const [supplyReports, setSupplyReports] = useState([]);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [countdown, setCountdown] = useState(30);
-    const [newLogCount, setNewLogCount] = useState(0); // Jumlah log baru sejak refresh
-    const [isRefreshing, setIsRefreshing] = useState(false); // Status loading saat refresh
-    const [isCompletingOrder, setIsCompletingOrder] = useState(null);
+    const [newLogCount, setNewLogCount] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const logRef = useRef(null);
-    const prevLogCount = useRef(0); // Simpan jumlah log sebelumnya
+    const prevLogCount = useRef(0);
 
     // Fetch analytics dan transaksi
     useEffect(() => {
-        // safeFetch dengan timeout 8 detik — agar tidak hang selamanya
         const safeFetch = async (url) => {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 8000);
             try {
                 const r = await api.get(url, { signal: controller.signal });
                 if (r.status === 401) {
-                    // Token expired atau invalid → paksa logout
                     localStorage.removeItem("cortex_token");
                     window.location.href = "/";
                     throw new Error("401");
@@ -190,16 +186,15 @@ export default function DashboardHome() {
             }
         };
 
-        const POLL_INTERVAL = 30; // detik
+        const POLL_INTERVAL = 30;
 
         const fetchAll = () => {
             Promise.all([
                 safeFetch("/api/analytics"),
                 safeFetch("/api/transactions"),
-                safeFetch("/api/production/supplies"), // Fetch supplies
-                safeFetch("/api/orders/pending"), // Fetch pending orders
+                safeFetch("/api/production/supplies"),
             ])
-                .then(([a, t, s, o]) => {
+                .then(([a, t, s]) => {
                     setAnalytics(a);
                     const txList = Array.isArray(t)
                         ? t
@@ -208,14 +203,11 @@ export default function DashboardHome() {
                           : [];
                     setTerminalLogs(txList);
                     if (s?.reports) setSupplyReports(s.reports);
-                    if (Array.isArray(o)) setOrders(o);
                     setLastUpdated(new Date());
                     prevLogCount.current = txList.length;
                     setCountdown(POLL_INTERVAL);
                 })
                 .catch(() => {
-                    // Gagal fetch (network error / timeout) — tampilkan dashboard dengan data kosong
-                    // Jangan biarkan analytics tetap null (menyebabkan loading screen selamanya)
                     setAnalytics(
                         (prev) =>
                             prev || {
@@ -244,17 +236,13 @@ export default function DashboardHome() {
                       : [];
                 setTerminalLogs(freshList);
 
-                // Fetch supplies and orders for polling too
                 const suppliesData = await safeFetch(
                     "/api/production/supplies"
                 );
                 if (suppliesData?.reports)
                     setSupplyReports(suppliesData.reports);
-                const ordersData = await safeFetch("/api/orders/pending");
-                if (Array.isArray(ordersData)) setOrders(ordersData);
 
                 setLastUpdated(new Date());
-                // Deteksi apakah ada log baru sejak polling terakhir
                 const added = freshList.length - prevLogCount.current;
                 if (prevLogCount.current > 0 && added > 0)
                     setNewLogCount(added);
@@ -269,13 +257,11 @@ export default function DashboardHome() {
 
         fetchAll();
 
-        // Polling setiap 30 detik
         const pollInterval = setInterval(
             () => fetchLogs(),
             POLL_INTERVAL * 1000
         );
 
-        // Hitung mundur setiap 1 detik untuk ditampilkan ke pengguna
         const countdownInterval = setInterval(() => {
             setCountdown((prev) => (prev <= 1 ? POLL_INTERVAL : prev - 1));
         }, 1000);
@@ -313,56 +299,6 @@ export default function DashboardHome() {
             );
         } catch (err) {
             console.error("Failed to resolve report", err);
-        }
-    };
-
-    const handleCreateOrder = async (e) => {
-        e.preventDefault();
-        const tipe_remote = e.target.tipe_remote.value.trim();
-        const quantity = parseInt(e.target.quantity.value);
-        if (!tipe_remote || quantity < 1) return;
-
-        try {
-            const res = await api.post("/orders", { tipe_remote, quantity });
-            if (res.ok) {
-                e.target.reset();
-                const ordersData = await api
-                    .get("/orders/pending")
-                    .then((r) => r.json());
-                if (Array.isArray(ordersData)) setOrders(ordersData);
-            }
-        } catch (err) {
-            console.error("Gagal membuat pesanan", err);
-        }
-    };
-
-    const handleCompleteOrder = async (id) => {
-        setIsCompletingOrder(id);
-        try {
-            const res = await api.put(`/orders/${id}/complete`);
-            if (!res.ok) {
-                const errData = await res.json();
-                alert("Gagal menyelesaikan pesanan: " + errData.error);
-            } else {
-                // Refresh data
-                const [a, t, o] = await Promise.all([
-                    api.get("/analytics").then((r) => r.json()),
-                    api.get("/transactions").then((r) => r.json()),
-                    api.get("/orders/pending").then((r) => r.json()),
-                ]);
-                setAnalytics(a);
-                const txList = Array.isArray(t)
-                    ? t
-                    : Array.isArray(t?.data)
-                      ? t.data
-                      : [];
-                setTerminalLogs(txList);
-                if (Array.isArray(o)) setOrders(o);
-            }
-        } catch (err) {
-            console.error("Gagal menyelesaikan pesanan", err);
-        } finally {
-            setIsCompletingOrder(null);
         }
     };
 
@@ -721,7 +657,6 @@ export default function DashboardHome() {
                                     setIsRefreshing(true);
                                     safeFetch("/api/transactions")
                                         .then((data) => {
-                                            // Handle paginated format
                                             const list = Array.isArray(data)
                                                 ? data
                                                 : Array.isArray(data?.data)
@@ -811,98 +746,6 @@ export default function DashboardHome() {
                                 █
                             </span>
                         </div>
-                    </div>
-                </GlassCard>
-
-                {/* ═══ WIDGET G — ORDER FULFILLMENT (PESANAN HARI INI) ═══ */}
-                <GlassCard
-                    delay={0.35}
-                    className="xl:col-span-2 border-t-4 border-t-[var(--color-neon-purple)]"
-                >
-                    <div className="flex items-center gap-2 mb-3">
-                        <Zap className="w-4 h-4 text-[var(--color-neon-purple)]" />
-                        <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-[var(--color-neon-purple)] uppercase font-bold">
-                            ORDER_FULFILLMENT_CENTER
-                        </GlitchHeader>
-                    </div>
-
-                    {/* Form Buat Pesanan Baru */}
-                    <form
-                        onSubmit={handleCreateOrder}
-                        className="mb-4 flex gap-2"
-                    >
-                        <input
-                            type="text"
-                            name="tipe_remote"
-                            placeholder="Tipe Remote (ex: A75C3865)"
-                            required
-                            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-[var(--color-neon-cyan)] focus:border-[var(--color-neon-cyan)] outline-none"
-                        />
-                        <input
-                            type="number"
-                            name="quantity"
-                            placeholder="Qty"
-                            defaultValue="1"
-                            min="1"
-                            required
-                            className="w-20 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white text-center focus:border-[var(--color-neon-cyan)] outline-none"
-                        />
-                        <button
-                            type="submit"
-                            className="bg-[var(--color-neon-purple)]/20 hover:bg-[var(--color-neon-purple)]/40 text-[var(--color-neon-purple)] border border-[var(--color-neon-purple)]/50 px-4 py-2 rounded-lg font-bold text-xs uppercase transition-colors"
-                        >
-                            + Order
-                        </button>
-                    </form>
-
-                    {/* Daftar Pesanan Aktif */}
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                        {orders.length === 0 ? (
-                            <p className="text-gray-500 font-mono text-xs text-center py-4">
-                                TIDAK ADA PESANAN AKTIF
-                            </p>
-                        ) : (
-                            orders.map((order) => (
-                                <div
-                                    key={order.id}
-                                    className="bg-[var(--color-neon-purple)]/5 border border-[var(--color-neon-purple)]/20 rounded-xl p-3 flex justify-between items-center group"
-                                >
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-bold text-white">
-                                                {order.tipe_remote}
-                                            </span>
-                                            <span className="text-xs font-mono bg-[var(--color-neon-purple)]/20 text-[var(--color-neon-purple)] px-2 py-0.5 rounded">
-                                                Qty: {order.quantity}
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] font-mono text-gray-500">
-                                            Diminta:{" "}
-                                            {new Date(
-                                                order.timestamp
-                                            ).toLocaleTimeString("id-ID")}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() =>
-                                            handleCompleteOrder(order.id)
-                                        }
-                                        disabled={
-                                            isCompletingOrder === order.id
-                                        }
-                                        className={`bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] border border-[var(--color-neon-cyan)]/30 p-2 rounded-lg transition-all flex items-center gap-2 font-bold text-xs ${isCompletingOrder === order.id ? "opacity-50 cursor-not-allowed" : ""}`}
-                                        title="Selesaikan & Potong Stok"
-                                    >
-                                        <CheckCircle2
-                                            className={`w-4 h-4 ${isCompletingOrder === order.id ? "animate-spin" : ""}`}
-                                        />
-                                        {isCompletingOrder === order.id
-                                            ? "MEMPROSES..."
-                                            : "SELESAI (POTONG STOK)"}
-                                    </button>
-                                </div>
-                            ))
-                        )}
                     </div>
                 </GlassCard>
 
