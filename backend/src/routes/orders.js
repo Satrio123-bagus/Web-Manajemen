@@ -18,7 +18,8 @@ router.get("/pending", async (req, res) => {
             .select()
             .from(orders)
             .where(eq(orders.status, "PENDING"))
-            .orderBy(asc(orders.timestamp));
+            .orderBy(asc(orders.timestamp))
+            .all();
         res.json(pendingOrders);
     } catch (err) {
         console.error(err);
@@ -36,13 +37,16 @@ router.post("/", async (req, res) => {
     try {
         const newId = crypto.randomUUID();
         const timestamp = new Date().toISOString();
-        await db.insert(orders).values({
-            id: newId,
-            tipe_remote: tipe_remote,
-            quantity: quantity,
-            status: "PENDING",
-            timestamp: timestamp,
-        });
+        await db
+            .insert(orders)
+            .values({
+                id: newId,
+                tipe_remote: tipe_remote,
+                quantity: quantity,
+                status: "PENDING",
+                timestamp: timestamp,
+            })
+            .run();
         res.json({ message: "Pesanan berhasil dibuat", id: newId });
     } catch (err) {
         console.error(err);
