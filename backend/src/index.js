@@ -184,6 +184,7 @@ app.use("/api/settings/prefixes", authMiddleware, require("./routes/prefixes"));
 app.use("/api/settings/config", authMiddleware, require("./routes/config"));
 app.use("/api/analytics", authMiddleware, require("./routes/analytics"));
 app.use("/api/terminal/history", authMiddleware, require("./routes/history"));
+app.use("/api/orders", authMiddleware, require("./routes/orders"));
 
 // ─── SSE STREAM: Pisahkan dari aiLimiter agar koneksi radio tidak terblokir ──
 const terminalRouter = require("./routes/terminal");

@@ -40,16 +40,19 @@ export default function WorkerDashboard({ user }) {
     const [reportText, setReportText] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [adminMessage, setAdminMessage] = useState("");
+    const [orders, setOrders] = useState([]);
     const { playSound } = useSound();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [resJobs, resSupplies, resConfig] = await Promise.all([
-                    api.get("/production/jobs"),
-                    api.get("/production/supplies"),
-                    api.get("/settings/config"),
-                ]);
+                const [resJobs, resSupplies, resConfig, resOrders] =
+                    await Promise.all([
+                        api.get("/production/jobs"),
+                        api.get("/production/supplies"),
+                        api.get("/settings/config"),
+                        api.get("/orders/pending"),
+                    ]);
 
                 if (resJobs.ok) {
                     const data = await resJobs.json();
@@ -62,6 +65,10 @@ export default function WorkerDashboard({ user }) {
                 if (resConfig.ok) {
                     const data = await resConfig.json();
                     setAdminMessage(data.adminMessage || "");
+                }
+                if (resOrders.ok) {
+                    const data = await resOrders.json();
+                    if (Array.isArray(data)) setOrders(data);
                 }
             } catch (error) {
                 console.error("Fetch error:", error);
@@ -154,6 +161,35 @@ export default function WorkerDashboard({ user }) {
                     Selamat bekerja, {user?.username} ({user?.role})
                 </p>
             </header>
+
+            {orders.length > 0 && (
+                <GlassCard
+                    delay={0.05}
+                    className="border-2 border-[var(--color-neon-purple)] animate-[pulse_2s_ease-in-out_infinite] shadow-[0_0_20px_rgba(188,19,254,0.3)]"
+                >
+                    <div className="flex items-center gap-2 mb-3">
+                        <Zap className="w-5 h-5 text-[var(--color-neon-purple)]" />
+                        <h2 className="text-lg font-black tracking-widest text-[var(--color-neon-purple)] uppercase">
+                            PRIORITAS PESANAN HARI INI
+                        </h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {orders.map((order) => (
+                            <div
+                                key={order.id}
+                                className="bg-[var(--color-neon-purple)]/10 border border-[var(--color-neon-purple)]/30 rounded-xl p-4 flex flex-col items-center justify-center text-center"
+                            >
+                                <span className="text-2xl font-black text-white">
+                                    {order.tipe_remote}
+                                </span>
+                                <span className="text-sm font-bold text-[var(--color-neon-purple)] mt-1">
+                                    DIBUTUHKAN: {order.quantity} PCS
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </GlassCard>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* WIDGET 1: QUALITY YIELD */}

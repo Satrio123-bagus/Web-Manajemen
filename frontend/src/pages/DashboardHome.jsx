@@ -1,17 +1,30 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 // eslint-disable-next-line no-unused-vars
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from "framer-motion";
 import {
-    AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip
-} from 'recharts';
+    AreaChart,
+    Area,
+    ResponsiveContainer,
+    XAxis,
+    YAxis,
+    Tooltip,
+} from "recharts";
 import {
-    Coins, Cpu, AlertTriangle, Bot as TerminalIcon,
-    Shield, Zap, ChevronRight, Activity, ClipboardList, CheckCircle2
-} from 'lucide-react';
-import api from '../api';
+    Coins,
+    Cpu,
+    AlertTriangle,
+    Bot as TerminalIcon,
+    Shield,
+    Zap,
+    ChevronRight,
+    Activity,
+    ClipboardList,
+    CheckCircle2,
+} from "lucide-react";
+import api from "../api";
 
-const NEON_CYAN = '#00f3ff';
-const NEON_PURPLE = '#bc13fe';
+const NEON_CYAN = "#00f3ff";
+const NEON_PURPLE = "#bc13fe";
 
 /* ═══════════════════════════════════════════════════════════
    COUNTING-UP HOOK
@@ -24,8 +37,10 @@ function useCountUp(target, duration = 2000) {
         const step = target / (duration / 16);
         const timer = setInterval(() => {
             start += step;
-            if (start >= target) { setValue(target); clearInterval(timer); }
-            else setValue(Math.floor(start));
+            if (start >= target) {
+                setValue(target);
+                clearInterval(timer);
+            } else setValue(Math.floor(start));
         }, 16);
         return () => clearInterval(timer);
     }, [target, duration]);
@@ -35,12 +50,22 @@ function useCountUp(target, duration = 2000) {
 /* ═══════════════════════════════════════════════════════════
    GLITCH TEXT
    ═══════════════════════════════════════════════════════════ */
-function GlitchHeader({ children, className = '' }) {
+function GlitchHeader({ children, className = "" }) {
     return (
         <div className={`relative group inline-block ${className}`}>
             <span className="relative z-10">{children}</span>
-            <span className="absolute inset-0 text-[var(--color-neon-cyan)] opacity-0 group-hover:opacity-70 group-hover:animate-[glitch_0.3s_infinite] select-none pointer-events-none mix-blend-screen" aria-hidden>{children}</span>
-            <span className="absolute inset-0 text-[var(--color-neon-purple)] opacity-0 group-hover:opacity-70 group-hover:animate-[glitch_0.3s_infinite_reverse_0.05s] select-none pointer-events-none mix-blend-multiply" aria-hidden>{children}</span>
+            <span
+                className="absolute inset-0 text-[var(--color-neon-cyan)] opacity-0 group-hover:opacity-70 group-hover:animate-[glitch_0.3s_infinite] select-none pointer-events-none mix-blend-screen"
+                aria-hidden
+            >
+                {children}
+            </span>
+            <span
+                className="absolute inset-0 text-[var(--color-neon-purple)] opacity-0 group-hover:opacity-70 group-hover:animate-[glitch_0.3s_infinite_reverse_0.05s] select-none pointer-events-none mix-blend-multiply"
+                aria-hidden
+            >
+                {children}
+            </span>
         </div>
     );
 }
@@ -48,7 +73,7 @@ function GlitchHeader({ children, className = '' }) {
 /* ═══════════════════════════════════════════════════════════
    GLASS CARD WRAPPER
    ═══════════════════════════════════════════════════════════ */
-function GlassCard({ children, className = '', delay = 0 }) {
+function GlassCard({ children, className = "", delay = 0 }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.97 }}
@@ -70,7 +95,11 @@ function CyberTooltip({ active, payload, label }) {
         <div className="bg-black/90 border border-[var(--color-neon-cyan)]/30 backdrop-blur-xl rounded-lg px-4 py-2 shadow-[0_0_20px_rgba(0,243,255,0.15)]">
             <p className="text-[10px] font-mono text-gray-500">{label}</p>
             {payload.map((e, i) => (
-                <p key={i} className="text-xs font-mono font-bold" style={{ color: e.color }}>
+                <p
+                    key={i}
+                    className="text-xs font-mono font-bold"
+                    style={{ color: e.color }}
+                >
                     {e.name}: {Number(e.value).toLocaleString()}
                 </p>
             ))}
@@ -82,31 +111,45 @@ function CyberTooltip({ active, payload, label }) {
    TERMINAL LOG HELPERS
    ═══════════════════════════════════════════════════════════ */
 function formatLogTime(isoString) {
-    if (!isoString) return '--:--:--';
-    return new Date(isoString).toLocaleTimeString('en-GB', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
+    if (!isoString) return "--:--:--";
+    return new Date(isoString).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
     });
 }
 
 function formatLogMsg(tx) {
     switch (tx.type) {
-        case 'SALE': return `[SALE] Sold ${tx.quantity}x "${tx.item_name}" — Revenue: Rp${Number(tx.total).toLocaleString('id-ID')}`;
-        case 'RESTOCK': return `[RESTOCK] Received ${tx.quantity}x "${tx.item_name}"`;
-        case 'CREATE': return `[CREATE] New item registered: "${tx.item_name}"`;
-        case 'UPDATE': return `[UPDATE] Data for "${tx.item_name}" was modified.`;
-        case 'DELETE': return `[DELETE] Item "${tx.item_name}" deconstructed.`;
-        default: return `[${tx.type || 'EVENT'}] "${tx.item_name}"`;
+        case "SALE":
+            return `[SALE] Sold ${tx.quantity}x "${tx.item_name}" — Revenue: Rp${Number(tx.total).toLocaleString("id-ID")}`;
+        case "RESTOCK":
+            return `[RESTOCK] Received ${tx.quantity}x "${tx.item_name}"`;
+        case "CREATE":
+            return `[CREATE] New item registered: "${tx.item_name}"`;
+        case "UPDATE":
+            return `[UPDATE] Data for "${tx.item_name}" was modified.`;
+        case "DELETE":
+            return `[DELETE] Item "${tx.item_name}" deconstructed.`;
+        default:
+            return `[${tx.type || "EVENT"}] "${tx.item_name}"`;
     }
 }
 
 function logColor(type) {
     switch (type) {
-        case 'SALE': return 'text-[var(--color-neon-cyan)]';
-        case 'RESTOCK': return 'text-violet-400';
-        case 'CREATE': return 'text-emerald-400';
-        case 'DELETE': return 'text-red-400';
-        case 'UPDATE': return 'text-amber-400';
-        default: return 'text-gray-400';
+        case "SALE":
+            return "text-[var(--color-neon-cyan)]";
+        case "RESTOCK":
+            return "text-violet-400";
+        case "CREATE":
+            return "text-emerald-400";
+        case "DELETE":
+            return "text-red-400";
+        case "UPDATE":
+            return "text-amber-400";
+        default:
+            return "text-gray-400";
     }
 }
 
@@ -117,12 +160,14 @@ export default function DashboardHome() {
     const [analytics, setAnalytics] = useState(null);
     const [terminalLogs, setTerminalLogs] = useState([]);
     const [supplyReports, setSupplyReports] = useState([]); // State laporan alat pekerja
+    const [orders, setOrders] = useState([]); // State pesanan aktif
     const [lastUpdated, setLastUpdated] = useState(null);
     const [countdown, setCountdown] = useState(30);
-    const [newLogCount, setNewLogCount] = useState(0);      // Jumlah log baru sejak refresh
+    const [newLogCount, setNewLogCount] = useState(0); // Jumlah log baru sejak refresh
     const [isRefreshing, setIsRefreshing] = useState(false); // Status loading saat refresh
+    const [isCompletingOrder, setIsCompletingOrder] = useState(null);
     const logRef = useRef(null);
-    const prevLogCount = useRef(0);                          // Simpan jumlah log sebelumnya
+    const prevLogCount = useRef(0); // Simpan jumlah log sebelumnya
 
     // Fetch analytics dan transaksi
     useEffect(() => {
@@ -134,9 +179,9 @@ export default function DashboardHome() {
                 const r = await api.get(url, { signal: controller.signal });
                 if (r.status === 401) {
                     // Token expired atau invalid → paksa logout
-                    localStorage.removeItem('cortex_token');
-                    window.location.href = '/';
-                    throw new Error('401');
+                    localStorage.removeItem("cortex_token");
+                    window.location.href = "/";
+                    throw new Error("401");
                 }
                 if (!r.ok) throw new Error(`${r.status}`);
                 return r.json();
@@ -149,46 +194,74 @@ export default function DashboardHome() {
 
         const fetchAll = () => {
             Promise.all([
-                safeFetch('/api/analytics'),
-                safeFetch('/api/transactions'),
-                safeFetch('/api/production/supplies') // Fetch supplies
-            ]).then(([a, t, s]) => {
-                setAnalytics(a);
-                const txList = Array.isArray(t) ? t : (Array.isArray(t?.data) ? t.data : []);
-                setTerminalLogs(txList);
-                if (s?.reports) setSupplyReports(s.reports);
-                setLastUpdated(new Date());
-                prevLogCount.current = txList.length;
-                setCountdown(POLL_INTERVAL);
-            }).catch(() => {
-                // Gagal fetch (network error / timeout) — tampilkan dashboard dengan data kosong
-                // Jangan biarkan analytics tetap null (menyebabkan loading screen selamanya)
-                setAnalytics(prev => prev || {
-                    totalStockValue: 0, totalItems: 0, totalStock: 0,
-                    lowStockCount: 0, lowStockItems: [], categoryDistribution: [],
-                    rarityDistribution: [], stockTrends: [],
+                safeFetch("/api/analytics"),
+                safeFetch("/api/transactions"),
+                safeFetch("/api/production/supplies"), // Fetch supplies
+                safeFetch("/api/orders/pending"), // Fetch pending orders
+            ])
+                .then(([a, t, s, o]) => {
+                    setAnalytics(a);
+                    const txList = Array.isArray(t)
+                        ? t
+                        : Array.isArray(t?.data)
+                          ? t.data
+                          : [];
+                    setTerminalLogs(txList);
+                    if (s?.reports) setSupplyReports(s.reports);
+                    if (Array.isArray(o)) setOrders(o);
+                    setLastUpdated(new Date());
+                    prevLogCount.current = txList.length;
+                    setCountdown(POLL_INTERVAL);
+                })
+                .catch(() => {
+                    // Gagal fetch (network error / timeout) — tampilkan dashboard dengan data kosong
+                    // Jangan biarkan analytics tetap null (menyebabkan loading screen selamanya)
+                    setAnalytics(
+                        (prev) =>
+                            prev || {
+                                totalStockValue: 0,
+                                totalItems: 0,
+                                totalStock: 0,
+                                lowStockCount: 0,
+                                lowStockItems: [],
+                                categoryDistribution: [],
+                                rarityDistribution: [],
+                                stockTrends: [],
+                            }
+                    );
+                    setTerminalLogs([]);
                 });
-                setTerminalLogs([]);
-            });
         };
 
         const fetchLogs = async (showLoader = false) => {
             if (showLoader) setIsRefreshing(true);
             try {
-                const freshData = await safeFetch('/api/transactions');
-                const freshList = Array.isArray(freshData) ? freshData : (Array.isArray(freshData?.data) ? freshData.data : []);
+                const freshData = await safeFetch("/api/transactions");
+                const freshList = Array.isArray(freshData)
+                    ? freshData
+                    : Array.isArray(freshData?.data)
+                      ? freshData.data
+                      : [];
                 setTerminalLogs(freshList);
 
-                // Fetch supplies for polling too
-                const suppliesData = await safeFetch('/api/production/supplies');
-                if (suppliesData?.reports) setSupplyReports(suppliesData.reports);
+                // Fetch supplies and orders for polling too
+                const suppliesData = await safeFetch(
+                    "/api/production/supplies"
+                );
+                if (suppliesData?.reports)
+                    setSupplyReports(suppliesData.reports);
+                const ordersData = await safeFetch("/api/orders/pending");
+                if (Array.isArray(ordersData)) setOrders(ordersData);
 
                 setLastUpdated(new Date());
                 // Deteksi apakah ada log baru sejak polling terakhir
                 const added = freshList.length - prevLogCount.current;
-                if (prevLogCount.current > 0 && added > 0) setNewLogCount(added);
+                if (prevLogCount.current > 0 && added > 0)
+                    setNewLogCount(added);
                 prevLogCount.current = freshList.length;
-            } catch { /* silent */ } finally {
+            } catch {
+                /* silent */
+            } finally {
                 if (showLoader) setIsRefreshing(false);
                 setCountdown(POLL_INTERVAL);
             }
@@ -197,11 +270,14 @@ export default function DashboardHome() {
         fetchAll();
 
         // Polling setiap 30 detik
-        const pollInterval = setInterval(() => fetchLogs(), POLL_INTERVAL * 1000);
+        const pollInterval = setInterval(
+            () => fetchLogs(),
+            POLL_INTERVAL * 1000
+        );
 
         // Hitung mundur setiap 1 detik untuk ditampilkan ke pengguna
         const countdownInterval = setInterval(() => {
-            setCountdown(prev => (prev <= 1 ? POLL_INTERVAL : prev - 1));
+            setCountdown((prev) => (prev <= 1 ? POLL_INTERVAL : prev - 1));
         }, 1000);
 
         return () => {
@@ -212,30 +288,89 @@ export default function DashboardHome() {
 
     // Auto-scroll terminal log
     useEffect(() => {
-        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+        if (logRef.current)
+            logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [terminalLogs]);
 
     const lowStockItems = analytics?.lowStockItems || [];
     const totalValue = analytics?.totalStockValue || 0;
     const totalItems = analytics?.totalItems || 0;
     const MAX_CAPACITY = 100;
-    const loadPct = Math.min(100, Math.round((totalItems / MAX_CAPACITY) * 100));
+    const loadPct = Math.min(
+        100,
+        Math.round((totalItems / MAX_CAPACITY) * 100)
+    );
 
     const animatedValue = useCountUp(totalValue, 2500);
 
     const handleResolveReport = async (id) => {
         try {
-            await api.put(`/production/supplies/${id}`, { status: 'RESOLVED' });
-            setSupplyReports(prev => prev.map(r => r.id === id ? { ...r, status: 'RESOLVED' } : r));
+            await api.put(`/production/supplies/${id}`, { status: "RESOLVED" });
+            setSupplyReports((prev) =>
+                prev.map((r) =>
+                    r.id === id ? { ...r, status: "RESOLVED" } : r
+                )
+            );
         } catch (err) {
-            console.error('Failed to resolve report', err);
+            console.error("Failed to resolve report", err);
+        }
+    };
+
+    const handleCreateOrder = async (e) => {
+        e.preventDefault();
+        const tipe_remote = e.target.tipe_remote.value.trim();
+        const quantity = parseInt(e.target.quantity.value);
+        if (!tipe_remote || quantity < 1) return;
+
+        try {
+            const res = await api.post("/orders", { tipe_remote, quantity });
+            if (res.ok) {
+                e.target.reset();
+                const ordersData = await api
+                    .get("/orders/pending")
+                    .then((r) => r.json());
+                if (Array.isArray(ordersData)) setOrders(ordersData);
+            }
+        } catch (err) {
+            console.error("Gagal membuat pesanan", err);
+        }
+    };
+
+    const handleCompleteOrder = async (id) => {
+        setIsCompletingOrder(id);
+        try {
+            const res = await api.put(`/orders/${id}/complete`);
+            if (!res.ok) {
+                const errData = await res.json();
+                alert("Gagal menyelesaikan pesanan: " + errData.error);
+            } else {
+                // Refresh data
+                const [a, t, o] = await Promise.all([
+                    api.get("/analytics").then((r) => r.json()),
+                    api.get("/transactions").then((r) => r.json()),
+                    api.get("/orders/pending").then((r) => r.json()),
+                ]);
+                setAnalytics(a);
+                const txList = Array.isArray(t)
+                    ? t
+                    : Array.isArray(t?.data)
+                      ? t.data
+                      : [];
+                setTerminalLogs(txList);
+                if (Array.isArray(o)) setOrders(o);
+            }
+        } catch (err) {
+            console.error("Gagal menyelesaikan pesanan", err);
+        } finally {
+            setIsCompletingOrder(null);
         }
     };
 
     if (!analytics) {
         return (
             <div className="flex items-center justify-center h-[60vh] font-mono text-[var(--color-neon-cyan)]">
-                <Activity className="w-6 h-6 animate-spin mr-3" /> LOADING_DASHBOARD...
+                <Activity className="w-6 h-6 animate-spin mr-3" />{" "}
+                LOADING_DASHBOARD...
             </div>
         );
     }
@@ -247,7 +382,6 @@ export default function DashboardHome() {
 
             {/* ── GRID: 3 columns (2 main + 1 alerts sidebar) ── */}
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_300px] gap-5">
-
                 {/* ═══ WIDGET A — ASSET POOL ═══ */}
                 <GlassCard delay={0} className="xl:col-span-1">
                     <div className="flex items-start justify-between mb-4">
@@ -261,10 +395,13 @@ export default function DashboardHome() {
                     <div className="relative">
                         <p className="text-4xl font-black text-white tabular-nums tracking-tight">
                             {animatedValue.toLocaleString()}
-                            <span className="text-base font-normal text-[var(--color-neon-cyan)] ml-2 drop-shadow-[0_0_8px_rgba(0,243,255,0.5)]">Rp</span>
+                            <span className="text-base font-normal text-[var(--color-neon-cyan)] ml-2 drop-shadow-[0_0_8px_rgba(0,243,255,0.5)]">
+                                Rp
+                            </span>
                         </p>
                         <p className="text-[10px] font-mono text-gray-600 mt-2">
-                            Total inventory valuation • {totalItems} assets tracked
+                            Total inventory valuation • {totalItems} assets
+                            tracked
                         </p>
                         {/* Glow line */}
                         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-[var(--color-neon-cyan)]/60 via-transparent to-transparent" />
@@ -283,8 +420,12 @@ export default function DashboardHome() {
                     </div>
 
                     <div className="flex items-end gap-4 mb-3">
-                        <p className="text-4xl font-black text-white tabular-nums">{totalItems}</p>
-                        <p className="text-sm font-mono text-gray-500 pb-1">/ {MAX_CAPACITY} capacity</p>
+                        <p className="text-4xl font-black text-white tabular-nums">
+                            {totalItems}
+                        </p>
+                        <p className="text-sm font-mono text-gray-500 pb-1">
+                            / {MAX_CAPACITY} capacity
+                        </p>
                     </div>
 
                     {/* Progress bar */}
@@ -292,24 +433,41 @@ export default function DashboardHome() {
                         <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${loadPct}%` }}
-                            transition={{ duration: 1.5, ease: 'easeOut' }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
                             className="h-full rounded-full bg-gradient-to-r from-[var(--color-neon-purple)] to-[var(--color-neon-cyan)]"
-                            style={{ boxShadow: `0 0 15px ${NEON_PURPLE}80, 0 0 30px ${NEON_CYAN}40` }}
+                            style={{
+                                boxShadow: `0 0 15px ${NEON_PURPLE}80, 0 0 30px ${NEON_CYAN}40`,
+                            }}
                         />
                         {/* Tick marks */}
-                        {[25, 50, 75].map(p => (
-                            <div key={p} className="absolute top-0 bottom-0 w-px bg-white/10" style={{ left: `${p}%` }} />
+                        {[25, 50, 75].map((p) => (
+                            <div
+                                key={p}
+                                className="absolute top-0 bottom-0 w-px bg-white/10"
+                                style={{ left: `${p}%` }}
+                            />
                         ))}
                     </div>
                     <div className="flex justify-between mt-2 text-[9px] font-mono text-gray-600">
                         <span>0%</span>
-                        <span className={loadPct > 80 ? 'text-red-400' : 'text-[var(--color-neon-cyan)]'}>{loadPct}% UTILIZED</span>
+                        <span
+                            className={
+                                loadPct > 80
+                                    ? "text-red-400"
+                                    : "text-[var(--color-neon-cyan)]"
+                            }
+                        >
+                            {loadPct}% UTILIZED
+                        </span>
                         <span>100%</span>
                     </div>
                 </GlassCard>
 
                 {/* ═══ WIDGET D — CRITICAL ALERTS (Right sidebar) ═══ */}
-                <GlassCard delay={0.15} className="xl:row-span-3 border-red-500/20 bg-red-500/[0.02]">
+                <GlassCard
+                    delay={0.15}
+                    className="xl:row-span-3 border-red-500/20 bg-red-500/[0.02]"
+                >
                     <div className="flex items-center gap-2 mb-4">
                         <AlertTriangle className="w-4 h-4 text-red-400" />
                         <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-red-400 uppercase font-bold">
@@ -325,41 +483,66 @@ export default function DashboardHome() {
                                 ALL_SYSTEMS_NOMINAL
                             </p>
                         ) : (
-                            lowStockItems.map(item => (
+                            lowStockItems.map((item) => (
                                 <motion.div
                                     key={item.id}
                                     initial={{ opacity: 0, x: 10 }}
                                     animate={{
-                                        opacity: 1, x: 0,
-                                        ...(item.stock === 0 ? { scale: [1, 1.02, 1] } : {}),
+                                        opacity: 1,
+                                        x: 0,
+                                        ...(item.stock === 0
+                                            ? { scale: [1, 1.02, 1] }
+                                            : {}),
                                     }}
                                     transition={{
                                         duration: 0.3,
-                                        ...(item.stock === 0 ? { scale: { repeat: Infinity, duration: 1.5 } } : {}),
+                                        ...(item.stock === 0
+                                            ? {
+                                                  scale: {
+                                                      repeat: Infinity,
+                                                      duration: 1.5,
+                                                  },
+                                              }
+                                            : {}),
                                     }}
-                                    className={`p-3 rounded-xl border transition-colors ${item.stock === 0
-                                        ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
-                                        : 'bg-white/[0.02] border-white/5 hover:border-amber-400/30'
-                                        }`}
+                                    className={`p-3 rounded-xl border transition-colors ${
+                                        item.stock === 0
+                                            ? "bg-red-500/10 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                                            : "bg-white/[0.02] border-white/5 hover:border-amber-400/30"
+                                    }`}
                                 >
                                     <div className="flex justify-between items-start">
-                                        <p className="text-xs font-bold text-white truncate flex-1 mr-2">{item.name}</p>
-                                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${item.stock === 0
-                                            ? 'bg-red-500/20 text-red-400 animate-pulse'
-                                            : 'bg-amber-400/10 text-amber-400'
-                                            }`}>
-                                            {item.stock === 0 ? 'EMPTY' : `${item.stock} LEFT`}
+                                        <p className="text-xs font-bold text-white truncate flex-1 mr-2">
+                                            {item.name}
+                                        </p>
+                                        <span
+                                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                                item.stock === 0
+                                                    ? "bg-red-500/20 text-red-400 animate-pulse"
+                                                    : "bg-amber-400/10 text-amber-400"
+                                            }`}
+                                        >
+                                            {item.stock === 0
+                                                ? "EMPTY"
+                                                : `${item.stock} LEFT`}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center mt-2">
-                                        <span className="text-[9px] font-mono text-gray-600">{item.category}</span>
-                                        <span className="text-[9px] font-mono text-gray-500">Rp{item.price.toLocaleString('id-ID')}</span>
+                                        <span className="text-[9px] font-mono text-gray-600">
+                                            {item.category}
+                                        </span>
+                                        <span className="text-[9px] font-mono text-gray-500">
+                                            Rp
+                                            {item.price.toLocaleString("id-ID")}
+                                        </span>
                                     </div>
                                     {/* Stock danger bar */}
                                     <div className="h-1 rounded-full bg-white/5 mt-2 overflow-hidden">
                                         <div
-                                            className={`h-full rounded-full ${item.stock === 0 ? 'bg-red-500' : 'bg-amber-400'}`}
-                                            style={{ width: `${Math.max(5, (item.stock / 10) * 100)}%` }}
+                                            className={`h-full rounded-full ${item.stock === 0 ? "bg-red-500" : "bg-amber-400"}`}
+                                            style={{
+                                                width: `${Math.max(5, (item.stock / 10) * 100)}%`,
+                                            }}
                                         />
                                     </div>
                                 </motion.div>
@@ -369,7 +552,9 @@ export default function DashboardHome() {
 
                     {lowStockItems.length > 0 && (
                         <div className="mt-4 pt-3 border-t border-red-500/10 flex justify-between items-center">
-                            <span className="text-[9px] font-mono text-red-400/60">{lowStockItems.length} BREACH(ES)</span>
+                            <span className="text-[9px] font-mono text-red-400/60">
+                                {lowStockItems.length} BREACH(ES)
+                            </span>
                             <ChevronRight className="w-4 h-4 text-red-400/40" />
                         </div>
                     )}
@@ -382,31 +567,118 @@ export default function DashboardHome() {
                             <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-gray-500 uppercase">
                                 HOLO_GRAPH
                             </GlitchHeader>
-                            <p className="text-[9px] font-mono text-gray-600 mt-1">Asset value trend • 8-week projection</p>
+                            <p className="text-[9px] font-mono text-gray-600 mt-1">
+                                Asset value trend • 8-week projection
+                            </p>
                         </div>
                         <div className="flex gap-4 text-[9px] font-mono">
-                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-neon-cyan)]" />VALUE</span>
-                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--color-neon-purple)]" />ITEMS</span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-[var(--color-neon-cyan)]" />
+                                VALUE
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-[var(--color-neon-purple)]" />
+                                ITEMS
+                            </span>
                         </div>
                     </div>
                     <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <ResponsiveContainer
+                            width="100%"
+                            height="100%"
+                            minWidth={1}
+                            minHeight={1}
+                        >
                             <AreaChart data={analytics?.stockTrends || []}>
                                 <defs>
-                                    <linearGradient id="holoGradCyan" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={NEON_CYAN} stopOpacity={0.35} />
-                                        <stop offset="100%" stopColor={NEON_CYAN} stopOpacity={0} />
+                                    <linearGradient
+                                        id="holoGradCyan"
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1"
+                                    >
+                                        <stop
+                                            offset="0%"
+                                            stopColor={NEON_CYAN}
+                                            stopOpacity={0.35}
+                                        />
+                                        <stop
+                                            offset="100%"
+                                            stopColor={NEON_CYAN}
+                                            stopOpacity={0}
+                                        />
                                     </linearGradient>
-                                    <linearGradient id="holoGradPurple" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={NEON_PURPLE} stopOpacity={0.2} />
-                                        <stop offset="100%" stopColor={NEON_PURPLE} stopOpacity={0} />
+                                    <linearGradient
+                                        id="holoGradPurple"
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1"
+                                    >
+                                        <stop
+                                            offset="0%"
+                                            stopColor={NEON_PURPLE}
+                                            stopOpacity={0.2}
+                                        />
+                                        <stop
+                                            offset="100%"
+                                            stopColor={NEON_PURPLE}
+                                            stopOpacity={0}
+                                        />
                                     </linearGradient>
                                 </defs>
-                                <XAxis dataKey="week" tick={{ fill: '#444', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: '#444', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} width={45} />
+                                <XAxis
+                                    dataKey="week"
+                                    tick={{
+                                        fill: "#444",
+                                        fontSize: 10,
+                                        fontFamily: "monospace",
+                                    }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    tick={{
+                                        fill: "#444",
+                                        fontSize: 10,
+                                        fontFamily: "monospace",
+                                    }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={45}
+                                />
                                 <Tooltip content={<CyberTooltip />} />
-                                <Area type="monotone" dataKey="assets" name="Value" stroke={NEON_CYAN} strokeWidth={2} fill="url(#holoGradCyan)" dot={false} activeDot={{ r: 4, fill: NEON_CYAN, stroke: '#000', strokeWidth: 2 }} />
-                                <Area type="monotone" dataKey="items" name="Items" stroke={NEON_PURPLE} strokeWidth={1.5} fill="url(#holoGradPurple)" dot={false} activeDot={{ r: 3, fill: NEON_PURPLE, stroke: '#000', strokeWidth: 2 }} />
+                                <Area
+                                    type="monotone"
+                                    dataKey="assets"
+                                    name="Value"
+                                    stroke={NEON_CYAN}
+                                    strokeWidth={2}
+                                    fill="url(#holoGradCyan)"
+                                    dot={false}
+                                    activeDot={{
+                                        r: 4,
+                                        fill: NEON_CYAN,
+                                        stroke: "#000",
+                                        strokeWidth: 2,
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="items"
+                                    name="Items"
+                                    stroke={NEON_PURPLE}
+                                    strokeWidth={1.5}
+                                    fill="url(#holoGradPurple)"
+                                    dot={false}
+                                    activeDot={{
+                                        r: 3,
+                                        fill: NEON_PURPLE,
+                                        stroke: "#000",
+                                        strokeWidth: 2,
+                                    }}
+                                />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -441,29 +713,45 @@ export default function DashboardHome() {
                                 id="btn-refresh-log"
                                 onClick={() => {
                                     setNewLogCount(0);
-                                    const safeFetch = async (url) => { const r = await api.get(url); if (!r.ok) throw new Error(); return r.json(); };
+                                    const safeFetch = async (url) => {
+                                        const r = await api.get(url);
+                                        if (!r.ok) throw new Error();
+                                        return r.json();
+                                    };
                                     setIsRefreshing(true);
-                                    safeFetch('/api/transactions')
-                                        .then(data => {
+                                    safeFetch("/api/transactions")
+                                        .then((data) => {
                                             // Handle paginated format
-                                            const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+                                            const list = Array.isArray(data)
+                                                ? data
+                                                : Array.isArray(data?.data)
+                                                  ? data.data
+                                                  : [];
                                             setTerminalLogs(list);
                                             setLastUpdated(new Date());
                                             prevLogCount.current = list.length;
                                         })
                                         .catch(() => {})
-                                        .finally(() => { setIsRefreshing(false); setCountdown(30); });
+                                        .finally(() => {
+                                            setIsRefreshing(false);
+                                            setCountdown(30);
+                                        });
                                 }}
                                 className="text-[9px] font-mono text-gray-600 hover:text-[var(--color-neon-cyan)] transition-colors flex items-center gap-1"
                                 title="Refresh sekarang"
                             >
-                                <Activity className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-[var(--color-neon-cyan)]' : ''}`} />
-                                {isRefreshing ? 'refreshing...' : `↻ ${countdown}s`}
+                                <Activity
+                                    className={`w-3 h-3 ${isRefreshing ? "animate-spin text-[var(--color-neon-cyan)]" : ""}`}
+                                />
+                                {isRefreshing
+                                    ? "refreshing..."
+                                    : `↻ ${countdown}s`}
                             </button>
 
                             {/* Indikator LIVE + waktu update terakhir */}
                             <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />{" "}
+                                LIVE
                             </span>
                         </div>
                     </div>
@@ -471,7 +759,13 @@ export default function DashboardHome() {
                     {/* Keterangan waktu terakhir diperbarui */}
                     {lastUpdated && (
                         <p className="text-[9px] font-mono text-gray-700 mb-2">
-                            Last sync: {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} • auto-refresh tiap 30 detik
+                            Last sync:{" "}
+                            {lastUpdated.toLocaleTimeString("en-GB", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                            })}{" "}
+                            • auto-refresh tiap 30 detik
                         </p>
                     )}
 
@@ -480,30 +774,143 @@ export default function DashboardHome() {
                         className="bg-black/60 rounded-xl border border-white/5 p-4 font-mono text-xs max-h-52 overflow-y-auto space-y-1"
                     >
                         {terminalLogs.length === 0 ? (
-                            <p className="text-gray-600 text-center py-4">LOG_STREAM: <span className="text-[var(--color-neon-cyan)]">AWAITING_DATA</span></p>
+                            <p className="text-gray-600 text-center py-4">
+                                LOG_STREAM:{" "}
+                                <span className="text-[var(--color-neon-cyan)]">
+                                    AWAITING_DATA
+                                </span>
+                            </p>
                         ) : (
-                            (Array.isArray(terminalLogs) ? [...terminalLogs] : []).reverse().map((tx, i) => (
-                                <motion.div
-                                    key={tx.transaction_id || i}
-                                    initial={{ opacity: 0, x: -8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i < 2 ? i * 0.06 : 0 }}
-                                    className="flex gap-3"
-                                >
-                                    <span className="text-gray-600 shrink-0">{formatLogTime(tx.timestamp)}</span>
-                                    <span className={logColor(tx.type)}>{formatLogMsg(tx)}</span>
-                                </motion.div>
-                            ))
+                            (Array.isArray(terminalLogs)
+                                ? [...terminalLogs]
+                                : []
+                            )
+                                .reverse()
+                                .map((tx, i) => (
+                                    <motion.div
+                                        key={tx.transaction_id || i}
+                                        initial={{ opacity: 0, x: -8 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{
+                                            delay: i < 2 ? i * 0.06 : 0,
+                                        }}
+                                        className="flex gap-3"
+                                    >
+                                        <span className="text-gray-600 shrink-0">
+                                            {formatLogTime(tx.timestamp)}
+                                        </span>
+                                        <span className={logColor(tx.type)}>
+                                            {formatLogMsg(tx)}
+                                        </span>
+                                    </motion.div>
+                                ))
                         )}
                         <div className="flex items-center gap-1 mt-2 text-[var(--color-neon-cyan)]">
                             <span>&gt;</span>
-                            <span className="animate-[flicker_1s_infinite]">█</span>
+                            <span className="animate-[flicker_1s_infinite]">
+                                █
+                            </span>
                         </div>
                     </div>
                 </GlassCard>
 
+                {/* ═══ WIDGET G — ORDER FULFILLMENT (PESANAN HARI INI) ═══ */}
+                <GlassCard
+                    delay={0.35}
+                    className="xl:col-span-2 border-t-4 border-t-[var(--color-neon-purple)]"
+                >
+                    <div className="flex items-center gap-2 mb-3">
+                        <Zap className="w-4 h-4 text-[var(--color-neon-purple)]" />
+                        <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-[var(--color-neon-purple)] uppercase font-bold">
+                            ORDER_FULFILLMENT_CENTER
+                        </GlitchHeader>
+                    </div>
+
+                    {/* Form Buat Pesanan Baru */}
+                    <form
+                        onSubmit={handleCreateOrder}
+                        className="mb-4 flex gap-2"
+                    >
+                        <input
+                            type="text"
+                            name="tipe_remote"
+                            placeholder="Tipe Remote (ex: A75C3865)"
+                            required
+                            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-[var(--color-neon-cyan)] focus:border-[var(--color-neon-cyan)] outline-none"
+                        />
+                        <input
+                            type="number"
+                            name="quantity"
+                            placeholder="Qty"
+                            defaultValue="1"
+                            min="1"
+                            required
+                            className="w-20 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white text-center focus:border-[var(--color-neon-cyan)] outline-none"
+                        />
+                        <button
+                            type="submit"
+                            className="bg-[var(--color-neon-purple)]/20 hover:bg-[var(--color-neon-purple)]/40 text-[var(--color-neon-purple)] border border-[var(--color-neon-purple)]/50 px-4 py-2 rounded-lg font-bold text-xs uppercase transition-colors"
+                        >
+                            + Order
+                        </button>
+                    </form>
+
+                    {/* Daftar Pesanan Aktif */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                        {orders.length === 0 ? (
+                            <p className="text-gray-500 font-mono text-xs text-center py-4">
+                                TIDAK ADA PESANAN AKTIF
+                            </p>
+                        ) : (
+                            orders.map((order) => (
+                                <div
+                                    key={order.id}
+                                    className="bg-[var(--color-neon-purple)]/5 border border-[var(--color-neon-purple)]/20 rounded-xl p-3 flex justify-between items-center group"
+                                >
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-sm font-bold text-white">
+                                                {order.tipe_remote}
+                                            </span>
+                                            <span className="text-xs font-mono bg-[var(--color-neon-purple)]/20 text-[var(--color-neon-purple)] px-2 py-0.5 rounded">
+                                                Qty: {order.quantity}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] font-mono text-gray-500">
+                                            Diminta:{" "}
+                                            {new Date(
+                                                order.timestamp
+                                            ).toLocaleTimeString("id-ID")}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() =>
+                                            handleCompleteOrder(order.id)
+                                        }
+                                        disabled={
+                                            isCompletingOrder === order.id
+                                        }
+                                        className={`bg-[var(--color-neon-cyan)]/10 hover:bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] border border-[var(--color-neon-cyan)]/30 p-2 rounded-lg transition-all flex items-center gap-2 font-bold text-xs ${isCompletingOrder === order.id ? "opacity-50 cursor-not-allowed" : ""}`}
+                                        title="Selesaikan & Potong Stok"
+                                    >
+                                        <CheckCircle2
+                                            className={`w-4 h-4 ${isCompletingOrder === order.id ? "animate-spin" : ""}`}
+                                        />
+                                        {isCompletingOrder === order.id
+                                            ? "MEMPROSES..."
+                                            : "SELESAI (POTONG STOK)"}
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </GlassCard>
+
                 {/* ═══ WIDGET F — SUPPLY REQUESTS (ADMIN FEEDBACK LOOP) ═══ */}
-                <GlassCard delay={0.4} className="xl:col-span-2 border-t-4 border-t-amber-500">
+                <GlassCard
+                    delay={0.4}
+                    className="xl:col-span-2 border-t-4 border-t-amber-500"
+                >
                     <div className="flex items-center gap-2 mb-3">
                         <ClipboardList className="w-4 h-4 text-amber-400" />
                         <GlitchHeader className="text-xs font-mono tracking-[0.2em] text-gray-500 uppercase">
@@ -512,27 +919,48 @@ export default function DashboardHome() {
                     </div>
 
                     <div className="space-y-3 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
-                        {supplyReports.filter(r => r.status === 'PENDING').length === 0 ? (
-                            <p className="text-gray-500 font-mono text-xs text-center py-4">TIDAK ADA PERMINTAAN DARI PEKERJA</p>
+                        {supplyReports.filter((r) => r.status === "PENDING")
+                            .length === 0 ? (
+                            <p className="text-gray-500 font-mono text-xs text-center py-4">
+                                TIDAK ADA PERMINTAAN DARI PEKERJA
+                            </p>
                         ) : (
-                            supplyReports.filter(r => r.status === 'PENDING').map(report => (
-                                <div key={report.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex justify-between items-center group hover:border-amber-500/30 transition-colors">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-bold text-amber-400">@{report.pekerja}</span>
-                                            <span className="text-[9px] font-mono text-gray-500">{new Date(report.timestamp).toLocaleTimeString('id-ID')}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-300">{report.laporan}</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleResolveReport(report.id)}
-                                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 p-2 rounded-lg transition-all flex items-center gap-2 font-bold text-xs"
-                                        title="Tandai Sudah Dibelikan"
+                            supplyReports
+                                .filter((r) => r.status === "PENDING")
+                                .map((report) => (
+                                    <div
+                                        key={report.id}
+                                        className="bg-white/5 border border-white/10 rounded-xl p-3 flex justify-between items-center group hover:border-amber-500/30 transition-colors"
                                     >
-                                        <CheckCircle2 className="w-4 h-4" /> SELESAI
-                                    </button>
-                                </div>
-                            ))
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-bold text-amber-400">
+                                                    @{report.pekerja}
+                                                </span>
+                                                <span className="text-[9px] font-mono text-gray-500">
+                                                    {new Date(
+                                                        report.timestamp
+                                                    ).toLocaleTimeString(
+                                                        "id-ID"
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-gray-300">
+                                                {report.laporan}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() =>
+                                                handleResolveReport(report.id)
+                                            }
+                                            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 p-2 rounded-lg transition-all flex items-center gap-2 font-bold text-xs"
+                                            title="Tandai Sudah Dibelikan"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" />{" "}
+                                            SELESAI
+                                        </button>
+                                    </div>
+                                ))
                         )}
                     </div>
                 </GlassCard>
