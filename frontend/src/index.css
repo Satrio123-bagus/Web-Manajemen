@@ -85,6 +85,15 @@
   color: #000;
 }
 
+/* Fallback untuk browser lawas yang tidak mendeteksi background-clip */
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .bg-clip-text {
+    background: none !important;
+    color: var(--color-neon-cyan) !important;
+    -webkit-text-fill-color: var(--color-neon-cyan) !important;
+  }
+}
+
 body {
   background: linear-gradient(to bottom, #050505, #0a0a0a);
   color: #e0e0e0;
