@@ -181,6 +181,7 @@ app.use(
     require("./routes/notifications")
 );
 app.use("/api/settings/prefixes", authMiddleware, require("./routes/prefixes"));
+app.use("/api/settings/recipes", authMiddleware, require("./routes/recipes"));
 app.use("/api/settings/config", authMiddleware, require("./routes/config"));
 app.use("/api/analytics", authMiddleware, require("./routes/analytics"));
 app.use("/api/terminal/history", authMiddleware, require("./routes/history"));

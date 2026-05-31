@@ -11,6 +11,7 @@ const {
     users,
     production_jobs,
     supply_reports,
+    bom_recipes,
 } = schema;
 
 // ─── SQLite DATABASE + DRIZZLE ORM ──────────────────────
@@ -117,6 +118,11 @@ betterSqlite.exec(`
     quantity INTEGER DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'PENDING',
     timestamp TEXT
+  );
+  CREATE TABLE IF NOT EXISTS bom_recipes (
+    id TEXT PRIMARY KEY,
+    tipe_remote TEXT NOT NULL UNIQUE,
+    jenis_tutup TEXT NOT NULL
   );
 `);
 try {
@@ -924,6 +930,28 @@ const stmts = {
                 .where(sql`${items.stock} < 2`)
                 .orderBy(items.name)
                 .all(),
+    },
+    // --- BOM Recipes ---
+    getAllRecipes: {
+        all: () => db.select().from(bom_recipes).all(),
+    },
+    getRecipeByRemote: {
+        get: (tipe_remote) =>
+            db
+                .select()
+                .from(bom_recipes)
+                .where(eq(bom_recipes.tipe_remote, tipe_remote))
+                .get(),
+    },
+    insertRecipe: {
+        run: (id, tipe_remote, jenis_tutup) =>
+            db
+                .insert(bom_recipes)
+                .values({ id, tipe_remote, jenis_tutup })
+                .run(),
+    },
+    deleteRecipe: {
+        run: (id) => db.delete(bom_recipes).where(eq(bom_recipes.id, id)).run(),
     },
 };
 

@@ -1,0 +1,62 @@
+const express = require("express");
+const router = express.Router();
+const crypto = require("crypto");
+const { stmts } = require("../models/dbStore");
+
+// GET /api/settings/recipes
+router.get("/", (req, res) => {
+    try {
+        const recipes = stmts.getAllRecipes.all();
+        res.json({ success: true, recipes });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/settings/recipes
+router.post("/", (req, res) => {
+    try {
+        const { tipe_remote, jenis_tutup } = req.body;
+        if (!tipe_remote || !jenis_tutup) {
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    error: "tipe_remote dan jenis_tutup harus diisi",
+                });
+        }
+
+        // Cek apakah resep sudah ada (menghindari duplicate unique constraint crash)
+        const existing = stmts.getRecipeByRemote.get(tipe_remote);
+        if (existing) {
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    error: "Resep untuk tipe ini sudah ada",
+                });
+        }
+
+        const id = crypto.randomUUID();
+        stmts.insertRecipe.run(id, tipe_remote, jenis_tutup);
+        res.json({
+            success: true,
+            message: "Resep berhasil ditambahkan",
+            recipe: { id, tipe_remote, jenis_tutup },
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/settings/recipes/:id
+router.delete("/:id", (req, res) => {
+    try {
+        stmts.deleteRecipe.run(req.params.id);
+        res.json({ success: true, message: "Resep dihapus" });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+module.exports = router;
