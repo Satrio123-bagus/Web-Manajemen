@@ -43,16 +43,29 @@ export default function WorkerDashboard({ user }) {
     const [orders, setOrders] = useState([]);
     const { playSound } = useSound();
 
+    // Assembly State
+    const [wipItems, setWipItems] = useState([]);
+    const [mikaStock, setMikaStock] = useState({ name: "Mika", stock: 0 });
+    const [selectedWip, setSelectedWip] = useState("");
+    const [assemblyQty, setAssemblyQty] = useState(1);
+    const [assemblyToast, setAssemblyToast] = useState(null);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [resJobs, resSupplies, resConfig, resOrders] =
-                    await Promise.all([
-                        api.get("/production/jobs"),
-                        api.get("/production/supplies"),
-                        api.get("/settings/config"),
-                        api.get("/orders/pending"),
-                    ]);
+                const [
+                    resJobs,
+                    resSupplies,
+                    resConfig,
+                    resOrders,
+                    resAssembly,
+                ] = await Promise.all([
+                    api.get("/production/jobs"),
+                    api.get("/production/supplies"),
+                    api.get("/settings/config"),
+                    api.get("/orders/pending"),
+                    api.get("/assembly/wip"),
+                ]);
 
                 if (resJobs.ok) {
                     const data = await resJobs.json();
@@ -69,6 +82,17 @@ export default function WorkerDashboard({ user }) {
                 if (resOrders.ok) {
                     const data = await resOrders.json();
                     if (Array.isArray(data)) setOrders(data);
+                }
+                if (resAssembly.ok) {
+                    const data = await resAssembly.json();
+                    if (data.success) {
+                        setWipItems(data.wip || []);
+                        setMikaStock(data.mika || { name: "Mika", stock: 0 });
+                        // auto select first if empty
+                        if (data.wip?.length > 0 && !selectedWip) {
+                            setSelectedWip(data.wip[0].id);
+                        }
+                    }
                 }
             } catch (error) {
                 console.error("Fetch error:", error);
@@ -102,6 +126,39 @@ export default function WorkerDashboard({ user }) {
         } catch (err) {
             console.error(err);
         }
+    };
+
+    const assembleItem = async () => {
+        if (!selectedWip || assemblyQty <= 0) return;
+        try {
+            const res = await api.post("/assembly/assemble", {
+                wip_id: selectedWip,
+                mika_id: mikaStock.id, // can be undefined, backend has fallback
+                quantity: assemblyQty,
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setAssemblyToast({
+                    type: "success",
+                    msg: `Berhasil merakit ${data.quantity} ${data.hasil}`,
+                });
+                playSound("click");
+                setAssemblyQty(1);
+            } else {
+                setAssemblyToast({
+                    type: "error",
+                    msg: data.error || "Gagal merakit",
+                });
+                playSound("error");
+            }
+        } catch (err) {
+            setAssemblyToast({
+                type: "error",
+                msg: "Terjadi kesalahan jaringan",
+            });
+            playSound("error");
+        }
+        setTimeout(() => setAssemblyToast(null), 3000);
     };
 
     // Filter data based on role
@@ -415,6 +472,101 @@ export default function WorkerDashboard({ user }) {
                             ))
                         )}
                     </div>
+                </GlassCard>
+
+                {/* WIDGET 4: STASIUN RAKIT MIKA */}
+                <GlassCard
+                    delay={0.5}
+                    className="xl:col-span-3 border-t-4 border-t-[#bc13fe]"
+                >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-2">
+                            <Wrench className="w-5 h-5 text-[#bc13fe]" />
+                            <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                                🛠️ Stasiun Rakit Mika
+                            </h2>
+                        </div>
+                        <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10">
+                            <span className="text-[10px] font-mono text-gray-400">
+                                STOK MIKA:
+                            </span>
+                            <span
+                                className={`text-sm font-bold ${mikaStock.stock > 0 ? "text-emerald-400" : "text-red-400"}`}
+                            >
+                                {mikaStock.stock} PCS
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1">
+                            <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
+                                Pilih Barang Setengah Jadi (WIP)
+                            </label>
+                            <select
+                                value={selectedWip}
+                                onChange={(e) => setSelectedWip(e.target.value)}
+                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50"
+                            >
+                                {wipItems.length === 0 ? (
+                                    <option value="">
+                                        -- Tidak ada barang WIP --
+                                    </option>
+                                ) : (
+                                    wipItems.map((wip) => (
+                                        <option key={wip.id} value={wip.id}>
+                                            {wip.name} (Stok: {wip.stock})
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                        </div>
+                        <div className="w-full md:w-32">
+                            <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
+                                Jumlah (Qty)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={assemblyQty}
+                                onChange={(e) =>
+                                    setAssemblyQty(Number(e.target.value))
+                                }
+                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50 text-center font-mono"
+                            />
+                        </div>
+                        <div className="flex items-end">
+                            <button
+                                onClick={assembleItem}
+                                disabled={
+                                    !selectedWip ||
+                                    assemblyQty <= 0 ||
+                                    mikaStock.stock < assemblyQty
+                                }
+                                className="w-full md:w-auto h-[46px] px-6 rounded-xl bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/40 font-bold text-sm hover:bg-[#bc13fe] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                RAKIT SEKARANG{" "}
+                                <ArrowRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <AnimatePresence>
+                        {assemblyToast && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                className={`mt-4 p-3 rounded-xl text-xs font-mono text-center border ${
+                                    assemblyToast.type === "success"
+                                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                        : "bg-red-500/10 border-red-500/30 text-red-400"
+                                }`}
+                            >
+                                {assemblyToast.msg}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </GlassCard>
             </div>
         </div>
