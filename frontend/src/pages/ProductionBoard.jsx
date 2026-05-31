@@ -115,6 +115,7 @@ export default function ProductionBoard({ user }) {
     const [qcRusak, setQcRusak] = useState(0);
     const [qcRework, setQcRework] = useState(0);
     const [qcCatatan, setQcCatatan] = useState("");
+    const [qcModifikasiVarian, setQcModifikasiVarian] = useState("");
 
     // Sortir popup state
     const [sortirJob, setSortirJob] = useState(null);
@@ -269,6 +270,7 @@ export default function ProductionBoard({ user }) {
                 qcRusak,
                 qcRework,
                 catatan: qcCatatan,
+                modifikasiVarian: qcModifikasiVarian,
             });
             setQcJob(null);
             fetchData();
@@ -908,6 +910,7 @@ export default function ProductionBoard({ user }) {
                                                     setQcRusak(0);
                                                     setQcRework(0);
                                                     setQcCatatan("");
+                                                    setQcModifikasiVarian("");
                                                 }}
                                                 className="w-full sm:w-auto px-4 py-2.5 text-xs bg-[var(--color-neon-cyan)]/10 text-[var(--color-neon-cyan)] rounded-lg font-bold hover:bg-[var(--color-neon-cyan)]/30 hover:text-white transition-colors border border-[var(--color-neon-cyan)]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]"
                                             >
@@ -1166,6 +1169,66 @@ export default function ProductionBoard({ user }) {
                                         placeholder="Misal: Cat terkelupas"
                                         className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-white/30"
                                     />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-cyan-400 block mb-1">
+                                        Modifikasi Varian Lulus (Opsional)
+                                    </label>
+                                    <div className="flex gap-2 mb-2">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setQcModifikasiVarian(
+                                                    "(Tanpa Mika)"
+                                                )
+                                            }
+                                            className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-1 rounded border border-cyan-500/30 hover:bg-cyan-500/40"
+                                        >
+                                            + (Tanpa Mika)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setQcModifikasiVarian(
+                                                    "(Tanpa Tutup)"
+                                                )
+                                            }
+                                            className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-1 rounded border border-cyan-500/30 hover:bg-cyan-500/40"
+                                        >
+                                            + (Tanpa Tutup)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setQcModifikasiVarian("")
+                                            }
+                                            className="text-[10px] bg-gray-500/20 text-gray-400 px-2 py-1 rounded border border-gray-500/30 hover:bg-gray-500/40"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={qcModifikasiVarian}
+                                        onChange={(e) =>
+                                            setQcModifikasiVarian(
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="Ketik tag varian khusus..."
+                                        className="w-full bg-cyan-900/10 border border-cyan-500/20 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-cyan-400"
+                                    />
+                                    {qcModifikasiVarian && (
+                                        <p className="text-[10px] text-cyan-400 mt-1 italic">
+                                            Nama barang saat dikirim ke pekerja
+                                            & inventory akan menjadi:
+                                            <br />
+                                            <strong className="text-white">
+                                                {qcJob.tipe_remote}{" "}
+                                                {qcModifikasiVarian}
+                                            </strong>
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div
