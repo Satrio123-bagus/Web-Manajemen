@@ -170,6 +170,7 @@ export default function ProductionBoard({ user }) {
         "Kecil",
         "Sedang",
         "Besar",
+        "Panjang",
         "Smart TV",
         "Tabung",
         "Original",
