@@ -172,6 +172,7 @@ export default function ProductionBoard({ user }) {
         "Besar",
         "Panjang",
         "Tutup Panjang",
+        "Tutup Baut Rendam",
         "Smart TV",
         "Tabung",
         "Original",
