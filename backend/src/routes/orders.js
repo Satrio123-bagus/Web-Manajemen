@@ -71,39 +71,100 @@ router.put("/:id/complete", async (req, res) => {
             if (order.status === "COMPLETED")
                 throw new Error("Pesanan sudah diselesaikan");
 
-            // B. Cari barang di inventory
+            // B. Cek Resep (BOM)
+            const recipe = stmts.getRecipeByRemote.get(order.tipe_remote);
+
+            let mainItemName = order.tipe_remote;
+            if (recipe) {
+                mainItemName = `${order.tipe_remote} (Tanpa Tutup)`;
+            }
+
             const item = db
                 .select()
                 .from(items)
-                .where(eq(items.name, order.tipe_remote))
+                .where(eq(items.name, mainItemName))
                 .get();
-            if (!item)
-                throw new Error(
-                    `Barang ${order.tipe_remote} tidak ditemukan di gudang`
-                );
 
-            // C. Potong stok
-            const newStock = Math.max(0, item.stock - order.quantity);
-            const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+            if (!item) {
+                // Fallback untuk stok lama (jika ada barang utuh yg belum kena aturan WIP)
+                const legacyItem = db
+                    .select()
+                    .from(items)
+                    .where(eq(items.name, order.tipe_remote))
+                    .get();
+                if (!legacyItem) {
+                    throw new Error(
+                        `Barang ${mainItemName} atau ${order.tipe_remote} tidak ditemukan di gudang`
+                    );
+                }
 
-            db.update(items)
-                .set({ stock: newStock, status: newStatus })
-                .where(eq(items.id, item.id))
-                .run();
+                const newStock = Math.max(0, legacyItem.stock - order.quantity);
+                const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                db.update(items)
+                    .set({ stock: newStock, status: newStatus })
+                    .where(eq(items.id, legacyItem.id))
+                    .run();
 
-            // D. Catat Pemasukan Uang di Transaksi
-            const txId = crypto.randomUUID();
-            insertTransaction({
-                transaction_id: txId,
-                item_name: item.name,
-                category: item.category,
-                unit_price: item.price,
-                quantity: order.quantity,
-                total: item.price * order.quantity,
-                timestamp: new Date().toISOString(),
-                type: "SALE",
-                source: "ORDER_FULFILLMENT",
-            });
+                const txId = crypto.randomUUID();
+                insertTransaction({
+                    transaction_id: txId,
+                    item_name: legacyItem.name,
+                    category: legacyItem.category,
+                    unit_price: legacyItem.price,
+                    quantity: order.quantity,
+                    total: legacyItem.price * order.quantity,
+                    timestamp: new Date().toISOString(),
+                    type: "SALE",
+                    source: "ORDER_FULFILLMENT",
+                });
+            } else {
+                // C. Potong stok WIP utama
+                const newStock = Math.max(0, item.stock - order.quantity);
+                const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+
+                db.update(items)
+                    .set({ stock: newStock, status: newStatus })
+                    .where(eq(items.id, item.id))
+                    .run();
+
+                // Potong stok tutup baterai (Jika ada resepnya)
+                if (recipe) {
+                    const coverItem = db
+                        .select()
+                        .from(items)
+                        .where(eq(items.name, recipe.jenis_tutup))
+                        .get();
+                    if (coverItem) {
+                        const newCoverStock = Math.max(
+                            0,
+                            coverItem.stock - order.quantity
+                        );
+                        const newCoverStatus =
+                            newCoverStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                        db.update(items)
+                            .set({
+                                stock: newCoverStock,
+                                status: newCoverStatus,
+                            })
+                            .where(eq(items.id, coverItem.id))
+                            .run();
+                    }
+                }
+
+                // D. Catat Pemasukan Uang (Catat sebagai produk utuh / tipe_remote asli)
+                const txId = crypto.randomUUID();
+                insertTransaction({
+                    transaction_id: txId,
+                    item_name: order.tipe_remote, // <-- Penting: Analitik harus melihat ini sebagai barang utuh
+                    category: item.category,
+                    unit_price: item.price,
+                    quantity: order.quantity,
+                    total: item.price * order.quantity,
+                    timestamp: new Date().toISOString(),
+                    type: "SALE",
+                    source: "ORDER_FULFILLMENT",
+                });
+            }
 
             // E. Tandai pesanan sebagai COMPLETED
             db.update(orders)

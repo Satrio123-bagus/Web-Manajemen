@@ -141,12 +141,10 @@ router.post("/jobs/:id/qc", (req, res) => {
         const totalInput =
             (qcJual || 0) + (qcRakit || 0) + (qcRusak || 0) + (qcRework || 0);
         if (totalInput !== job.alokasi) {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    message: "Total alokasi QC tidak cocok",
-                });
+            return res.status(400).json({
+                success: false,
+                message: "Total alokasi QC tidak cocok",
+            });
         }
 
         const timestamp = new Date().toISOString();
@@ -196,6 +194,11 @@ router.post("/jobs/:id/qc", (req, res) => {
             if (modifikasiVarian && modifikasiVarian.trim()) {
                 finalTipeRemote = `${finalTipeRemote} ${modifikasiVarian.trim()}`;
             }
+            if (job.merk && job.merk.toUpperCase() === "PANASONIC") {
+                if (!finalTipeRemote.includes("(Tanpa Tutup)")) {
+                    finalTipeRemote = `${finalTipeRemote} (Tanpa Tutup)`;
+                }
+            }
             const modifiedJob = { ...job, tipe_remote: finalTipeRemote };
 
             const inventoryResult = stmts.upsertInventoryFromQC.run(
@@ -238,12 +241,10 @@ router.post("/jobs/:id/sortir", (req, res) => {
         const total = (sortirCuci || 0) + (sortirCat || 0) + (sortirKimia || 0);
 
         if (total !== job.alokasi) {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    message: "Total sortir tidak sesuai dengan jumlah barang!",
-                });
+            return res.status(400).json({
+                success: false,
+                message: "Total sortir tidak sesuai dengan jumlah barang!",
+            });
         }
 
         stmts.deleteProductionJob.run(id);
@@ -391,12 +392,10 @@ router.post("/jobs/:id/tarik-sortir", (req, res) => {
         const total = (jumlahBagus || 0) + (jumlahRusak || 0);
 
         if (total <= 0 || total > job.alokasi) {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    message: "Jumlah tidak valid atau melebihi alokasi!",
-                });
+            return res.status(400).json({
+                success: false,
+                message: "Jumlah tidak valid atau melebihi alokasi!",
+            });
         }
 
         const timestamp = new Date().toISOString();

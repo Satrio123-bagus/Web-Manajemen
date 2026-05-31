@@ -88,6 +88,12 @@ const orders = sqliteTable("orders", {
     timestamp: text("timestamp"),
 });
 
+const bom_recipes = sqliteTable("bom_recipes", {
+    id: text("id").primaryKey(),
+    tipe_remote: text("tipe_remote").notNull().unique(),
+    jenis_tutup: text("jenis_tutup").notNull(),
+});
+
 module.exports = {
     items,
     transactions,
@@ -98,4 +104,5 @@ module.exports = {
     supply_reports,
     supplier_analytics_rollup,
     orders,
+    bom_recipes,
 };
