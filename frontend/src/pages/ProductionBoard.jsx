@@ -171,6 +171,7 @@ export default function ProductionBoard({ user }) {
         "Sedang",
         "Besar",
         "Panjang",
+        "Tutup Panjang",
         "Smart TV",
         "Tabung",
         "Original",

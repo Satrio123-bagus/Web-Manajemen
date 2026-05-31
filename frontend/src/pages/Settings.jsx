@@ -957,6 +957,7 @@ export default function Settings() {
                                     <option>Tutup Tidak Baut</option>
                                     <option>Tutup Sedang</option>
                                     <option>Tutup Besar</option>
+                                    <option>Tutup Panjang</option>
                                 </select>
                             </div>
                             <div className="flex items-end">
