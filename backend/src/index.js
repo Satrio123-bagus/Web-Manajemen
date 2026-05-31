@@ -175,6 +175,7 @@ app.use("/api/items", authMiddleware, require("./routes/items"));
 app.use("/api/barang", authMiddleware, require("./routes/barang"));
 app.use("/api", authMiddleware, require("./routes/sales")); // covers /api/sell and /api/transactions
 app.use("/api/production", authMiddleware, require("./routes/production"));
+app.use("/api/assembly", authMiddleware, require("./routes/assembly"));
 app.use(
     "/api/notifications",
     authMiddleware,
