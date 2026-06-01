@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
     CheckCircle,
@@ -12,6 +12,7 @@ import {
     Zap,
     Check,
     Wrench,
+    ArrowRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api";
