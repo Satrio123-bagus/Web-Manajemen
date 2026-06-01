@@ -678,7 +678,7 @@ export default function WorkerDashboard({ user }) {
                                 </h3>
                                 <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
                                     {myReports.filter((r) =>
-                                        r.laporan.includes("[SERVIS MESIN]")
+                                        r?.laporan?.includes("[SERVIS MESIN]")
                                     ).length === 0 ? (
                                         <div className="text-[10px] text-gray-600 font-mono italic">
                                             Belum ada PCB yang diservis.
@@ -686,7 +686,7 @@ export default function WorkerDashboard({ user }) {
                                     ) : (
                                         myReports
                                             .filter((r) =>
-                                                r.laporan.includes(
+                                                r?.laporan?.includes(
                                                     "[SERVIS MESIN]"
                                                 )
                                             )
@@ -696,7 +696,7 @@ export default function WorkerDashboard({ user }) {
                                                     className="text-[10px] font-mono text-gray-300 flex justify-between bg-black/30 px-2 py-1.5 rounded border border-white/5"
                                                 >
                                                     <span>
-                                                        {report.laporan.replace(
+                                                        {report?.laporan?.replace(
                                                             "[SERVIS MESIN] Tindakan: ",
                                                             ""
                                                         )}
