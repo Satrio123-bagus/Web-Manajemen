@@ -1,6 +1,6 @@
 {
   "rules": [
-    { "prefix": "A75C",   "brand": "Panasonic", "type": "Remote AC",    "confidence": "low" },
+    { "prefix": "A75C",   "brand": "Panasonic", "type": "Remote AC",    "confidence": "high" },
     { "prefix": "YV1B",   "brand": "Sharp",     "type": "Remote AC",    "confidence": "low" },
     { "prefix": "N2QAYB", "brand": "Panasonic", "type": "Remote TV",    "confidence": "high" },
     { "prefix": "EUR",    "brand": "Panasonic", "type": "Remote Audio",  "confidence": "high" },

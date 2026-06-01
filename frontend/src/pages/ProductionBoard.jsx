@@ -422,6 +422,10 @@ export default function ProductionBoard({ user }) {
                             <Archive className="w-4 h-4" />
                             TUTUP BUKU
                         </button>
+                    </div>
+                )}
+                {(user?.role === "ADMIN" || user?.role === "MESIN") && (
+                    <div className="flex gap-2">
                         <button
                             onClick={() => setShowAddForm(!showAddForm)}
                             className="flex items-center gap-2 bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] px-4 py-2 rounded-xl font-bold hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all border border-[var(--color-neon-cyan)]/50"
@@ -680,18 +684,28 @@ export default function ProductionBoard({ user }) {
                         SEMUA TUGAS
                     </button>
                     {COLUMNS.filter((col) => {
-                        // Sembunyikan kolom RUSAK untuk selain Admin dan Casing
-                        if (
-                            col.id === "RUSAK" &&
-                            user?.role !== "ADMIN" &&
-                            user?.role !== "CASING"
-                        ) {
-                            return false;
-                        }
+                        // Logika Filter Khusus Pekerja Mesin (PCB)
+                        if (user?.role === "MESIN") {
+                            const allowedForMesin = [
+                                "MENTAH",
+                                "QC_CEK",
+                                "RUSAK",
+                            ];
+                            if (!allowedForMesin.includes(col.id)) return false;
+                        } else {
+                            // Sembunyikan kolom RUSAK untuk selain Admin dan Casing/Mesin
+                            if (
+                                col.id === "RUSAK" &&
+                                user?.role !== "ADMIN" &&
+                                user?.role !== "CASING"
+                            ) {
+                                return false;
+                            }
 
-                        // Sembunyikan kolom QC CEK untuk selain Admin
-                        if (col.id === "QC_CEK" && user?.role !== "ADMIN") {
-                            return false;
+                            // Sembunyikan kolom QC CEK untuk selain Admin
+                            if (col.id === "QC_CEK" && user?.role !== "ADMIN") {
+                                return false;
+                            }
                         }
 
                         return true;

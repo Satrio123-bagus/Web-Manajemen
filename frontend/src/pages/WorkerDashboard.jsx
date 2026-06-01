@@ -50,6 +50,17 @@ export default function WorkerDashboard({ user }) {
     const [assemblyQty, setAssemblyQty] = useState(1);
     const [assemblyToast, setAssemblyToast] = useState(null);
 
+    // Mesin State
+    const [mesinReworkTag, setMesinReworkTag] = useState("");
+    const MESIN_REWORK_TAGS = [
+        "Ganti Per",
+        "Solder LED",
+        "Jalur Putus",
+        "Tombol Karbon",
+        "Komponen Korosi",
+    ];
+    const [mesinToast, setMesinToast] = useState(null);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -161,6 +172,30 @@ export default function WorkerDashboard({ user }) {
         setTimeout(() => setAssemblyToast(null), 3000);
     };
 
+    const handleMesinRework = async (tag) => {
+        try {
+            playSound("click");
+            const res = await api.post("/production/supplies", {
+                pekerja: user.username,
+                laporan: `[SERVIS MESIN] Tindakan: ${tag} (+1 unit)`,
+            });
+            if (res.ok) {
+                setMesinToast({
+                    type: "success",
+                    msg: `Berhasil mencatat servis: ${tag}`,
+                });
+                const repRes = await api.get("/production/supplies");
+                if (repRes.ok) {
+                    const data = await repRes.json();
+                    setReports(data.reports);
+                }
+            }
+        } catch (err) {
+            setMesinToast({ type: "error", msg: "Gagal mencatat servis" });
+        }
+        setTimeout(() => setMesinToast(null), 3000);
+    };
+
     // Filter data based on role
     const myJobs = jobs.filter((job) => {
         if (user?.role === "CASING") return job.komponen === "CASING";
@@ -249,7 +284,7 @@ export default function WorkerDashboard({ user }) {
             )}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* WIDGET 1: QUALITY YIELD */}
+                {/* WIDGET 1: QUALITY YIELD (OR TRIAGE STATS FOR MESIN) */}
                 <GlassCard
                     delay={0.1}
                     className="xl:col-span-1 border-t-4 border-t-emerald-500"
@@ -257,7 +292,9 @@ export default function WorkerDashboard({ user }) {
                     <div className="flex items-center gap-2 mb-6">
                         <Target className="w-5 h-5 text-emerald-400" />
                         <h2 className="text-sm font-black tracking-widest text-white uppercase">
-                            Skor Kualitas Anda
+                            {user?.role === "MESIN"
+                                ? "Statistik Triage Mesin"
+                                : "Skor Kualitas Anda"}
                         </h2>
                     </div>
 
@@ -390,184 +427,328 @@ export default function WorkerDashboard({ user }) {
                     </GlassCard>
                 </div>
 
-                {/* WIDGET 3: SUPPLY NOTES / LAPORAN ALAT */}
-                <GlassCard
-                    delay={0.4}
-                    className="xl:col-span-1 flex flex-col h-full border-t-4 border-t-amber-500"
-                >
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-amber-400" />
-                            <h2 className="text-sm font-black tracking-widest text-white uppercase">
-                                Laporan Perlengkapan
-                            </h2>
-                        </div>
-                    </div>
-
-                    {/* Input box */}
-                    <div className="flex gap-2 mb-4">
-                        <input
-                            type="text"
-                            value={reportText}
-                            onChange={(e) => setReportText(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && sendReport()}
-                            placeholder="Contoh: Kardus sisa 1 ikat..."
-                            className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-                        />
-                        <button
-                            onClick={sendReport}
-                            className="bg-amber-500/20 text-amber-400 p-3 rounded-xl hover:bg-amber-500 hover:text-black transition-colors shrink-0 flex items-center justify-center"
+                {/* KHUSUS PEKERJA CASING & RAKIT */}
+                {user?.role !== "MESIN" && (
+                    <>
+                        {/* WIDGET 3: SUPPLY NOTES / LAPORAN ALAT */}
+                        <GlassCard
+                            delay={0.4}
+                            className="xl:col-span-1 flex flex-col h-full border-t-4 border-t-amber-500"
                         >
-                            <Send className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <h3 className="text-[10px] font-mono text-gray-500 uppercase mb-2">
-                        Riwayat Laporan Saya
-                    </h3>
-
-                    {/* History List */}
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar min-h-[150px]">
-                        {myReports.length === 0 ? (
-                            <div className="text-center text-gray-500 font-mono text-xs py-8 opacity-50">
-                                BELUM ADA LAPORAN
-                            </div>
-                        ) : (
-                            myReports.map((report) => (
-                                <div
-                                    key={report.id}
-                                    className={`rounded-xl p-3 border transition-all ${
-                                        report.status === "RESOLVED"
-                                            ? "bg-emerald-500/10 border-emerald-500/30"
-                                            : "bg-white/5 border-white/10"
-                                    }`}
-                                >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <p
-                                            className={`text-sm ${report.status === "RESOLVED" ? "text-emerald-100" : "text-gray-300"}`}
-                                        >
-                                            {report.laporan}
-                                        </p>
-                                        {report.status === "RESOLVED" ? (
-                                            <span className="flex items-center gap-1 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full shrink-0 ml-2">
-                                                <Check className="w-3 h-3" />{" "}
-                                                DIBELIKAN
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full shrink-0 ml-2">
-                                                <Activity className="w-3 h-3" />{" "}
-                                                MENUNGGU
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-[9px] font-mono text-gray-500">
-                                        {new Date(
-                                            report.timestamp
-                                        ).toLocaleTimeString("id-ID", {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                        })}
-                                    </div>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                                    <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                                        Laporan Perlengkapan
+                                    </h2>
                                 </div>
-                            ))
-                        )}
-                    </div>
-                </GlassCard>
+                            </div>
 
-                {/* WIDGET 4: STASIUN RAKIT MIKA */}
-                <GlassCard
-                    delay={0.5}
-                    className="xl:col-span-3 border-t-4 border-t-[#bc13fe]"
-                >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-2">
-                            <Wrench className="w-5 h-5 text-[#bc13fe]" />
-                            <h2 className="text-sm font-black tracking-widest text-white uppercase">
-                                🛠️ Stasiun Rakit Mika
-                            </h2>
-                        </div>
-                        <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10">
-                            <span className="text-[10px] font-mono text-gray-400">
-                                STOK MIKA:
-                            </span>
-                            <span
-                                className={`text-sm font-bold ${mikaStock.stock > 0 ? "text-emerald-400" : "text-red-400"}`}
-                            >
-                                {mikaStock.stock} PCS
-                            </span>
-                        </div>
-                    </div>
+                            {/* Input box */}
+                            <div className="flex gap-2 mb-4">
+                                <input
+                                    type="text"
+                                    value={reportText}
+                                    onChange={(e) =>
+                                        setReportText(e.target.value)
+                                    }
+                                    onKeyDown={(e) =>
+                                        e.key === "Enter" && sendReport()
+                                    }
+                                    placeholder="Contoh: Kardus sisa 1 ikat..."
+                                    className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                                />
+                                <button
+                                    onClick={sendReport}
+                                    className="bg-amber-500/20 text-amber-400 p-3 rounded-xl hover:bg-amber-500 hover:text-black transition-colors shrink-0 flex items-center justify-center"
+                                >
+                                    <Send className="w-5 h-5" />
+                                </button>
+                            </div>
 
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1">
-                            <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
-                                Pilih Barang Setengah Jadi (WIP)
-                            </label>
-                            <select
-                                value={selectedWip}
-                                onChange={(e) => setSelectedWip(e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50"
-                            >
-                                {wipItems.length === 0 ? (
-                                    <option value="">
-                                        -- Tidak ada barang WIP --
-                                    </option>
+                            <h3 className="text-[10px] font-mono text-gray-500 uppercase mb-2">
+                                Riwayat Laporan Saya
+                            </h3>
+
+                            {/* History List */}
+                            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar min-h-[150px]">
+                                {myReports.length === 0 ? (
+                                    <div className="text-center text-gray-500 font-mono text-xs py-8 opacity-50">
+                                        BELUM ADA LAPORAN
+                                    </div>
                                 ) : (
-                                    wipItems.map((wip) => (
-                                        <option key={wip.id} value={wip.id}>
-                                            {wip.name} (Stok: {wip.stock})
-                                        </option>
+                                    myReports.map((report) => (
+                                        <div
+                                            key={report.id}
+                                            className={`rounded-xl p-3 border transition-all ${
+                                                report.status === "RESOLVED"
+                                                    ? "bg-emerald-500/10 border-emerald-500/30"
+                                                    : "bg-white/5 border-white/10"
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <p
+                                                    className={`text-sm ${report.status === "RESOLVED" ? "text-emerald-100" : "text-gray-300"}`}
+                                                >
+                                                    {report.laporan}
+                                                </p>
+                                                {report.status ===
+                                                "RESOLVED" ? (
+                                                    <span className="flex items-center gap-1 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full shrink-0 ml-2">
+                                                        <Check className="w-3 h-3" />{" "}
+                                                        DIBELIKAN
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full shrink-0 ml-2">
+                                                        <Activity className="w-3 h-3" />{" "}
+                                                        MENUNGGU
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-[9px] font-mono text-gray-500">
+                                                {new Date(
+                                                    report.timestamp
+                                                ).toLocaleTimeString("id-ID", {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                })}
+                                            </div>
+                                        </div>
                                     ))
                                 )}
-                            </select>
-                        </div>
-                        <div className="w-full md:w-32">
-                            <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
-                                Jumlah (Qty)
-                            </label>
-                            <input
-                                type="number"
-                                min="1"
-                                value={assemblyQty}
-                                onChange={(e) =>
-                                    setAssemblyQty(Number(e.target.value))
-                                }
-                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50 text-center font-mono"
-                            />
-                        </div>
-                        <div className="flex items-end">
-                            <button
-                                onClick={assembleItem}
-                                disabled={
-                                    !selectedWip ||
-                                    assemblyQty <= 0 ||
-                                    mikaStock.stock < assemblyQty
-                                }
-                                className="w-full md:w-auto h-[46px] px-6 rounded-xl bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/40 font-bold text-sm hover:bg-[#bc13fe] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                RAKIT SEKARANG{" "}
-                                <ArrowRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
+                            </div>
+                        </GlassCard>
 
-                    <AnimatePresence>
-                        {assemblyToast && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                className={`mt-4 p-3 rounded-xl text-xs font-mono text-center border ${
-                                    assemblyToast.type === "success"
-                                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                                        : "bg-red-500/10 border-red-500/30 text-red-400"
-                                }`}
-                            >
-                                {assemblyToast.msg}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </GlassCard>
+                        {/* WIDGET 4: STASIUN RAKIT MIKA */}
+                        <GlassCard
+                            delay={0.5}
+                            className="xl:col-span-3 border-t-4 border-t-[#bc13fe]"
+                        >
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Wrench className="w-5 h-5 text-[#bc13fe]" />
+                                    <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                                        🛠️ Stasiun Rakit Mika
+                                    </h2>
+                                </div>
+                                <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10">
+                                    <span className="text-[10px] font-mono text-gray-400">
+                                        STOK MIKA:
+                                    </span>
+                                    <span
+                                        className={`text-sm font-bold ${mikaStock.stock > 0 ? "text-emerald-400" : "text-red-400"}`}
+                                    >
+                                        {mikaStock.stock} PCS
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
+                                        Pilih Barang Setengah Jadi (WIP)
+                                    </label>
+                                    <select
+                                        value={selectedWip}
+                                        onChange={(e) =>
+                                            setSelectedWip(e.target.value)
+                                        }
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50"
+                                    >
+                                        {wipItems.length === 0 ? (
+                                            <option value="">
+                                                -- Tidak ada barang WIP --
+                                            </option>
+                                        ) : (
+                                            wipItems.map((wip) => (
+                                                <option
+                                                    key={wip.id}
+                                                    value={wip.id}
+                                                >
+                                                    {wip.name} (Stok:{" "}
+                                                    {wip.stock})
+                                                </option>
+                                            ))
+                                        )}
+                                    </select>
+                                </div>
+                                <div className="w-full md:w-32">
+                                    <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
+                                        Jumlah (Qty)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={assemblyQty}
+                                        onChange={(e) =>
+                                            setAssemblyQty(
+                                                Number(e.target.value)
+                                            )
+                                        }
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50 text-center font-mono"
+                                    />
+                                </div>
+                                <div className="flex items-end">
+                                    <button
+                                        onClick={assembleItem}
+                                        disabled={
+                                            !selectedWip ||
+                                            assemblyQty <= 0 ||
+                                            mikaStock.stock < assemblyQty
+                                        }
+                                        className="w-full md:w-auto h-[46px] px-6 rounded-xl bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/40 font-bold text-sm hover:bg-[#bc13fe] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        RAKIT SEKARANG{" "}
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <AnimatePresence>
+                                {assemblyToast && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className={`mt-4 p-3 rounded-xl text-xs font-mono text-center border ${
+                                            assemblyToast.type === "success"
+                                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                                : "bg-red-500/10 border-red-500/30 text-red-400"
+                                        }`}
+                                    >
+                                        {assemblyToast.msg}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </GlassCard>
+                    </>
+                )}
+
+                {/* KHUSUS PEKERJA MESIN (PCB) */}
+                {user?.role === "MESIN" && (
+                    <>
+                        {/* WIDGET: MEJA SERVIS (REWORK LOG) */}
+                        <GlassCard
+                            delay={0.4}
+                            className="xl:col-span-2 border-t-4 border-t-blue-500"
+                        >
+                            <div className="flex items-center gap-2 mb-4">
+                                <Wrench className="w-5 h-5 text-blue-400" />
+                                <h2 className="text-sm font-black tracking-widest text-white uppercase">
+                                    Meja Servis (Rework Log)
+                                </h2>
+                            </div>
+                            <p className="text-[10px] text-gray-400 font-mono mb-4">
+                                Klik tag kerusakan di bawah untuk otomatis
+                                mencatat PCB yang masuk meja servis.
+                            </p>
+
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {MESIN_REWORK_TAGS.map((tag) => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => handleMesinRework(tag)}
+                                        className="bg-blue-500/10 border border-blue-500/30 text-blue-300 px-3 py-2 rounded-xl text-xs font-bold hover:bg-blue-500 hover:text-white transition-colors"
+                                    >
+                                        +1 {tag}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <AnimatePresence>
+                                {mesinToast && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className={`p-2 rounded-lg text-xs font-mono border ${
+                                            mesinToast.type === "success"
+                                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                                : "bg-red-500/10 border-red-500/30 text-red-400"
+                                        }`}
+                                    >
+                                        {mesinToast.msg}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <div className="mt-4 border-t border-white/10 pt-4">
+                                <h3 className="text-[10px] font-mono text-gray-500 uppercase mb-2">
+                                    Riwayat Servis Anda Hari Ini
+                                </h3>
+                                <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                    {myReports.filter((r) =>
+                                        r.laporan.includes("[SERVIS MESIN]")
+                                    ).length === 0 ? (
+                                        <div className="text-[10px] text-gray-600 font-mono italic">
+                                            Belum ada PCB yang diservis.
+                                        </div>
+                                    ) : (
+                                        myReports
+                                            .filter((r) =>
+                                                r.laporan.includes(
+                                                    "[SERVIS MESIN]"
+                                                )
+                                            )
+                                            .map((report) => (
+                                                <div
+                                                    key={report.id}
+                                                    className="text-[10px] font-mono text-gray-300 flex justify-between bg-black/30 px-2 py-1.5 rounded border border-white/5"
+                                                >
+                                                    <span>
+                                                        {report.laporan.replace(
+                                                            "[SERVIS MESIN] Tindakan: ",
+                                                            ""
+                                                        )}
+                                                    </span>
+                                                    <span className="text-gray-500">
+                                                        {new Date(
+                                                            report.timestamp
+                                                        ).toLocaleTimeString(
+                                                            "id-ID",
+                                                            {
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            }
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
+                            </div>
+                        </GlassCard>
+
+                        {/* WIDGET: AI SCANNER PLACEHOLDER */}
+                        <GlassCard
+                            delay={0.5}
+                            className="xl:col-span-1 border-t-4 border-t-fuchsia-500 relative overflow-hidden flex flex-col items-center justify-center min-h-[300px]"
+                        >
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+
+                            <div className="relative z-10 flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-full bg-fuchsia-500/20 border-2 border-fuchsia-500/50 flex items-center justify-center mb-4 relative">
+                                    <div className="absolute inset-0 rounded-full border-2 border-fuchsia-500 border-t-transparent animate-spin"></div>
+                                    <Target className="w-8 h-8 text-fuchsia-400" />
+                                </div>
+                                <h3 className="text-sm font-black text-fuchsia-400 uppercase tracking-widest mb-1">
+                                    Computer Vision AI
+                                </h3>
+                                <p className="text-[10px] text-gray-400 font-mono px-4">
+                                    Modul Scanner Kamera untuk mendeteksi merk
+                                    PCB secara otomatis sedang dalam
+                                    pengembangan.
+                                </p>
+                                <button
+                                    disabled
+                                    className="mt-4 px-4 py-2 bg-fuchsia-500/20 text-fuchsia-500/50 border border-fuchsia-500/20 rounded-lg text-xs font-bold uppercase cursor-not-allowed"
+                                >
+                                    Buka Kamera (Coming Soon)
+                                </button>
+                            </div>
+                        </GlassCard>
+                    </>
+                )}
             </div>
         </div>
     );
