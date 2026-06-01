@@ -103,7 +103,7 @@ export default function ProductionBoard({ user }) {
     const [newJob, setNewJob] = useState({
         merk: "Lain-lain",
         tipe_remote: "",
-        komponen: "CASING",
+        komponen: user?.role === "MESIN" ? "MESIN" : "CASING",
         kriteria: "",
         alokasi: 1,
         supplier: "Campuran (Lama)",
@@ -231,7 +231,7 @@ export default function ProductionBoard({ user }) {
                 setNewJob({
                     merk: "Lain-lain",
                     tipe_remote: "",
-                    komponen: "CASING",
+                    komponen: user?.role === "MESIN" ? "MESIN" : "CASING",
                     kriteria: "",
                     alokasi: 1,
                     supplier: "Campuran (Lama)",
@@ -564,47 +564,53 @@ export default function ProductionBoard({ user }) {
                                     <label className="block text-xs font-bold text-gray-400 mb-2">
                                         KOMPONEN
                                     </label>
-                                    <select
-                                        value={newJob.komponen}
-                                        onChange={(e) =>
-                                            setNewJob({
-                                                ...newJob,
-                                                komponen: e.target.value,
-                                            })
-                                        }
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)]"
-                                    >
-                                        <option
-                                            className="bg-gray-900"
-                                            value="CASING"
-                                        >
-                                            CASING (Body)
-                                        </option>
-                                        <option
-                                            className="bg-gray-900"
-                                            value="TUTUP BATERAI"
-                                        >
-                                            TUTUP BATERAI
-                                        </option>
-                                        <option
-                                            className="bg-gray-900"
-                                            value="MIKA"
-                                        >
-                                            MIKA (Sensor/Layar)
-                                        </option>
-                                        <option
-                                            className="bg-gray-900"
-                                            value="MESIN"
-                                        >
+                                    {user?.role === "MESIN" ? (
+                                        <div className="w-full bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-blue-400 font-bold cursor-not-allowed">
                                             MESIN (PCB)
-                                        </option>
-                                        <option
-                                            className="bg-gray-900"
-                                            value="KARET"
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={newJob.komponen}
+                                            onChange={(e) =>
+                                                setNewJob({
+                                                    ...newJob,
+                                                    komponen: e.target.value,
+                                                })
+                                            }
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)]"
                                         >
-                                            KARET (Keypad)
-                                        </option>
-                                    </select>
+                                            <option
+                                                className="bg-gray-900"
+                                                value="CASING"
+                                            >
+                                                CASING (Body)
+                                            </option>
+                                            <option
+                                                className="bg-gray-900"
+                                                value="TUTUP BATERAI"
+                                            >
+                                                TUTUP BATERAI
+                                            </option>
+                                            <option
+                                                className="bg-gray-900"
+                                                value="MIKA"
+                                            >
+                                                MIKA (Sensor/Layar)
+                                            </option>
+                                            <option
+                                                className="bg-gray-900"
+                                                value="MESIN"
+                                            >
+                                                MESIN (PCB)
+                                            </option>
+                                            <option
+                                                className="bg-gray-900"
+                                                value="KARET"
+                                            >
+                                                KARET (Keypad)
+                                            </option>
+                                        </select>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2">
