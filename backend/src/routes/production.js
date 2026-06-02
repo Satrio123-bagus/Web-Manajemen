@@ -88,11 +88,14 @@ router.post("/jobs", (req, res) => {
         const timestamp = new Date().toISOString();
         const catatan = "Masuk Gudang Mentah";
 
+        const kriteriaStr =
+            typeof kriteria === "object" ? JSON.stringify(kriteria) : kriteria;
+
         stmts.insertProductionJob.run(
             crypto.randomUUID(),
             tipe_remote,
             komponen,
-            kriteria,
+            kriteriaStr,
             "MENTAH",
             catatan,
             Number(alokasi),

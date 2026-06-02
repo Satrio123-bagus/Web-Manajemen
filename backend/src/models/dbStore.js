@@ -338,7 +338,16 @@ const stmts = {
     upsertInventoryFromQC: {
         run: (job, totalLulus) => {
             // Merakit nama: [Komponen] [Tipe_Remote] ([Kriteria])
-            const kriteriaStr = job.kriteria ? ` (${job.kriteria})` : "";
+            let kriteriaStr = "";
+            if (job.kriteria) {
+                try {
+                    const parsed = JSON.parse(job.kriteria);
+                    const tags = Object.values(parsed).flat().filter(Boolean);
+                    if (tags.length > 0) kriteriaStr = ` (${tags.join(", ")})`;
+                } catch (e) {
+                    kriteriaStr = ` (${job.kriteria})`;
+                }
+            }
             // Contoh: "Casing A75C2656 (Baut)"
             // Memakai Capitalize Case standard
             const capitalize = (str) => {
