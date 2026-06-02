@@ -389,7 +389,8 @@ export default function ProductionBoard({ user }) {
         if (
             job.status === "RUSAK" &&
             user?.role !== "ADMIN" &&
-            user?.role !== "CASING"
+            user?.role !== "CASING" &&
+            user?.role !== "MESIN"
         )
             return false;
 
@@ -751,9 +752,22 @@ export default function ProductionBoard({ user }) {
 
                         return true;
                     }).map((col) => {
-                        const count = jobs.filter(
-                            (j) => j.status === col.id
-                        ).length;
+                        const count = jobs.filter((j) => {
+                            if (j.status !== col.id) return false;
+                            // Terapkan filter peran agar angka yang muncul hanya milik mereka sendiri
+                            if (
+                                user?.role === "CASING" &&
+                                j.komponen !== "CASING"
+                            )
+                                return false;
+                            if (
+                                user?.role === "MESIN" &&
+                                j.komponen !== "MESIN" &&
+                                j.komponen !== "LAYAR"
+                            )
+                                return false;
+                            return true;
+                        }).length;
                         return (
                             <button
                                 key={col.id}
