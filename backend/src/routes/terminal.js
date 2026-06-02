@@ -705,11 +705,9 @@ router.post("/", async (req, res) => {
 
     // Validasi panjang command — cegah token flooding ke AI API
     if (command.length > 500) {
-        return res
-            .status(400)
-            .json({
-                error: "INVALID_INPUT: Command terlalu panjang (maksimal 500 karakter).",
-            });
+        return res.status(400).json({
+            error: "INVALID_INPUT: Command terlalu panjang (maksimal 500 karakter).",
+        });
     }
 
     // Validasi sessionId dari body (jika ada) — cegah injeksi karakter aneh ke conversation log
@@ -873,7 +871,7 @@ router.post("/", async (req, res) => {
                 kriteriaStr = job.kriteria;
             }
         }
-        const key = `[${job.komponen}] ${job.tipe_remote}${kriteriaStr ? " (" + kriteriaStr + ")" : ""} — Status: ${job.status}`;
+        const key = `[${job.komponen}] ${job.merk} ${job.tipe_remote}${kriteriaStr ? " (" + kriteriaStr + ")" : ""} — Status: ${job.status}`;
         acc[key] = (acc[key] || 0) + job.alokasi;
         return acc;
     }, {});
