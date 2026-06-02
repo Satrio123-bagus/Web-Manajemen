@@ -168,7 +168,7 @@ export default function ProductionBoard({ user }) {
         },
         {
             category: "Ukuran",
-            tags: ["Kecil", "Sedang", "Besar", "Panjang", "Tutup Panjang"],
+            tags: ["Kecil", "Sedang", "Panjang", "Besar"],
         },
         {
             category: "Konstruksi",
