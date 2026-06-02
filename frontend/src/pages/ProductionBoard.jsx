@@ -619,27 +619,15 @@ export default function ProductionBoard({ user }) {
                                             </option>
                                             <option
                                                 className="bg-gray-900"
-                                                value="TUTUP BATERAI"
-                                            >
-                                                TUTUP BATERAI
-                                            </option>
-                                            <option
-                                                className="bg-gray-900"
-                                                value="MIKA"
-                                            >
-                                                MIKA (Sensor/Layar)
-                                            </option>
-                                            <option
-                                                className="bg-gray-900"
                                                 value="MESIN"
                                             >
                                                 MESIN (PCB)
                                             </option>
                                             <option
                                                 className="bg-gray-900"
-                                                value="KARET"
+                                                value="TUTUP BATERAI"
                                             >
-                                                KARET (Keypad)
+                                                TUTUP (Baterai)
                                             </option>
                                         </select>
                                     )}
