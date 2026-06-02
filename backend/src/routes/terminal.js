@@ -1,27 +1,36 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const Groq = require('groq-sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { stmts, state, insertTransaction, refreshInventory, reindexDatabase, betterSqlite } = require('../models/dbStore');
-const { CORTEX_SYSTEM_PROMPT } = require('../services/cortexPrompt');
-const { autoClassifyIfNeeded } = require('../agents/classifyAgent');
-const hermes = require('../agents/hermesClient');
-const eventEmitter = require('../services/eventEmitter');
+const Groq = require("groq-sdk");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const {
+    stmts,
+    state,
+    insertTransaction,
+    refreshInventory,
+    reindexDatabase,
+    betterSqlite,
+} = require("../models/dbStore");
+const { CORTEX_SYSTEM_PROMPT } = require("../services/cortexPrompt");
+const { autoClassifyIfNeeded } = require("../agents/classifyAgent");
+const hermes = require("../agents/hermesClient");
+const eventEmitter = require("../services/eventEmitter");
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
-const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || '';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
+const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY || "";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const PORT = process.env.PORT || 5000;
 
 // ─── SSE STREAM ENDPOINT ──────────────────────────────────────────────────
-router.get('/stream', (req, res) => {
+router.get("/stream", (req, res) => {
     // Standard Headers for Server-Sent Events
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
 
     // Send initial connection establishment packet
-    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+    res.write(
+        `data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`
+    );
 
     // Define the broadcast listener
     const onTerminalBroadcast = (data) => {
@@ -29,21 +38,20 @@ router.get('/stream', (req, res) => {
     };
 
     // Attach to global event emitter
-    eventEmitter.on('terminal_broadcast', onTerminalBroadcast);
+    eventEmitter.on("terminal_broadcast", onTerminalBroadcast);
 
     // Clean up when client closes connection
-    req.on('close', () => {
-        eventEmitter.removeListener('terminal_broadcast', onTerminalBroadcast);
+    req.on("close", () => {
+        eventEmitter.removeListener("terminal_broadcast", onTerminalBroadcast);
     });
 });
 
-
 function parseIndoNumber(val) {
     if (val === undefined || val === null) return 0;
-    if (typeof val === 'number') return val;
-    let str = String(val).replace(/[^0-9.,]/g, '');
-    str = str.replace(/\./g, '');
-    str = str.replace(/,/g, '.');
+    if (typeof val === "number") return val;
+    let str = String(val).replace(/[^0-9.,]/g, "");
+    str = str.replace(/\./g, "");
+    str = str.replace(/,/g, ".");
     return Number(str) || 0;
 }
 
@@ -55,221 +63,489 @@ function executeAction(actionJson) {
     try {
         const action = JSON.parse(actionJson);
         switch (action.type) {
-            case 'ADD': {
-                const { name, category, price, stock, rarity, bab, sub_bab, condition } = action.data || {};
-                if (!name) return '[ERROR] ADD failed: name required.';
+            case "ADD": {
+                const {
+                    name,
+                    category,
+                    price,
+                    stock,
+                    rarity,
+                    bab,
+                    sub_bab,
+                    condition,
+                } = action.data || {};
+                if (!name) return "[ERROR] ADD failed: name required.";
                 const newItemId = `item_${Date.now()}`;
                 const stockVal = Number(stock) || 0;
                 const priceVal = parseIndoNumber(price);
-                const babVal = (bab || category || 'Unsorted').trim();
-                const subBabVal = (sub_bab || 'Uncategorized').trim();
+                const babVal = (bab || category || "Unsorted").trim();
+                const subBabVal = (sub_bab || "Uncategorized").trim();
 
                 let finalPrice = priceVal;
                 let finalSubBab = subBabVal;
-                
-                const lowerName = name.toLowerCase();
-                const isSparepart = lowerName.includes('casing') || lowerName.includes('cassing') || lowerName.includes('sensor') || lowerName.includes('pcb') || lowerName.includes('mesin') || lowerName.includes('kapasitor');
 
-                if ((condition || 'READY') === 'WIP') {
+                const lowerName = name.toLowerCase();
+                const isSparepart =
+                    lowerName.includes("casing") ||
+                    lowerName.includes("cassing") ||
+                    lowerName.includes("sensor") ||
+                    lowerName.includes("pcb") ||
+                    lowerName.includes("mesin") ||
+                    lowerName.includes("kapasitor");
+
+                if ((condition || "READY") === "WIP") {
                     finalPrice = 0;
-                    finalSubBab = 'WIP';
-                } else if (finalSubBab.toLowerCase() === 'sparepart' || isSparepart) {
+                    finalSubBab = "WIP";
+                } else if (
+                    finalSubBab.toLowerCase() === "sparepart" ||
+                    isSparepart
+                ) {
                     finalPrice = 0;
-                    finalSubBab = 'Sparepart';
-                } else if (finalSubBab.toLowerCase() === 'uncategorized' || finalSubBab === '') {
-                    finalSubBab = 'Remote';
+                    finalSubBab = "Sparepart";
+                } else if (
+                    finalSubBab.toLowerCase() === "uncategorized" ||
+                    finalSubBab === ""
+                ) {
+                    finalSubBab = "Remote";
                 }
 
                 const item = {
-                    id: newItemId, name: name.trim(), category: babVal, price: finalPrice,
-                    stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
-                    bab: babVal, sub_bab: finalSubBab, condition: condition || 'READY'
+                    id: newItemId,
+                    name: name.trim(),
+                    category: babVal,
+                    price: finalPrice,
+                    stock: stockVal,
+                    rarity: rarity || "BIASA",
+                    status: stockVal < 2 ? "LOW_STOCK" : "IN_STOCK",
+                    bab: babVal,
+                    sub_bab: finalSubBab,
+                    condition: condition || "READY",
                 };
 
-                stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, 'Belum Ditentukan', item.condition);
+                stmts.insertItem.run(
+                    item.id,
+                    item.name,
+                    item.category,
+                    item.price,
+                    item.stock,
+                    item.rarity,
+                    item.status,
+                    item.bab,
+                    item.sub_bab,
+                    "Belum Ditentukan",
+                    item.condition
+                );
                 insertTransaction({
-                    transaction_id: generateTxId(), item_name: item.name, category: item.bab,
-                    unit_price: item.price, quantity: item.stock, total: 0, timestamp: new Date().toISOString(),
-                    type: 'CREATE', source: 'CORTEX_TERMINAL',
+                    transaction_id: generateTxId(),
+                    item_name: item.name,
+                    category: item.bab,
+                    unit_price: item.price,
+                    quantity: item.stock,
+                    total: 0,
+                    timestamp: new Date().toISOString(),
+                    type: "CREATE",
+                    source: "CORTEX_TERMINAL",
                 });
                 refreshInventory();
 
                 // Panggil Hermes Agent di background untuk Auto-Klasifikasi barang baru
-                autoClassifyIfNeeded(newItemId).catch(err => {
-                    console.error('[CLASSIFY] Background classify gagal:', err.message);
+                autoClassifyIfNeeded(newItemId).catch((err) => {
+                    console.error(
+                        "[CLASSIFY] Background classify gagal:",
+                        err.message
+                    );
                 });
 
-                return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.bab} / ${item.sub_bab} | Rp${item.price.toLocaleString('id-ID')} | Stok: ${item.stock}`;
+                return `[BERHASIL] Item dibuat (${item.id}): ${item.name} | ${item.bab} / ${item.sub_bab} | Rp${item.price.toLocaleString("id-ID")} | Stok: ${item.stock}`;
             }
-            case 'UPDATE': {
+            case "UPDATE": {
                 const target = action.target;
-                if (!target) return '[ERROR] UPDATE gagal: target tidak ditentukan.';
-                const existing = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!existing) return `[ERROR] UPDATE gagal: item "${target}" tidak ditemukan.`;
+                if (!target)
+                    return "[ERROR] UPDATE gagal: target tidak ditentukan.";
+                const existing = state.inventory.find((i) =>
+                    i.name.toLowerCase().includes(target.toLowerCase())
+                );
+                if (!existing)
+                    return `[ERROR] UPDATE gagal: item "${target}" tidak ditemukan.`;
                 const data = action.data || {};
                 const updated = {
-                    name: data.name !== undefined ? String(data.name).trim() : existing.name,
-                    category: data.category !== undefined ? String(data.category).trim() : existing.category,
-                    price: data.price !== undefined ? parseIndoNumber(data.price) : existing.price,
-                    stock: data.stock !== undefined ? Math.max(0, Number(data.stock)) : existing.stock,
-                    rarity: data.rarity !== undefined ? data.rarity : existing.rarity,
-                    bab: data.bab !== undefined ? String(data.bab).trim() : (data.category !== undefined ? String(data.category).trim() : existing.bab || existing.category),
-                    sub_bab: data.sub_bab !== undefined ? String(data.sub_bab).trim() : existing.sub_bab || 'Uncategorized',
+                    name:
+                        data.name !== undefined
+                            ? String(data.name).trim()
+                            : existing.name,
+                    category:
+                        data.category !== undefined
+                            ? String(data.category).trim()
+                            : existing.category,
+                    price:
+                        data.price !== undefined
+                            ? parseIndoNumber(data.price)
+                            : existing.price,
+                    stock:
+                        data.stock !== undefined
+                            ? Math.max(0, Number(data.stock))
+                            : existing.stock,
+                    rarity:
+                        data.rarity !== undefined
+                            ? data.rarity
+                            : existing.rarity,
+                    bab:
+                        data.bab !== undefined
+                            ? String(data.bab).trim()
+                            : data.category !== undefined
+                              ? String(data.category).trim()
+                              : existing.bab || existing.category,
+                    sub_bab:
+                        data.sub_bab !== undefined
+                            ? String(data.sub_bab).trim()
+                            : existing.sub_bab || "Uncategorized",
                 };
                 updated.category = updated.bab;
-                updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, existing.id, existing.location || 'Belum Ditentukan');
+                updated.status = updated.stock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                stmts.updateItem.run(
+                    updated.name,
+                    updated.category,
+                    updated.price,
+                    updated.stock,
+                    updated.rarity,
+                    updated.status,
+                    updated.bab,
+                    updated.sub_bab,
+                    existing.id,
+                    existing.location || "Belum Ditentukan"
+                );
                 insertTransaction({
-                    transaction_id: generateTxId(), item_name: updated.name, category: updated.bab,
-                    unit_price: updated.price, quantity: updated.stock, total: 0, timestamp: new Date().toISOString(),
-                    type: 'UPDATE', source: 'CORTEX_TERMINAL',
+                    transaction_id: generateTxId(),
+                    item_name: updated.name,
+                    category: updated.bab,
+                    unit_price: updated.price,
+                    quantity: updated.stock,
+                    total: 0,
+                    timestamp: new Date().toISOString(),
+                    type: "UPDATE",
+                    source: "CORTEX_TERMINAL",
                 });
                 refreshInventory();
                 return `[BERHASIL] Diperbarui (${existing.id}): ${updated.name} | Stok: ${updated.stock}`;
             }
-            case 'DELETE': {
+            case "DELETE": {
                 const target = action.target;
-                if (!target) return '[ERROR] DELETE gagal: target tidak ditentukan.';
-                const existing = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()));
-                if (!existing) return `[ERROR] DELETE gagal: item "${target}" tidak ditemukan.`;
+                if (!target)
+                    return "[ERROR] DELETE gagal: target tidak ditentukan.";
+                const existing = state.inventory.find((i) =>
+                    i.name.toLowerCase().includes(target.toLowerCase())
+                );
+                if (!existing)
+                    return `[ERROR] DELETE gagal: item "${target}" tidak ditemukan.`;
                 stmts.deleteItem.run(existing.id);
                 insertTransaction({
-                    transaction_id: generateTxId(), item_name: existing.name, category: existing.category,
-                    unit_price: existing.price, quantity: existing.stock, total: 0, timestamp: new Date().toISOString(),
-                    type: 'DELETE', source: 'CORTEX_TERMINAL',
+                    transaction_id: generateTxId(),
+                    item_name: existing.name,
+                    category: existing.category,
+                    unit_price: existing.price,
+                    quantity: existing.stock,
+                    total: 0,
+                    timestamp: new Date().toISOString(),
+                    type: "DELETE",
+                    source: "CORTEX_TERMINAL",
                 });
                 refreshInventory();
                 return `[BERHASIL] Dihapus: ${existing.name} (ID: ${existing.id}) dihapus dari inventori.`;
             }
-            case 'SELL': {
+            case "SELL": {
                 const target = action.target;
                 const qty = Number(action.quantity) || 1;
-                if (!target) return '[ERROR] JUAL gagal: target tidak ditentukan.';
-                const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
-                if (!item) return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
-                if (item.condition === 'WIP') return `[ERROR] JUAL DITOLAK: ${item.name} masih berstatus WIP (Belum Selesai / Perlu Servis). Selesaikan QC terlebih dahulu!`;
-                if (item.stock < qty) return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
+                if (!target)
+                    return "[ERROR] JUAL gagal: target tidak ditentukan.";
+                const item = state.inventory.find(
+                    (i) =>
+                        i.name.toLowerCase().includes(target.toLowerCase()) ||
+                        i.id.toLowerCase() === target.toLowerCase()
+                );
+                if (!item)
+                    return `[ERROR] JUAL gagal: item "${target}" tidak ditemukan.`;
+                if (item.condition === "WIP")
+                    return `[ERROR] JUAL DITOLAK: ${item.name} masih berstatus WIP (Belum Selesai / Perlu Servis). Selesaikan QC terlebih dahulu!`;
+                if (item.stock < qty)
+                    return `[ERROR] STOK_KURANG: ${item.name} hanya punya ${item.stock} unit, tidak bisa jual ${qty}.`;
                 const newStock = item.stock - qty;
-                const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id, item.location || 'Belum Ditentukan');
+                const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                stmts.updateItem.run(
+                    item.name,
+                    item.category,
+                    item.price,
+                    newStock,
+                    item.rarity,
+                    newStatus,
+                    item.bab || "Uncategorized",
+                    item.sub_bab || "Uncategorized",
+                    item.id,
+                    item.location || "Belum Ditentukan"
+                );
                 const saleTx = {
-                    transaction_id: generateTxId(), item_name: item.name, category: item.category,
-                    unit_price: item.price, quantity: qty, total: item.price * qty, timestamp: new Date().toISOString(),
-                    type: 'SALE', source: 'CORTEX_TERMINAL',
+                    transaction_id: generateTxId(),
+                    item_name: item.name,
+                    category: item.category,
+                    unit_price: item.price,
+                    quantity: qty,
+                    total: item.price * qty,
+                    timestamp: new Date().toISOString(),
+                    type: "SALE",
+                    source: "CORTEX_TERMINAL",
                 };
                 insertTransaction(saleTx);
                 refreshInventory();
-                return `[JUAL] ${item.name} ×${qty} terjual | Pendapatan: Rp${saleTx.total.toLocaleString('id-ID')} | Sisa: ${newStock} unit`;
+                return `[JUAL] ${item.name} ×${qty} terjual | Pendapatan: Rp${saleTx.total.toLocaleString("id-ID")} | Sisa: ${newStock} unit`;
             }
-            case 'RESTOCK': {
+            case "RESTOCK": {
                 const target = action.target;
                 const qty = Number(action.quantity) || 1;
-                if (!target) return '[ERROR] RESTOCK gagal: target tidak ditentukan.';
-                const item = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
+                if (!target)
+                    return "[ERROR] RESTOCK gagal: target tidak ditentukan.";
+                const item = state.inventory.find(
+                    (i) =>
+                        i.name.toLowerCase().includes(target.toLowerCase()) ||
+                        i.id.toLowerCase() === target.toLowerCase()
+                );
                 if (!item) {
                     // AUTO-FALLBACK: Jika CORTEX (LLM) salah mengeluarkan perintah RESTOCK untuk item yang
                     // sebenarnya belum ada, jangan ditolak. Langsung konversi menjadi proses BUAT BARANG BARU (ADD).
                     const newItemId = `item_${Date.now()}`;
                     const newItemName = target.trim();
                     const newStock = qty;
-                    const newCategory = 'Unsorted';
-                    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                    
-                    stmts.insertItem.run(newItemId, newItemName, newCategory, 0, newStock, 'BIASA', newStatus, newCategory, 'Uncategorized', 'Belum Ditentukan');
+                    const newCategory = "Unsorted";
+                    const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+
+                    stmts.insertItem.run(
+                        newItemId,
+                        newItemName,
+                        newCategory,
+                        0,
+                        newStock,
+                        "BIASA",
+                        newStatus,
+                        newCategory,
+                        "Uncategorized",
+                        "Belum Ditentukan"
+                    );
                     insertTransaction({
-                        transaction_id: generateTxId(), item_name: newItemName, category: newCategory,
-                        unit_price: 0, quantity: newStock, total: 0, timestamp: new Date().toISOString(),
-                        type: 'CREATE', source: 'CORTEX_AUTO_FALLBACK',
+                        transaction_id: generateTxId(),
+                        item_name: newItemName,
+                        category: newCategory,
+                        unit_price: 0,
+                        quantity: newStock,
+                        total: 0,
+                        timestamp: new Date().toISOString(),
+                        type: "CREATE",
+                        source: "CORTEX_AUTO_FALLBACK",
                     });
                     refreshInventory();
-                    
+
                     // Panggil Hermes Agent di background untuk Auto-Klasifikasi barang baru
-                    autoClassifyIfNeeded(newItemId).catch(err => {
-                        console.error('[CLASSIFY] Background classify gagal:', err.message);
+                    autoClassifyIfNeeded(newItemId).catch((err) => {
+                        console.error(
+                            "[CLASSIFY] Background classify gagal:",
+                            err.message
+                        );
                     });
-                    
+
                     return `[AUTO-CREATE] Barang baru terdeteksi dari perintah restock. Otomatis dibuat (${newItemId}): ${newItemName} | Stok: ${newStock}`;
                 }
-                
+
                 const newStock = item.stock + qty;
-                const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id, item.location || 'Belum Ditentukan');
+                const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                stmts.updateItem.run(
+                    item.name,
+                    item.category,
+                    item.price,
+                    newStock,
+                    item.rarity,
+                    newStatus,
+                    item.bab || "Uncategorized",
+                    item.sub_bab || "Uncategorized",
+                    item.id,
+                    item.location || "Belum Ditentukan"
+                );
                 const restockTx = {
-                    transaction_id: generateTxId(), item_name: item.name, category: item.category,
-                    unit_price: item.price, quantity: qty, total: item.price * qty, timestamp: new Date().toISOString(),
-                    type: 'RESTOCK', source: 'CORTEX_TERMINAL',
+                    transaction_id: generateTxId(),
+                    item_name: item.name,
+                    category: item.category,
+                    unit_price: item.price,
+                    quantity: qty,
+                    total: item.price * qty,
+                    timestamp: new Date().toISOString(),
+                    type: "RESTOCK",
+                    source: "CORTEX_TERMINAL",
                 };
                 insertTransaction(restockTx);
                 refreshInventory();
                 return `[RESTOCK] ${item.name} +${qty} unit diterima | Stok Baru: ${newStock} unit`;
             }
-            case 'EDIT': {
+            case "EDIT": {
                 const target = action.target;
-                if (!target) return '[ERROR] EDIT gagal: target tidak ditentukan.';
-                const existing = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
-                if (!existing) return `[ERROR] EDIT gagal: item "${target}" tidak ditemukan.`;
+                if (!target)
+                    return "[ERROR] EDIT gagal: target tidak ditentukan.";
+                const existing = state.inventory.find(
+                    (i) =>
+                        i.name.toLowerCase().includes(target.toLowerCase()) ||
+                        i.id.toLowerCase() === target.toLowerCase()
+                );
+                if (!existing)
+                    return `[ERROR] EDIT gagal: item "${target}" tidak ditemukan.`;
                 const oldName = existing.name;
                 const edited = {
-                    name: action.new_name ? String(action.new_name).trim() : existing.name,
-                    category: action.new_category ? String(action.new_category).trim() : existing.category,
-                    price: action.new_price !== undefined && action.new_price !== null ? parseIndoNumber(action.new_price) : existing.price,
-                    stock: action.new_stock !== undefined && action.new_stock !== null ? Math.max(0, Number(action.new_stock)) : existing.stock,
-                    rarity: action.new_rarity ? action.new_rarity : existing.rarity,
-                    bab: action.new_bab ? String(action.new_bab).trim() : (action.new_category ? String(action.new_category).trim() : existing.bab || existing.category),
-                    sub_bab: action.new_sub_bab ? String(action.new_sub_bab).trim() : existing.sub_bab || 'Uncategorized',
-                    location: action.new_location ? String(action.new_location).trim() : existing.location || 'Belum Ditentukan',
-                    condition: action.new_condition ? String(action.new_condition).trim() : existing.condition || 'READY',
+                    name: action.new_name
+                        ? String(action.new_name).trim()
+                        : existing.name,
+                    category: action.new_category
+                        ? String(action.new_category).trim()
+                        : existing.category,
+                    price:
+                        action.new_price !== undefined &&
+                        action.new_price !== null
+                            ? parseIndoNumber(action.new_price)
+                            : existing.price,
+                    stock:
+                        action.new_stock !== undefined &&
+                        action.new_stock !== null
+                            ? Math.max(0, Number(action.new_stock))
+                            : existing.stock,
+                    rarity: action.new_rarity
+                        ? action.new_rarity
+                        : existing.rarity,
+                    bab: action.new_bab
+                        ? String(action.new_bab).trim()
+                        : action.new_category
+                          ? String(action.new_category).trim()
+                          : existing.bab || existing.category,
+                    sub_bab: action.new_sub_bab
+                        ? String(action.new_sub_bab).trim()
+                        : existing.sub_bab || "Uncategorized",
+                    location: action.new_location
+                        ? String(action.new_location).trim()
+                        : existing.location || "Belum Ditentukan",
+                    condition: action.new_condition
+                        ? String(action.new_condition).trim()
+                        : existing.condition || "READY",
                 };
-                
-                if (edited.condition === 'WIP') {
+
+                if (edited.condition === "WIP") {
                     edited.price = 0;
-                    edited.sub_bab = 'WIP';
+                    edited.sub_bab = "WIP";
                 } else {
                     const lowerEditName = edited.name.toLowerCase();
-                    const isEditSparepart = lowerEditName.includes('casing') || lowerEditName.includes('cassing') || lowerEditName.includes('sensor') || lowerEditName.includes('pcb') || lowerEditName.includes('mesin') || lowerEditName.includes('kapasitor');
-                    
-                    if (edited.sub_bab.toLowerCase() === 'sparepart' || isEditSparepart) {
+                    const isEditSparepart =
+                        lowerEditName.includes("casing") ||
+                        lowerEditName.includes("cassing") ||
+                        lowerEditName.includes("sensor") ||
+                        lowerEditName.includes("pcb") ||
+                        lowerEditName.includes("mesin") ||
+                        lowerEditName.includes("kapasitor");
+
+                    if (
+                        edited.sub_bab.toLowerCase() === "sparepart" ||
+                        isEditSparepart
+                    ) {
                         edited.price = 0;
-                        edited.sub_bab = 'Sparepart';
-                    } else if (edited.sub_bab.toLowerCase() === 'uncategorized' || edited.sub_bab === '') {
-                        edited.sub_bab = 'Remote';
+                        edited.sub_bab = "Sparepart";
+                    } else if (
+                        edited.sub_bab.toLowerCase() === "uncategorized" ||
+                        edited.sub_bab === ""
+                    ) {
+                        edited.sub_bab = "Remote";
                     }
                 }
-                
+
                 edited.category = edited.bab;
-                edited.status = edited.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                stmts.updateItem.run(edited.name, edited.category, edited.price, edited.stock, edited.rarity, edited.status, edited.bab, edited.sub_bab, existing.id, edited.location, edited.condition);
+                edited.status = edited.stock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                stmts.updateItem.run(
+                    edited.name,
+                    edited.category,
+                    edited.price,
+                    edited.stock,
+                    edited.rarity,
+                    edited.status,
+                    edited.bab,
+                    edited.sub_bab,
+                    existing.id,
+                    edited.location,
+                    edited.condition
+                );
                 insertTransaction({
-                    transaction_id: generateTxId(), item_name: edited.name, category: edited.bab,
-                    unit_price: edited.price, quantity: edited.stock, total: 0, timestamp: new Date().toISOString(),
-                    type: 'UPDATE', source: 'CORTEX_TERMINAL',
+                    transaction_id: generateTxId(),
+                    item_name: edited.name,
+                    category: edited.bab,
+                    unit_price: edited.price,
+                    quantity: edited.stock,
+                    total: 0,
+                    timestamp: new Date().toISOString(),
+                    type: "UPDATE",
+                    source: "CORTEX_TERMINAL",
                 });
                 refreshInventory();
                 const changes = [];
-                if (edited.name !== oldName) changes.push(`Nama: ${oldName} → ${edited.name}`);
-                if (edited.stock !== existing.stock) changes.push(`Stok: ${existing.stock} → ${edited.stock}`);
-                if (edited.price !== existing.price) changes.push(`Harga: Rp${existing.price.toLocaleString('id-ID')} → Rp${edited.price.toLocaleString('id-ID')}`);
-                if (edited.category !== existing.category) changes.push(`Kategori: ${existing.category} → ${edited.category}`);
-                if (edited.rarity !== existing.rarity) changes.push(`Raritas: ${existing.rarity} → ${edited.rarity}`);
-                if (edited.location !== (existing.location || 'Belum Ditentukan')) changes.push(`Lokasi: ${existing.location || 'Belum Ditentukan'} → ${edited.location}`);
-                if (edited.condition !== (existing.condition || 'READY')) changes.push(`Kondisi: ${existing.condition || 'READY'} → ${edited.condition}`);
-                return `[EDITED] ${existing.id} | ${changes.join(' | ')}`;
+                if (edited.name !== oldName)
+                    changes.push(`Nama: ${oldName} → ${edited.name}`);
+                if (edited.stock !== existing.stock)
+                    changes.push(`Stok: ${existing.stock} → ${edited.stock}`);
+                if (edited.price !== existing.price)
+                    changes.push(
+                        `Harga: Rp${existing.price.toLocaleString("id-ID")} → Rp${edited.price.toLocaleString("id-ID")}`
+                    );
+                if (edited.category !== existing.category)
+                    changes.push(
+                        `Kategori: ${existing.category} → ${edited.category}`
+                    );
+                if (edited.rarity !== existing.rarity)
+                    changes.push(
+                        `Raritas: ${existing.rarity} → ${edited.rarity}`
+                    );
+                if (
+                    edited.location !==
+                    (existing.location || "Belum Ditentukan")
+                )
+                    changes.push(
+                        `Lokasi: ${existing.location || "Belum Ditentukan"} → ${edited.location}`
+                    );
+                if (edited.condition !== (existing.condition || "READY"))
+                    changes.push(
+                        `Kondisi: ${existing.condition || "READY"} → ${edited.condition}`
+                    );
+                return `[EDITED] ${existing.id} | ${changes.join(" | ")}`;
             }
-            case 'ASSEMBLE': {
+            case "ASSEMBLE": {
                 const { target, quantity, materials } = action;
-                if (!target || !quantity || !materials || !Array.isArray(materials)) {
-                    return '[ERROR] ASSEMBLE gagal: Format payload tidak valid.';
+                if (
+                    !target ||
+                    !quantity ||
+                    !materials ||
+                    !Array.isArray(materials)
+                ) {
+                    return "[ERROR] ASSEMBLE gagal: Format payload tidak valid.";
                 }
-                
-                const targetItem = state.inventory.find(i => i.name.toLowerCase().includes(target.toLowerCase()) || i.id.toLowerCase() === target.toLowerCase());
-                if (!targetItem) return `[ERROR] ASSEMBLE gagal: Barang target "${target}" tidak ditemukan.`;
+
+                const targetItem = state.inventory.find(
+                    (i) =>
+                        i.name.toLowerCase().includes(target.toLowerCase()) ||
+                        i.id.toLowerCase() === target.toLowerCase()
+                );
+                if (!targetItem)
+                    return `[ERROR] ASSEMBLE gagal: Barang target "${target}" tidak ditemukan.`;
 
                 // Prepare and validate materials
                 const materialItems = [];
                 for (const mat of materials) {
-                    const item = state.inventory.find(i => i.name.toLowerCase().includes(mat.name.toLowerCase()) || i.id.toLowerCase() === mat.name.toLowerCase());
-                    if (!item) return `[ERROR] ASSEMBLE gagal: Bahan baku "${mat.name}" tidak ditemukan.`;
-                    if (item.stock < mat.qty) return `[ERROR] STOK_KURANG: Stok ${item.name} hanya sisa ${item.stock}, tidak cukup untuk dirakit.`;
+                    const item = state.inventory.find(
+                        (i) =>
+                            i.name
+                                .toLowerCase()
+                                .includes(mat.name.toLowerCase()) ||
+                            i.id.toLowerCase() === mat.name.toLowerCase()
+                    );
+                    if (!item)
+                        return `[ERROR] ASSEMBLE gagal: Bahan baku "${mat.name}" tidak ditemukan.`;
+                    if (item.stock < mat.qty)
+                        return `[ERROR] STOK_KURANG: Stok ${item.name} hanya sisa ${item.stock}, tidak cukup untuk dirakit.`;
                     materialItems.push({ item, qty: mat.qty });
                 }
 
@@ -280,29 +556,65 @@ function executeAction(actionJson) {
                     // 1. Kurangi stok bahan
                     for (const { item, qty } of materialItems) {
                         const newStock = item.stock - qty;
-                        const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                        stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab, item.sub_bab, item.id, item.location || 'Belum Ditentukan');
-                        
+                        const newStatus =
+                            newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                        stmts.updateItem.run(
+                            item.name,
+                            item.category,
+                            item.price,
+                            newStock,
+                            item.rarity,
+                            newStatus,
+                            item.bab,
+                            item.sub_bab,
+                            item.id,
+                            item.location || "Belum Ditentukan"
+                        );
+
                         insertTransaction({
-                            transaction_id: generateTxId(), item_name: item.name, category: item.category,
-                            unit_price: item.price, quantity: -qty, total: 0,
-                            timestamp: ts, type: 'ASSEMBLY_OUT', source: 'CORTEX_TERMINAL'
+                            transaction_id: generateTxId(),
+                            item_name: item.name,
+                            category: item.category,
+                            unit_price: item.price,
+                            quantity: -qty,
+                            total: 0,
+                            timestamp: ts,
+                            type: "ASSEMBLY_OUT",
+                            source: "CORTEX_TERMINAL",
                         });
                         sourceNames.push(`${qty}x ${item.name}`);
                     }
 
                     // 2. Tambah stok hasil rakitan
                     const newTargetStock = targetItem.stock + Number(quantity);
-                    const newTargetStatus = newTargetStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                    stmts.updateItem.run(targetItem.name, targetItem.category, targetItem.price, newTargetStock, targetItem.rarity, newTargetStatus, targetItem.bab, targetItem.sub_bab, targetItem.id, targetItem.location || 'Belum Ditentukan');
+                    const newTargetStatus =
+                        newTargetStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                    stmts.updateItem.run(
+                        targetItem.name,
+                        targetItem.category,
+                        targetItem.price,
+                        newTargetStock,
+                        targetItem.rarity,
+                        newTargetStatus,
+                        targetItem.bab,
+                        targetItem.sub_bab,
+                        targetItem.id,
+                        targetItem.location || "Belum Ditentukan"
+                    );
 
                     insertTransaction({
-                        transaction_id: generateTxId(), item_name: targetItem.name, category: targetItem.category,
-                        unit_price: targetItem.price, quantity: Number(quantity), total: 0,
-                        timestamp: ts, type: 'ASSEMBLY_IN', source: 'CORTEX_TERMINAL'
+                        transaction_id: generateTxId(),
+                        item_name: targetItem.name,
+                        category: targetItem.category,
+                        unit_price: targetItem.price,
+                        quantity: Number(quantity),
+                        total: 0,
+                        timestamp: ts,
+                        type: "ASSEMBLY_IN",
+                        source: "CORTEX_TERMINAL",
                     });
-                    
-                    return sourceNames.join(', ');
+
+                    return sourceNames.join(", ");
                 });
 
                 try {
@@ -313,94 +625,147 @@ function executeAction(actionJson) {
                     return `[ERROR] ASSEMBLE gagal: ${err.message}`;
                 }
             }
-            case 'ROLLBACK': {
+            case "ROLLBACK": {
                 const lastTx = stmts.getLastTransaction.get();
-                if (!lastTx) return '[ERROR] Tidak ada transaksi untuk dibatalkan.';
+                if (!lastTx)
+                    return "[ERROR] Tidak ada transaksi untuk dibatalkan.";
 
-                const item = state.inventory.find(i => i.name === lastTx.item_name);
+                const item = state.inventory.find(
+                    (i) => i.name === lastTx.item_name
+                );
 
-                if (lastTx.type === 'SALE') {
-                    if (!item) return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
+                if (lastTx.type === "SALE") {
+                    if (!item)
+                        return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
                     const newStock = item.stock + lastTx.quantity;
-                    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id, item.location || 'Belum Ditentukan');
+                    const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                    stmts.updateItem.run(
+                        item.name,
+                        item.category,
+                        item.price,
+                        newStock,
+                        item.rarity,
+                        newStatus,
+                        item.bab || "Uncategorized",
+                        item.sub_bab || "Uncategorized",
+                        item.id,
+                        item.location || "Belum Ditentukan"
+                    );
                     stmts.deleteTx.run(lastTx.transaction_id);
                     refreshInventory();
                     return `[BATAL] Penjualan terakhir dibatalkan. Stok ${item.name} dikembalikan +${lastTx.quantity} (Stok: ${newStock}).`;
-                } else if (lastTx.type === 'RESTOCK') {
-                    if (!item) return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
+                } else if (lastTx.type === "RESTOCK") {
+                    if (!item)
+                        return `[ERROR] Batal gagal: Item "${lastTx.item_name}" tidak ditemukan.`;
                     const newStock = Math.max(0, item.stock - lastTx.quantity);
-                    const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-                    stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab || 'Uncategorized', item.sub_bab || 'Uncategorized', item.id, item.location || 'Belum Ditentukan');
+                    const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+                    stmts.updateItem.run(
+                        item.name,
+                        item.category,
+                        item.price,
+                        newStock,
+                        item.rarity,
+                        newStatus,
+                        item.bab || "Uncategorized",
+                        item.sub_bab || "Uncategorized",
+                        item.id,
+                        item.location || "Belum Ditentukan"
+                    );
                     stmts.deleteTx.run(lastTx.transaction_id);
                     refreshInventory();
                     return `[BATAL] Restock terakhir dibatalkan. Stok ${item.name} dikurangi -${lastTx.quantity} (Stok: ${newStock}).`;
-                } else if (lastTx.type === 'CREATE') {
+                } else if (lastTx.type === "CREATE") {
                     if (item) stmts.deleteItem.run(item.id);
                     stmts.deleteTx.run(lastTx.transaction_id);
                     refreshInventory();
                     return `[BATAL] Pembuatan item baru dibatalkan. Item "${lastTx.item_name}" telah dihapus.`;
-                } else if (lastTx.type === 'DELETE') {
+                } else if (lastTx.type === "DELETE") {
                     return `[BATAL GAGAL] Tidak dapat otomatis membatalkan penghapusan data. Harap buat ulang secara manual: ${lastTx.item_name}`;
-                } else if (lastTx.type === 'UPDATE') {
+                } else if (lastTx.type === "UPDATE") {
                     return `[BATAL GAGAL] Tidak dapat otomatis membatalkan proses EDIT (data lama tertimpa). Harap edit kembali secara manual.`;
                 } else {
                     return `[BATAL GAGAL] Tipe aksi "${lastTx.type}" tidak didukung untuk dibatalkan otomatis.`;
                 }
             }
-            default: return `[ERROR] Tipe aksi tidak dikenal: ${action.type}`;
+            default:
+                return `[ERROR] Tipe aksi tidak dikenal: ${action.type}`;
         }
     } catch (e) {
         return `[ERROR] Gagal memproses aksi: ${e.message}`;
     }
 }
 
-router.post('/', async (req, res) => {
-    const { command } = req.body;  // sessionId dibaca dari header (baris bawah), bukan body
-    if (!command || typeof command !== 'string') {
-        return res.status(400).json({ error: 'INVALID_INPUT: command string required' });
+router.post("/", async (req, res) => {
+    const { command } = req.body; // sessionId dibaca dari header (baris bawah), bukan body
+    if (!command || typeof command !== "string") {
+        return res
+            .status(400)
+            .json({ error: "INVALID_INPUT: command string required" });
     }
 
     // Validasi panjang command — cegah token flooding ke AI API
     if (command.length > 500) {
-        return res.status(400).json({ error: 'INVALID_INPUT: Command terlalu panjang (maksimal 500 karakter).' });
+        return res
+            .status(400)
+            .json({
+                error: "INVALID_INPUT: Command terlalu panjang (maksimal 500 karakter).",
+            });
     }
 
     // Validasi sessionId dari body (jika ada) — cegah injeksi karakter aneh ke conversation log
     // Catatan: sessionId resmi diambil dari header x-session-id (lihat baris di bawah)
     const bodySessionId = req.body.sessionId;
-    if (bodySessionId && (typeof bodySessionId !== 'string' || bodySessionId.length > 64 || /[^a-zA-Z0-9_\-]/.test(bodySessionId))) {
-        return res.status(400).json({ error: 'INVALID_INPUT: sessionId tidak valid.' });
+    if (
+        bodySessionId &&
+        (typeof bodySessionId !== "string" ||
+            bodySessionId.length > 64 ||
+            /[^a-zA-Z0-9_\-]/.test(bodySessionId))
+    ) {
+        return res
+            .status(400)
+            .json({ error: "INVALID_INPUT: sessionId tidak valid." });
     }
 
     // Sanitasi: hapus null bytes dan karakter kontrol berbahaya (kecuali newline/tab)
-    const cmd = command.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
-    if (!cmd) return res.status(400).json({ error: 'INVALID_INPUT: Command kosong setelah sanitasi.' });
+    const cmd = command.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim();
+    if (!cmd)
+        return res
+            .status(400)
+            .json({ error: "INVALID_INPUT: Command kosong setelah sanitasi." });
 
     const ts = new Date().toISOString();
     const cmdLower = cmd.toLowerCase();
 
-    if (cmdLower === 'clear') {
-        return res.json({ timestamp: ts, command: cmd, output: ['[SYSTEM] Terminal cleared.'] });
+    if (cmdLower === "clear") {
+        return res.json({
+            timestamp: ts,
+            command: cmd,
+            output: ["[SYSTEM] Terminal cleared."],
+        });
     }
 
-    if (cmdLower === 'system reindex') {
+    if (cmdLower === "system reindex") {
         try {
             reindexDatabase();
             refreshInventory();
             return res.json({
-                timestamp: ts, command: cmd,
+                timestamp: ts,
+                command: cmd,
                 output: [
-                    '[SYSTEM] Database re-indexing protocol initiated.',
+                    "[SYSTEM] Database re-indexing protocol initiated.",
                     `[SUCCESS] ${state.inventory.length} records alphabetized and re-indexed.`,
-                    '[CORTEX] All item IDs have been reset to sequential order.'
-                ]
+                    "[CORTEX] All item IDs have been reset to sequential order.",
+                ],
             });
         } catch (err) {
-            console.error('[REINDEX ERROR]', err.message);
+            console.error("[REINDEX ERROR]", err.message);
             return res.json({
-                timestamp: ts, command: cmd,
-                output: ['[SYSTEM_FAILURE] Re-indexing failed.', `[DIAG] ${err.message}`]
+                timestamp: ts,
+                command: cmd,
+                output: [
+                    "[SYSTEM_FAILURE] Re-indexing failed.",
+                    `[DIAG] ${err.message}`,
+                ],
             });
         }
     }
@@ -408,54 +773,113 @@ router.post('/', async (req, res) => {
     const topSellers = stmts.getTopSellers.all();
     const revenueStats = stmts.getRevenueTotal.get();
     const recentTxData = stmts.getAllTx.all().slice(0, 5);
-    const sessionId = req.headers['x-session-id'] || 'default';
+    const sessionId = req.headers["x-session-id"] || "default";
     const conversationHistory = stmts.getConversation.all(sessionId).reverse();
 
     const uptimeSec = Math.floor((Date.now() - state.BOOT_TIME) / 1000);
     const h = Math.floor(uptimeSec / 3600);
     const m = Math.floor((uptimeSec % 3600) / 60);
     const s = uptimeSec % 60;
-    const totalValue = state.inventory.reduce((sum, i) => sum + i.price * i.stock, 0);
-    const lowStock = state.inventory.filter(i => i.stock < 2);
+    const totalValue = state.inventory.reduce(
+        (sum, i) => sum + i.price * i.stock,
+        0
+    );
+    const lowStock = state.inventory.filter((i) => i.stock < 2);
 
     // --- SMART CONTEXT INJECTION (KEYWORD FILTER WITH SCORING) ---
-    const stopWords = ['dimana', 'letak', 'ada', 'tolong', 'cek', 'stok', 'berapa', 'jual', 'tambah', 'hapus', 'ubah', 'jadi', 'ke', 'di', 'dari', 'buat', 'bikin', 'rakit', 'untuk'];
-    const words = cmd.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
-    
+    const stopWords = [
+        "dimana",
+        "letak",
+        "ada",
+        "tolong",
+        "cek",
+        "stok",
+        "berapa",
+        "jual",
+        "tambah",
+        "hapus",
+        "ubah",
+        "jadi",
+        "ke",
+        "di",
+        "dari",
+        "buat",
+        "bikin",
+        "rakit",
+        "untuk",
+    ];
+    const words = cmd
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !stopWords.includes(w));
+
     let relevantItems = [];
     if (words.length > 0) {
-        const scoredItems = state.inventory.map(item => {
-            const searchStr = `${item.name} ${item.category} ${item.bab} ${item.sub_bab} ${item.id}`.toLowerCase();
-            let score = 0;
-            // Exact alphanumeric code match gives massive bonus
-            words.forEach(w => {
-                if (searchStr.includes(w)) {
-                    score += 1;
-                    // Give extra weight to numbers/codes to prioritize specific model searches
-                    if (/\d/.test(w)) score += 5; 
-                }
-            });
-            return { item, score };
-        }).filter(obj => obj.score > 0);
-        
+        const scoredItems = state.inventory
+            .map((item) => {
+                const searchStr =
+                    `${item.name} ${item.category} ${item.bab} ${item.sub_bab} ${item.id}`.toLowerCase();
+                let score = 0;
+                // Exact alphanumeric code match gives massive bonus
+                words.forEach((w) => {
+                    if (searchStr.includes(w)) {
+                        score += 1;
+                        // Give extra weight to numbers/codes to prioritize specific model searches
+                        if (/\d/.test(w)) score += 5;
+                    }
+                });
+                return { item, score };
+            })
+            .filter((obj) => obj.score > 0);
+
         // Sort by highest score first
         scoredItems.sort((a, b) => b.score - a.score);
-        relevantItems = scoredItems.map(obj => obj.item);
+        relevantItems = scoredItems.map((obj) => obj.item);
     }
-    
+
     // Always include low stock items for alerts, and limit total context size
-    let combinedItems = [...new Map([...relevantItems, ...lowStock].map(item => [item.id, item])).values()];
-    
+    let combinedItems = [
+        ...new Map(
+            [...relevantItems, ...lowStock].map((item) => [item.id, item])
+        ).values(),
+    ];
+
     // If command doesn't match anything specific, just provide a general sample
     if (combinedItems.length === 0 || relevantItems.length === 0) {
-         const general = state.inventory.slice(0, 10);
-         combinedItems = [...new Map([...lowStock, ...general].map(item => [item.id, item])).values()];
+        const general = state.inventory.slice(0, 10);
+        combinedItems = [
+            ...new Map(
+                [...lowStock, ...general].map((item) => [item.id, item])
+            ).values(),
+        ];
     }
-    
+
     // Hard cap to prevent token explosion (optimized: 25 is enough for context)
     if (combinedItems.length > 25) {
         combinedItems = combinedItems.slice(0, 25);
     }
+
+    const productionJobs = stmts.getProductionJobs.all();
+    const jobSummary = productionJobs.reduce((acc, job) => {
+        let kriteriaStr = "";
+        if (job.kriteria) {
+            try {
+                const parsed =
+                    typeof job.kriteria === "string"
+                        ? JSON.parse(job.kriteria)
+                        : job.kriteria;
+                kriteriaStr = Object.values(parsed).flat().join(", ");
+            } catch (e) {
+                kriteriaStr = job.kriteria;
+            }
+        }
+        const key = `[${job.komponen}] ${job.tipe_remote}${kriteriaStr ? " (" + kriteriaStr + ")" : ""} — Status: ${job.status}`;
+        acc[key] = (acc[key] || 0) + job.alokasi;
+        return acc;
+    }, {});
+    const jobContextLines = Object.entries(jobSummary)
+        .map(([key, count]) => `  - ${key} = ${count} pcs`)
+        .join("\n");
 
     const inventoryContext = `
 LIVE SYSTEM CONTEXT:
@@ -464,151 +888,238 @@ LIVE SYSTEM CONTEXT:
 - Uptime: ${h}h ${m}m ${s}s
 - Port: ${PORT}
 - Total Items (in DB): ${state.inventory.length}
-- Total Stock Value: Rp${totalValue.toLocaleString('id-ID')}
+- Total Stock Value: Rp${totalValue.toLocaleString("id-ID")}
 - Low Stock Alerts: ${lowStock.length} items
-- QC/WIP Items: ${state.inventory.filter(i => i.condition === 'WIP').length} items
-- Bab (Main Categories): ${[...new Set(state.inventory.map(i => i.bab || i.category))].join(', ')}
+- QC/WIP Items: ${state.inventory.filter((i) => i.condition === "WIP").length} items
+- Bab (Main Categories): ${[...new Set(state.inventory.map((i) => i.bab || i.category))].join(", ")}
 
 RELEVANT ITEMS (Filtered Context, Max 25):
-${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || 'N/A'} | Lokasi: ${item.location || 'Belum Ditentukan'} | Price: Rp${item.price.toLocaleString('id-ID')} | Stock: ${item.stock} | Kondisi: ${item.condition || 'READY'} ${item.condition === 'WIP' ? '[WARN: QC WIP]' : ''} ${item.stock < 2 ? '[WARN: LOW STOCK]' : ''}`).join('\n')}
+${combinedItems.map((item, i) => `  ${i + 1}. [${item.id}] ${item.name} | Bab: ${item.bab || item.category} | Sub-bab: ${item.sub_bab || "N/A"} | Lokasi: ${item.location || "Belum Ditentukan"} | Price: Rp${item.price.toLocaleString("id-ID")} | Stock: ${item.stock} | Kondisi: ${item.condition || "READY"} ${item.condition === "WIP" ? "[WARN: QC WIP]" : ""} ${item.stock < 2 ? "[WARN: LOW STOCK]" : ""}`).join("\n")}
+
+PRODUCTION BOARD (KARUNG MENTAH/WIP):
+${jobContextLines || "  No active production jobs."}
 
 ANALYTICS DATA:
-- Total Revenue: Rp${revenueStats.revenue.toLocaleString('id-ID')} from ${revenueStats.sale_count} sale(s)
+- Total Revenue: Rp${revenueStats.revenue.toLocaleString("id-ID")} from ${revenueStats.sale_count} sale(s)
 - Top Selling Items:
-${topSellers.length > 0 ? topSellers.map((s, i) => `  ${i + 1}. ${s.item_name} — ${s.total_sold} units sold, Revenue: Rp${s.total_revenue.toLocaleString('id-ID')}`).join('\n') : '  No sales recorded yet'}
+${topSellers.length > 0 ? topSellers.map((s, i) => `  ${i + 1}. ${s.item_name} — ${s.total_sold} units sold, Revenue: Rp${s.total_revenue.toLocaleString("id-ID")}`).join("\n") : "  No sales recorded yet"}
 - Recent Transactions:
-${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} — Qty: ${t.quantity}, Total: Rp${(t.total || 0).toLocaleString('id-ID')}`).join('\n') : '  No transactions recorded yet'}
+${recentTxData.length > 0 ? recentTxData.map((t) => `  [${t.type}] ${t.item_name} — Qty: ${t.quantity}, Total: Rp${(t.total || 0).toLocaleString("id-ID")}`).join("\n") : "  No transactions recorded yet"}
 `;
 
     try {
-        let text = '';
+        let text = "";
         const userPrompt = `${inventoryContext}\n\nOPERATOR COMMAND: ${cmd}`;
-        let usedEngine = 'GROQ';
+        let usedEngine = "GROQ";
         try {
-            const messages = [{ role: 'system', content: CORTEX_SYSTEM_PROMPT }];
-            conversationHistory.forEach(entry => messages.push({ role: entry.role, content: entry.content }));
-            messages.push({ role: 'user', content: userPrompt });
+            const messages = [
+                { role: "system", content: CORTEX_SYSTEM_PROMPT },
+            ];
+            conversationHistory.forEach((entry) =>
+                messages.push({ role: entry.role, content: entry.content })
+            );
+            messages.push({ role: "user", content: userPrompt });
 
             const chatCompletion = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile', messages, temperature: 0.8, max_tokens: 500,
+                model: "llama-3.3-70b-versatile",
+                messages,
+                temperature: 0.8,
+                max_tokens: 500,
             });
-            text = chatCompletion.choices[0]?.message?.content || '';
+            text = chatCompletion.choices[0]?.message?.content || "";
         } catch (groqErr) {
             console.log(`[CORTEX] Groq failed, switching to Cerebras...`);
-            const hasCerebras = CEREBRAS_API_KEY && CEREBRAS_API_KEY !== 'YOUR_CEREBRAS_API_KEY_HERE';
-            const hasOpenRouter = OPENROUTER_API_KEY && OPENROUTER_API_KEY !== 'YOUR_OPENROUTER_API_KEY_HERE';
+            const hasCerebras =
+                CEREBRAS_API_KEY &&
+                CEREBRAS_API_KEY !== "YOUR_CEREBRAS_API_KEY_HERE";
+            const hasOpenRouter =
+                OPENROUTER_API_KEY &&
+                OPENROUTER_API_KEY !== "YOUR_OPENROUTER_API_KEY_HERE";
 
             if (hasCerebras) {
-                usedEngine = 'CEREBRAS';
+                usedEngine = "CEREBRAS";
                 try {
-                    const messages = [{ role: 'system', content: CORTEX_SYSTEM_PROMPT }];
-                    conversationHistory.forEach(entry => messages.push({ role: entry.role, content: entry.content }));
-                    messages.push({ role: 'user', content: userPrompt });
+                    const messages = [
+                        { role: "system", content: CORTEX_SYSTEM_PROMPT },
+                    ];
+                    conversationHistory.forEach((entry) =>
+                        messages.push({
+                            role: entry.role,
+                            content: entry.content,
+                        })
+                    );
+                    messages.push({ role: "user", content: userPrompt });
 
-                    const cerebrasRes = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CEREBRAS_API_KEY}` },
-                        body: JSON.stringify({ model: 'llama3.1-70b', messages, temperature: 0.8, max_tokens: 500 }),
-                    });
+                    const cerebrasRes = await fetch(
+                        "https://api.cerebras.ai/v1/chat/completions",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${CEREBRAS_API_KEY}`,
+                            },
+                            body: JSON.stringify({
+                                model: "llama3.1-70b",
+                                messages,
+                                temperature: 0.8,
+                                max_tokens: 500,
+                            }),
+                        }
+                    );
 
-                    if (!cerebrasRes.ok) throw new Error(`Cerebras failed: ${cerebrasRes.status}`);
+                    if (!cerebrasRes.ok)
+                        throw new Error(
+                            `Cerebras failed: ${cerebrasRes.status}`
+                        );
                     const cerebrasData = await cerebrasRes.json();
-                    text = cerebrasData.choices?.[0]?.message?.content || '';
-                    console.log('[CORTEX] Cerebras backup succeeded.');
+                    text = cerebrasData.choices?.[0]?.message?.content || "";
+                    console.log("[CORTEX] Cerebras backup succeeded.");
                 } catch (cerebrasErr) {
-                    console.error('[CORTEX CEREBRAS ERROR]', cerebrasErr.message || cerebrasErr);
+                    console.error(
+                        "[CORTEX CEREBRAS ERROR]",
+                        cerebrasErr.message || cerebrasErr
+                    );
 
                     if (hasOpenRouter) {
-                        usedEngine = 'OPENROUTER';
-                        console.log(`[CORTEX] Cerebras failed, switching to OpenRouter (Final Failsafe)...`);
+                        usedEngine = "OPENROUTER";
+                        console.log(
+                            `[CORTEX] Cerebras failed, switching to OpenRouter (Final Failsafe)...`
+                        );
                         try {
-                            const messages = [{ role: 'system', content: CORTEX_SYSTEM_PROMPT }];
-                            conversationHistory.forEach(entry => messages.push({ role: entry.role, content: entry.content }));
-                            messages.push({ role: 'user', content: userPrompt });
-
-                            const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                                    'HTTP-Referer': 'http://localhost:8080',
-                                    'X-Title': 'INSERT3COINS CORTEX'
+                            const messages = [
+                                {
+                                    role: "system",
+                                    content: CORTEX_SYSTEM_PROMPT,
                                 },
-                                body: JSON.stringify({
-                                    model: 'meta-llama/llama-3.1-70b-instruct',
-                                    messages,
-                                    temperature: 0.8,
-                                    max_tokens: 500
-                                }),
+                            ];
+                            conversationHistory.forEach((entry) =>
+                                messages.push({
+                                    role: entry.role,
+                                    content: entry.content,
+                                })
+                            );
+                            messages.push({
+                                role: "user",
+                                content: userPrompt,
                             });
 
-                            if (!orRes.ok) throw new Error(`OpenRouter failed: ${orRes.status}`);
+                            const orRes = await fetch(
+                                "https://openrouter.ai/api/v1/chat/completions",
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                                        "HTTP-Referer": "http://localhost:8080",
+                                        "X-Title": "INSERT3COINS CORTEX",
+                                    },
+                                    body: JSON.stringify({
+                                        model: "meta-llama/llama-3.1-70b-instruct",
+                                        messages,
+                                        temperature: 0.8,
+                                        max_tokens: 500,
+                                    }),
+                                }
+                            );
+
+                            if (!orRes.ok)
+                                throw new Error(
+                                    `OpenRouter failed: ${orRes.status}`
+                                );
                             const orData = await orRes.json();
-                            text = orData.choices?.[0]?.message?.content || '';
-                            console.log('[CORTEX] OpenRouter ultimate failsafe succeeded.');
+                            text = orData.choices?.[0]?.message?.content || "";
+                            console.log(
+                                "[CORTEX] OpenRouter ultimate failsafe succeeded."
+                            );
                         } catch (orErr) {
-                            console.error('[CORTEX OPENROUTER ERROR]', orErr.message || orErr);
+                            console.error(
+                                "[CORTEX OPENROUTER ERROR]",
+                                orErr.message || orErr
+                            );
 
                             // ─── FAILOVER 4: Hermes 3B Lokal (Ollama) ─────────
-                            console.log('[CORTEX] All cloud APIs failed. Trying Hermes local...');
+                            console.log(
+                                "[CORTEX] All cloud APIs failed. Trying Hermes local..."
+                            );
                             try {
-                                const hermesAvailable = await hermes.isAvailable();
-                                if (!hermesAvailable) throw new Error('Hermes offline');
+                                const hermesAvailable =
+                                    await hermes.isAvailable();
+                                if (!hermesAvailable)
+                                    throw new Error("Hermes offline");
 
-                                usedEngine = 'HERMES_LOCAL';
+                                usedEngine = "HERMES_LOCAL";
                                 text = await hermes.generate(userPrompt, {
                                     system: CORTEX_SYSTEM_PROMPT,
                                     temperature: 0.8,
                                     maxTokens: 500,
                                 });
-                                console.log('[CORTEX] Hermes local fallback succeeded.');
+                                console.log(
+                                    "[CORTEX] Hermes local fallback succeeded."
+                                );
                             } catch (hermesErr) {
-                                console.error('[CORTEX HERMES ERROR]', hermesErr.message || hermesErr);
-                                throw new Error('All neural nodes (Groq, Cerebras, OpenRouter, Hermes) are offline.');
+                                console.error(
+                                    "[CORTEX HERMES ERROR]",
+                                    hermesErr.message || hermesErr
+                                );
+                                throw new Error(
+                                    "All neural nodes (Groq, Cerebras, OpenRouter, Hermes) are offline."
+                                );
                             }
                         }
                     } else {
                         // No OpenRouter key — try Hermes directly
-                        console.log('[CORTEX] No OpenRouter key. Trying Hermes local...');
+                        console.log(
+                            "[CORTEX] No OpenRouter key. Trying Hermes local..."
+                        );
                         try {
                             const hermesAvailable = await hermes.isAvailable();
-                            if (!hermesAvailable) throw new Error('Hermes offline');
+                            if (!hermesAvailable)
+                                throw new Error("Hermes offline");
 
-                            usedEngine = 'HERMES_LOCAL';
+                            usedEngine = "HERMES_LOCAL";
                             text = await hermes.generate(userPrompt, {
                                 system: CORTEX_SYSTEM_PROMPT,
                                 temperature: 0.8,
                                 maxTokens: 500,
                             });
-                            console.log('[CORTEX] Hermes local fallback succeeded.');
+                            console.log(
+                                "[CORTEX] Hermes local fallback succeeded."
+                            );
                         } catch (hermesErr) {
-                            console.error('[CORTEX HERMES ERROR]', hermesErr.message || hermesErr);
-                            throw new Error('Groq & Cerebras failed, no OpenRouter key, Hermes offline.');
+                            console.error(
+                                "[CORTEX HERMES ERROR]",
+                                hermesErr.message || hermesErr
+                            );
+                            throw new Error(
+                                "Groq & Cerebras failed, no OpenRouter key, Hermes offline."
+                            );
                         }
                     }
                 }
             } else {
                 // No Cerebras key — try Hermes directly
-                console.log('[CORTEX] No Cerebras key. Trying Hermes local...');
+                console.log("[CORTEX] No Cerebras key. Trying Hermes local...");
                 try {
                     const hermesAvailable = await hermes.isAvailable();
                     if (!hermesAvailable) throw groqErr;
 
-                    usedEngine = 'HERMES_LOCAL';
+                    usedEngine = "HERMES_LOCAL";
                     text = await hermes.generate(userPrompt, {
                         system: CORTEX_SYSTEM_PROMPT,
                         temperature: 0.8,
                         maxTokens: 500,
                     });
-                    console.log('[CORTEX] Hermes local fallback succeeded.');
+                    console.log("[CORTEX] Hermes local fallback succeeded.");
                 } catch (hermesErr) {
                     throw groqErr;
                 }
             }
         }
 
-        if (!text) text = '[CORTEX] Tidak ada respons. Coba lagi.';
-        console.log(`[CORTEX] Response via ${usedEngine} (${text.length} chars)`);
+        if (!text) text = "[CORTEX] Tidak ada respons. Coba lagi.";
+        console.log(
+            `[CORTEX] Response via ${usedEngine} (${text.length} chars)`
+        );
 
         // ─── PROMPT INJECTION PROTECTION ─────────────────────
         const actionRegex = /<<<ACTION>>>\s*([\s\S]*?)\s*<<<END_ACTION>>>/g;
@@ -620,7 +1131,9 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
 
         while ((actionExec = actionRegex.exec(text)) !== null) {
             if (actionResults.length >= MAX_ACTIONS_PER_CMD) {
-                actionResults.push('[SECURITY] Batas maksimum aksi per perintah tercapai. Sisa aksi diabaikan.');
+                actionResults.push(
+                    "[SECURITY] Batas maksimum aksi per perintah tercapai. Sisa aksi diabaikan."
+                );
                 break;
             }
 
@@ -628,42 +1141,46 @@ ${recentTxData.length > 0 ? recentTxData.map(t => `  [${t.type}] ${t.item_name} 
             try {
                 const parsed = JSON.parse(actionStr);
                 // Block excessive DELETE actions (prompt injection defense)
-                if (parsed.type === 'DELETE') {
+                if (parsed.type === "DELETE") {
                     deleteCount++;
                     if (deleteCount > MAX_DELETES_PER_CMD) {
-                        actionResults.push('[SECURITY] Batas DELETE per perintah tercapai. Aksi DELETE tambahan diblokir.');
+                        actionResults.push(
+                            "[SECURITY] Batas DELETE per perintah tercapai. Aksi DELETE tambahan diblokir."
+                        );
                         continue;
                     }
                 }
             } catch (e) {
                 // Invalid JSON — skip but don't crash
-                actionResults.push('[ERROR] Aksi tidak valid, JSON rusak.');
+                actionResults.push("[ERROR] Aksi tidak valid, JSON rusak.");
                 continue;
             }
 
             actionResults.push(executeAction(actionStr));
         }
-        text = text.replace(/<<<ACTION>>>[\s\S]*?<<<END_ACTION>>>/g, '').trim();
+        text = text.replace(/<<<ACTION>>>[\s\S]*?<<<END_ACTION>>>/g, "").trim();
 
-        stmts.insertConversation.run(sessionId, 'user', cmd, ts);
-        stmts.insertConversation.run(sessionId, 'assistant', text, ts);
+        stmts.insertConversation.run(sessionId, "user", cmd, ts);
+        stmts.insertConversation.run(sessionId, "assistant", text, ts);
 
-        let output = text.split('\n').filter(line => line.trim() !== '');
-        actionResults.forEach(result => output.push(result));
+        let output = text.split("\n").filter((line) => line.trim() !== "");
+        actionResults.forEach((result) => output.push(result));
 
         const entry = { timestamp: ts, command: cmd, output };
         state.terminalLogs.push(entry);
 
         res.json({ timestamp: ts, command: cmd, output });
     } catch (err) {
-        console.error('[CORTEX ERROR]', err.message);
+        console.error("[CORTEX ERROR]", err.message);
         // ─── SECURITY: Don't leak internal error details to client ───
-        console.error('[CORTEX DETAIL]', err.stack || err);
+        console.error("[CORTEX DETAIL]", err.stack || err);
         res.json({
-            timestamp: ts, command: cmd, output: [
-                '[KEGAGALAN_SISTEM] ████████████████████████████',
-                '[ERROR] KONEKSI NEURAL TERPUTUS',
-                '[CORTEX] Terjadi kesalahan internal. Mencoba menghubungkan ulang...',
+            timestamp: ts,
+            command: cmd,
+            output: [
+                "[KEGAGALAN_SISTEM] ████████████████████████████",
+                "[ERROR] KONEKSI NEURAL TERPUTUS",
+                "[CORTEX] Terjadi kesalahan internal. Mencoba menghubungkan ulang...",
             ],
         });
     }
