@@ -172,7 +172,7 @@ export default function ProductionBoard({ user }) {
         },
         {
             category: "Konstruksi",
-            tags: ["Baut", "Non-Baut", "Tutup Baut Rendam"],
+            tags: ["Baut", "Non-Baut", "Rendam"],
         },
         {
             category: "Varian / TV",
