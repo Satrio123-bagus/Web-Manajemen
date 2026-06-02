@@ -1048,6 +1048,7 @@ export function AssembleModal({
 }) {
     const [targetItemId, setTargetItemId] = useState("");
     const [quantity, setQuantity] = useState("");
+    const [targetLocation, setTargetLocation] = useState("");
     const [materials, setMaterials] = useState([]);
 
     // Initialize materials with the clicked source item
@@ -1091,7 +1092,12 @@ export function AssembleModal({
         const hasInvalid = materials.some((m) => !m.id || m.qty <= 0);
         if (hasInvalid) return;
 
-        onSave({ targetItemId, quantity: Number(quantity), materials });
+        onSave({
+            targetItemId,
+            quantity: Number(quantity),
+            materials,
+            targetLocation,
+        });
     };
 
     const addMaterial = () => {
@@ -1203,6 +1209,15 @@ export function AssembleModal({
                                         value={quantity}
                                         onChange={handleQuantityChange}
                                         placeholder="Misal: 5"
+                                    />
+                                    <FieldInput
+                                        label="LOKASI PENYIMPANAN TARGET (OPSIONAL)"
+                                        type="text"
+                                        value={targetLocation}
+                                        onChange={(e) =>
+                                            setTargetLocation(e.target.value)
+                                        }
+                                        placeholder="Misal: Rak A1 (Kosongkan jika tidak berubah)"
                                     />
                                 </div>
                             </div>

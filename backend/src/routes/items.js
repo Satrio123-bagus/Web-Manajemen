@@ -1,37 +1,47 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { stmts, state, refreshInventory, insertTransaction, betterSqlite } = require('../models/dbStore');
-const { validate, itemSchema, assembleSchema } = require('../middleware/validation');
-const { autoClassifyIfNeeded } = require('../agents/classifyAgent'); // Hermes auto-classifier
-const { logAudit } = require('../middleware/auditLogger');
+const {
+    stmts,
+    state,
+    refreshInventory,
+    insertTransaction,
+    betterSqlite,
+} = require("../models/dbStore");
+const {
+    validate,
+    itemSchema,
+    assembleSchema,
+} = require("../middleware/validation");
+const { autoClassifyIfNeeded } = require("../agents/classifyAgent"); // Hermes auto-classifier
+const { logAudit } = require("../middleware/auditLogger");
 
-router.get('/', (req, res) => {
+router.get("/", (req, res) => {
     const { q, page, limit } = req.query;
-    
+
     // Search Mode
     if (q) {
         const query = `%${q}%`;
         const results = stmts.searchItems.all(query, query, query, query);
         return res.json(results);
     }
-    
+
     // Pagination Mode
     if (page && limit) {
         const pageNum = parseInt(page) || 1;
         const limitNum = parseInt(limit) || 50;
         const offset = (pageNum - 1) * limitNum;
-        
+
         const totalResult = stmts.countItems.get();
         const totalItems = totalResult?.cnt || 0;
         const totalPages = Math.ceil(totalItems / limitNum);
-        
+
         const results = stmts.getPaginatedItems.all(limitNum, offset);
-        
+
         return res.json({
             data: results,
             total: totalItems,
             page: pageNum,
-            totalPages: totalPages
+            totalPages: totalPages,
         });
     }
 
@@ -39,29 +49,65 @@ router.get('/', (req, res) => {
     res.json(state.inventory);
 });
 
-router.post('/', validate(itemSchema), (req, res) => {
-    const { name, category, price, stock, rarity, bab, sub_bab, location, condition } = req.body;
-    if (!name) return res.status(400).json({ error: 'FIELD_REQUIRED: name' });
+router.post("/", validate(itemSchema), (req, res) => {
+    const {
+        name,
+        category,
+        price,
+        stock,
+        rarity,
+        bab,
+        sub_bab,
+        location,
+        condition,
+    } = req.body;
+    if (!name) return res.status(400).json({ error: "FIELD_REQUIRED: name" });
 
     const stockVal = Number(stock) || 0;
     const newItemId = `item_${Date.now()}`;
-    const babVal = (bab || category || 'Uncategorized').trim();
-    const subBabVal = (sub_bab || 'Uncategorized').trim();
-    const locationVal = (location || 'Belum Ditentukan').trim();
+    const babVal = (bab || category || "Uncategorized").trim();
+    const subBabVal = (sub_bab || "Uncategorized").trim();
+    const locationVal = (location || "Belum Ditentukan").trim();
 
     const item = {
-        id: newItemId, name: name.trim(), category: babVal, price: Number(price) || 0,
-        stock: stockVal, rarity: rarity || 'BIASA', status: stockVal < 2 ? 'LOW_STOCK' : 'IN_STOCK',
-        bab: babVal, sub_bab: subBabVal, location: locationVal, condition: condition || 'READY'
+        id: newItemId,
+        name: name.trim(),
+        category: babVal,
+        price: Number(price) || 0,
+        stock: stockVal,
+        rarity: rarity || "BIASA",
+        status: stockVal < 2 ? "LOW_STOCK" : "IN_STOCK",
+        bab: babVal,
+        sub_bab: subBabVal,
+        location: locationVal,
+        condition: condition || "READY",
     };
 
-    stmts.insertItem.run(item.id, item.name, item.category, item.price, item.stock, item.rarity, item.status, item.bab, item.sub_bab, item.location, item.condition);
+    stmts.insertItem.run(
+        item.id,
+        item.name,
+        item.category,
+        item.price,
+        item.stock,
+        item.rarity,
+        item.status,
+        item.bab,
+        item.sub_bab,
+        item.location,
+        item.condition
+    );
     refreshInventory();
 
     insertTransaction({
-        transaction_id: `TX-${Date.now()}`, item_name: item.name, category: item.bab,
-        unit_price: item.price, quantity: item.stock, total: 0,
-        timestamp: new Date().toISOString(), type: 'CREATE', source: 'WEB_UI'
+        transaction_id: `TX-${Date.now()}`,
+        item_name: item.name,
+        category: item.bab,
+        unit_price: item.price,
+        quantity: item.stock,
+        total: 0,
+        timestamp: new Date().toISOString(),
+        type: "CREATE",
+        source: "WEB_UI",
     });
 
     res.status(201).json(item);
@@ -72,12 +118,17 @@ router.post('/', validate(itemSchema), (req, res) => {
 });
 
 // ─── ASSEMBLE ITEMS ──────────────────────────────────────
-router.post('/assemble', validate(assembleSchema), (req, res) => {
-    const { targetItemId, quantity, materials } = req.body;
-    
+router.post("/assemble", validate(assembleSchema), (req, res) => {
+    const { targetItemId, quantity, materials, targetLocation } = req.body;
+
     const target = stmts.getItemById.get(targetItemId);
     if (!target) {
-        return res.status(404).json({ error: 'ITEM_NOT_FOUND', message: 'Remote/Target tidak ditemukan.' });
+        return res
+            .status(404)
+            .json({
+                error: "ITEM_NOT_FOUND",
+                message: "Remote/Target tidak ditemukan.",
+            });
     }
 
     // Prepare materials and validate stock
@@ -85,10 +136,20 @@ router.post('/assemble', validate(assembleSchema), (req, res) => {
     for (const mat of materials) {
         const item = stmts.getItemById.get(mat.id);
         if (!item) {
-            return res.status(404).json({ error: 'ITEM_NOT_FOUND', message: `Bahan baku dengan ID ${mat.id} tidak ditemukan.` });
+            return res
+                .status(404)
+                .json({
+                    error: "ITEM_NOT_FOUND",
+                    message: `Bahan baku dengan ID ${mat.id} tidak ditemukan.`,
+                });
         }
         if (item.stock < mat.qty) {
-            return res.status(400).json({ error: 'INSUFFICIENT_STOCK', message: `Stok ${item.name} tidak mencukupi untuk dirakit.` });
+            return res
+                .status(400)
+                .json({
+                    error: "INSUFFICIENT_STOCK",
+                    message: `Stok ${item.name} tidak mencukupi untuk dirakit.`,
+                });
         }
         materialItems.push({ item, qty: mat.qty });
     }
@@ -100,119 +161,244 @@ router.post('/assemble', validate(assembleSchema), (req, res) => {
         let sourceNames = [];
         for (const { item, qty } of materialItems) {
             const newStock = item.stock - qty;
-            const newStatus = newStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-            stmts.updateItem.run(item.name, item.category, item.price, newStock, item.rarity, newStatus, item.bab, item.sub_bab, item.id);
-            
+            const newStatus = newStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+            stmts.updateItem.run(
+                item.name,
+                item.category,
+                item.price,
+                newStock,
+                item.rarity,
+                newStatus,
+                item.bab,
+                item.sub_bab,
+                item.id,
+                item.location || "Belum Ditentukan",
+                item.condition || "READY"
+            );
+
             insertTransaction({
-                transaction_id: `TX-ASM-OUT-${Date.now()}-${item.id}`, item_name: item.name, category: item.bab,
-                unit_price: item.price, quantity: -qty, total: 0,
-                timestamp: ts, type: 'ASSEMBLY_OUT', source: 'WEB_UI'
+                transaction_id: `TX-ASM-OUT-${Date.now()}-${item.id}`,
+                item_name: item.name,
+                category: item.bab,
+                unit_price: item.price,
+                quantity: -qty,
+                total: 0,
+                timestamp: ts,
+                type: "ASSEMBLY_OUT",
+                source: "WEB_UI",
             });
             sourceNames.push(item.name);
         }
 
         // 2. Tambah stok hasil rakitan & Catat transaksi
         const newTargetStock = target.stock + quantity;
-        const newTargetStatus = newTargetStock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
-        stmts.updateItem.run(target.name, target.category, target.price, newTargetStock, target.rarity, newTargetStatus, target.bab, target.sub_bab, target.id);
+        const newTargetStatus = newTargetStock < 2 ? "LOW_STOCK" : "IN_STOCK";
+        const newTargetLocation = targetLocation
+            ? targetLocation.trim()
+            : target.location || "Belum Ditentukan";
+
+        stmts.updateItem.run(
+            target.name,
+            target.category,
+            target.price,
+            newTargetStock,
+            target.rarity,
+            newTargetStatus,
+            target.bab,
+            target.sub_bab,
+            target.id,
+            newTargetLocation,
+            target.condition || "READY"
+        );
 
         insertTransaction({
-            transaction_id: `TX-ASM-IN-${Date.now()}`, item_name: target.name, category: target.bab,
-            unit_price: target.price, quantity: quantity, total: 0,
-            timestamp: ts, type: 'ASSEMBLY_IN', source: 'WEB_UI'
+            transaction_id: `TX-ASM-IN-${Date.now()}`,
+            item_name: target.name,
+            category: target.bab,
+            unit_price: target.price,
+            quantity: quantity,
+            total: 0,
+            timestamp: ts,
+            type: "ASSEMBLY_IN",
+            source: "WEB_UI",
         });
-        
-        return sourceNames.join(', ');
+
+        return sourceNames.join(", ");
     });
 
     try {
         const sources = runAssembly();
         refreshInventory();
-        logAudit('ITEM_ASSEMBLED', `Rakit ${quantity} ${target.name} dari: ${sources}`, req);
-        res.json({ message: 'ASSEMBLY_SUCCESS', targetId: target.id, quantity });
+        logAudit(
+            "ITEM_ASSEMBLED",
+            `Rakit ${quantity} ${target.name} dari: ${sources}`,
+            req
+        );
+        res.json({
+            message: "ASSEMBLY_SUCCESS",
+            targetId: target.id,
+            quantity,
+        });
     } catch (err) {
-        res.status(500).json({ error: 'ASSEMBLY_FAILED', message: err.message });
+        res.status(500).json({
+            error: "ASSEMBLY_FAILED",
+            message: err.message,
+        });
     }
 });
 
-router.put('/:id', validate(itemSchema), (req, res) => {
+router.put("/:id", validate(itemSchema), (req, res) => {
     const id = req.params.id;
     const existing = stmts.getItemById.get(id);
-    if (!existing) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
+    if (!existing) return res.status(404).json({ error: "ITEM_NOT_FOUND" });
 
-    const { name, category, price, stock, rarity, bab, sub_bab, location, condition } = req.body;
+    const {
+        name,
+        category,
+        price,
+        stock,
+        rarity,
+        bab,
+        sub_bab,
+        location,
+        condition,
+    } = req.body;
     const updated = {
-        name: (name !== undefined ? name.trim() : existing.name),
-        category: (category !== undefined ? category.trim() : existing.category),
-        price: (price !== undefined ? Number(price) : existing.price),
-        stock: (stock !== undefined ? Number(stock) : existing.stock),
-        rarity: (rarity !== undefined ? rarity : existing.rarity),
-        bab: (bab !== undefined ? bab.trim() : (category !== undefined ? category.trim() : existing.bab)),
-        sub_bab: (sub_bab !== undefined ? sub_bab.trim() : existing.sub_bab),
-        location: (location !== undefined ? location.trim() : existing.location || 'Belum Ditentukan'),
-        condition: (condition !== undefined ? condition.trim() : existing.condition || 'READY'),
+        name: name !== undefined ? name.trim() : existing.name,
+        category: category !== undefined ? category.trim() : existing.category,
+        price: price !== undefined ? Number(price) : existing.price,
+        stock: stock !== undefined ? Number(stock) : existing.stock,
+        rarity: rarity !== undefined ? rarity : existing.rarity,
+        bab:
+            bab !== undefined
+                ? bab.trim()
+                : category !== undefined
+                  ? category.trim()
+                  : existing.bab,
+        sub_bab: sub_bab !== undefined ? sub_bab.trim() : existing.sub_bab,
+        location:
+            location !== undefined
+                ? location.trim()
+                : existing.location || "Belum Ditentukan",
+        condition:
+            condition !== undefined
+                ? condition.trim()
+                : existing.condition || "READY",
     };
     updated.category = updated.bab;
-    updated.status = updated.stock < 2 ? 'LOW_STOCK' : 'IN_STOCK';
+    updated.status = updated.stock < 2 ? "LOW_STOCK" : "IN_STOCK";
 
-    stmts.updateItem.run(updated.name, updated.category, updated.price, updated.stock, updated.rarity, updated.status, updated.bab, updated.sub_bab, id, updated.location, updated.condition);
+    stmts.updateItem.run(
+        updated.name,
+        updated.category,
+        updated.price,
+        updated.stock,
+        updated.rarity,
+        updated.status,
+        updated.bab,
+        updated.sub_bab,
+        id,
+        updated.location,
+        updated.condition
+    );
     refreshInventory();
 
     const result = { id, ...updated };
     insertTransaction({
-        transaction_id: `TX-${Date.now()}`, item_name: result.name, category: result.bab,
-        unit_price: result.price, quantity: result.stock, total: 0,
-        timestamp: new Date().toISOString(), type: 'UPDATE', source: 'WEB_UI'
+        transaction_id: `TX-${Date.now()}`,
+        item_name: result.name,
+        category: result.bab,
+        unit_price: result.price,
+        quantity: result.stock,
+        total: 0,
+        timestamp: new Date().toISOString(),
+        type: "UPDATE",
+        source: "WEB_UI",
     });
 
     res.json(result);
 });
 
-router.delete('/:id', (req, res) => {
+router.delete("/:id", (req, res) => {
     const id = req.params.id;
     const existing = stmts.getItemById.get(id);
-    if (!existing) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
+    if (!existing) return res.status(404).json({ error: "ITEM_NOT_FOUND" });
 
     insertTransaction({
-        transaction_id: `TX-${Date.now()}`, item_name: existing.name, category: existing.category,
-        unit_price: existing.price, quantity: existing.stock, total: 0,
-        timestamp: new Date().toISOString(), type: 'DELETE', source: 'WEB_UI'
+        transaction_id: `TX-${Date.now()}`,
+        item_name: existing.name,
+        category: existing.category,
+        unit_price: existing.price,
+        quantity: existing.stock,
+        total: 0,
+        timestamp: new Date().toISOString(),
+        type: "DELETE",
+        source: "WEB_UI",
     });
 
     stmts.deleteItem.run(id);
     refreshInventory();
 
     // Catat ke audit log — hapus item adalah aksi yang tidak bisa di-undo
-    logAudit('ITEM_DELETE', `ID: ${id} | Name: ${existing.name} | Stock: ${existing.stock}`, req);
+    logAudit(
+        "ITEM_DELETE",
+        `ID: ${id} | Name: ${existing.name} | Stock: ${existing.stock}`,
+        req
+    );
 
-    res.json({ message: 'ITEM_DECONSTRUCTED', id: existing.id, name: existing.name });
+    res.json({
+        message: "ITEM_DECONSTRUCTED",
+        id: existing.id,
+        name: existing.name,
+    });
 });
 
 // ─── MOVE LOCATION ──────────────────────────────────────
-router.post('/move-location', (req, res) => {
+router.post("/move-location", (req, res) => {
     const { id, newLocation } = req.body;
-    
+
     if (!id || !newLocation) {
-        return res.status(400).json({ error: 'FIELD_REQUIRED: id and newLocation' });
+        return res
+            .status(400)
+            .json({ error: "FIELD_REQUIRED: id and newLocation" });
     }
 
     const existing = stmts.getItemById.get(id);
-    if (!existing) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
+    if (!existing) return res.status(404).json({ error: "ITEM_NOT_FOUND" });
 
     // Update kolom location (bukan sub_bab)
     stmts.updateItem.run(
-        existing.name, existing.category, existing.price, existing.stock, existing.rarity, 
-        existing.status, existing.bab, existing.sub_bab, id, newLocation.trim()
+        existing.name,
+        existing.category,
+        existing.price,
+        existing.stock,
+        existing.rarity,
+        existing.status,
+        existing.bab,
+        existing.sub_bab,
+        id,
+        newLocation.trim()
     );
     refreshInventory();
 
     insertTransaction({
-        transaction_id: `TX-${Date.now()}`, item_name: existing.name, category: existing.category,
-        unit_price: existing.price, quantity: existing.stock, total: 0,
-        timestamp: new Date().toISOString(), type: 'MOVE', source: 'MOBILE_SCANNER'
+        transaction_id: `TX-${Date.now()}`,
+        item_name: existing.name,
+        category: existing.category,
+        unit_price: existing.price,
+        quantity: existing.stock,
+        total: 0,
+        timestamp: new Date().toISOString(),
+        type: "MOVE",
+        source: "MOBILE_SCANNER",
     });
 
-    res.json({ message: 'LOCATION_MOVED', id, name: existing.name, newLocation });
+    res.json({
+        message: "LOCATION_MOVED",
+        id,
+        name: existing.name,
+        newLocation,
+    });
 });
 
 module.exports = router;
