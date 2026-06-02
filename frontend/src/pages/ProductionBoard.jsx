@@ -104,7 +104,7 @@ export default function ProductionBoard({ user }) {
         merk: "Lain-lain",
         tipe_remote: "",
         komponen: user?.role === "MESIN" ? "MESIN" : "CASING",
-        kriteria: "",
+        kriteria: {},
         alokasi: 1,
         supplier: "Campuran (Lama)",
     });
@@ -233,7 +233,7 @@ export default function ProductionBoard({ user }) {
                     merk: "Lain-lain",
                     tipe_remote: "",
                     komponen: user?.role === "MESIN" ? "MESIN" : "CASING",
-                    kriteria: "",
+                    kriteria: {},
                     alokasi: 1,
                     supplier: "Campuran (Lama)",
                 });
@@ -498,11 +498,14 @@ export default function ProductionBoard({ user }) {
                                     KRITERIA SPESIAL
                                 </label>
                                 <input
-                                    value={newJob.kriteria}
+                                    value={newJob.kriteria?.Manual || ""}
                                     onChange={(e) =>
                                         setNewJob({
                                             ...newJob,
-                                            kriteria: e.target.value,
+                                            kriteria: {
+                                                ...newJob.kriteria,
+                                                Manual: e.target.value,
+                                            },
                                         })
                                     }
                                     type="text"
@@ -520,8 +523,18 @@ export default function ProductionBoard({ user }) {
                                             </span>
                                             <div className="flex flex-wrap gap-2">
                                                 {group.tags.map((tag) => {
+                                                    const currentCategoryTags =
+                                                        Array.isArray(
+                                                            newJob.kriteria?.[
+                                                                group.category
+                                                            ]
+                                                        )
+                                                            ? newJob.kriteria[
+                                                                  group.category
+                                                              ]
+                                                            : [];
                                                     const isSelected =
-                                                        newJob.kriteria?.includes(
+                                                        currentCategoryTags.includes(
                                                             tag
                                                         );
                                                     return (
@@ -529,53 +542,36 @@ export default function ProductionBoard({ user }) {
                                                             key={tag}
                                                             type="button"
                                                             onClick={() => {
-                                                                const current =
-                                                                    newJob.kriteria
-                                                                        ? newJob.kriteria
-                                                                              .split(
-                                                                                  ","
-                                                                              )
-                                                                              .map(
-                                                                                  (
-                                                                                      s
-                                                                                  ) =>
-                                                                                      s.trim()
-                                                                              )
-                                                                              .filter(
-                                                                                  (
-                                                                                      s
-                                                                                  ) =>
-                                                                                      s
-                                                                              )
-                                                                        : [];
                                                                 if (
                                                                     isSelected
                                                                 ) {
                                                                     setNewJob({
                                                                         ...newJob,
                                                                         kriteria:
-                                                                            current
-                                                                                .filter(
-                                                                                    (
-                                                                                        t
-                                                                                    ) =>
-                                                                                        t !==
-                                                                                        tag
-                                                                                )
-                                                                                .join(
-                                                                                    ", "
-                                                                                ),
+                                                                            {
+                                                                                ...newJob.kriteria,
+                                                                                [group.category]:
+                                                                                    currentCategoryTags.filter(
+                                                                                        (
+                                                                                            t
+                                                                                        ) =>
+                                                                                            t !==
+                                                                                            tag
+                                                                                    ),
+                                                                            },
                                                                     });
                                                                 } else {
                                                                     setNewJob({
                                                                         ...newJob,
                                                                         kriteria:
-                                                                            [
-                                                                                ...current,
-                                                                                tag,
-                                                                            ].join(
-                                                                                ", "
-                                                                            ),
+                                                                            {
+                                                                                ...newJob.kriteria,
+                                                                                [group.category]:
+                                                                                    [
+                                                                                        ...currentCategoryTags,
+                                                                                        tag,
+                                                                                    ],
+                                                                            },
                                                                     });
                                                                 }
                                                             }}
@@ -866,7 +862,31 @@ export default function ProductionBoard({ user }) {
                                                 </span>
                                                 {job.kriteria && (
                                                     <span className="text-gray-400 italic">
-                                                        📝 {job.kriteria}
+                                                        📝{" "}
+                                                        {(() => {
+                                                            try {
+                                                                const parsed =
+                                                                    typeof job.kriteria ===
+                                                                    "string"
+                                                                        ? JSON.parse(
+                                                                              job.kriteria
+                                                                          )
+                                                                        : job.kriteria;
+                                                                const tags =
+                                                                    Object.values(
+                                                                        parsed
+                                                                    )
+                                                                        .flat()
+                                                                        .filter(
+                                                                            Boolean
+                                                                        );
+                                                                return tags.join(
+                                                                    ", "
+                                                                );
+                                                            } catch (e) {
+                                                                return job.kriteria;
+                                                            }
+                                                        })()}
                                                     </span>
                                                 )}
                                             </div>
