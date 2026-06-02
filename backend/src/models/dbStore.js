@@ -378,6 +378,7 @@ const stmts = {
                 return { isNew: false, id: existing.id, name: itemName };
             } else {
                 const newId = crypto.randomUUID();
+                const itemLocation = `${capitalize(job.komponen)} ${capitalize(job.merk || "Lain-lain")} 1`;
                 db.insert(items)
                     .values({
                         id: newId,
@@ -389,7 +390,7 @@ const stmts = {
                         status: "IN_STOCK",
                         bab: "Unsorted", // Penting agar Hermes trigger
                         sub_bab: "Uncategorized",
-                        location: "Gudang QC",
+                        location: itemLocation,
                         condition: "READY",
                     })
                     .run();
