@@ -161,22 +161,23 @@ export default function ProductionBoard({ user }) {
             ...customMerks,
         ]),
     ];
-    const SMART_TAGS = [
-        "Lengkap",
-        "Tanpa Tutup",
-        "Tanpa Mika",
-        "Baut",
-        "Non-Baut",
-        "Kecil",
-        "Sedang",
-        "Besar",
-        "Panjang",
-        "Tutup Panjang",
-        "Tutup Baut Rendam",
-        "Smart TV",
-        "Tabung",
-        "Original",
-        "Grade A",
+    const SMART_TAGS_CATEGORIZED = [
+        {
+            category: "Kelengkapan",
+            tags: ["Lengkap", "Tanpa Tutup", "Tanpa Mika"],
+        },
+        {
+            category: "Ukuran",
+            tags: ["Kecil", "Sedang", "Besar", "Panjang", "Tutup Panjang"],
+        },
+        {
+            category: "Konstruksi",
+            tags: ["Baut", "Non-Baut", "Tutup Baut Rendam"],
+        },
+        {
+            category: "Varian / TV",
+            tags: ["Original", "Grade A", "Smart TV", "Tabung"],
+        },
     ];
 
     useEffect(() => {
@@ -507,54 +508,88 @@ export default function ProductionBoard({ user }) {
                                     className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--color-neon-cyan)] mb-2"
                                     placeholder="Ketik manual atau klik tag di bawah..."
                                 />
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {SMART_TAGS.map((tag) => {
-                                        const isSelected =
-                                            newJob.kriteria?.includes(tag);
-                                        return (
-                                            <button
-                                                key={tag}
-                                                type="button"
-                                                onClick={() => {
-                                                    const current =
-                                                        newJob.kriteria
-                                                            ? newJob.kriteria
-                                                                  .split(",")
-                                                                  .map((s) =>
-                                                                      s.trim()
-                                                                  )
-                                                                  .filter(
-                                                                      (s) => s
-                                                                  )
-                                                            : [];
-                                                    if (isSelected) {
-                                                        setNewJob({
-                                                            ...newJob,
-                                                            kriteria: current
-                                                                .filter(
-                                                                    (t) =>
-                                                                        t !==
-                                                                        tag
-                                                                )
-                                                                .join(", "),
-                                                        });
-                                                    } else {
-                                                        setNewJob({
-                                                            ...newJob,
-                                                            kriteria: [
-                                                                ...current,
-                                                                tag,
-                                                            ].join(", "),
-                                                        });
-                                                    }
-                                                }}
-                                                className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all ${isSelected ? "bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] border-[var(--color-neon-cyan)]" : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"}`}
-                                            >
-                                                {isSelected ? "✓ " : "+ "}
-                                                {tag}
-                                            </button>
-                                        );
-                                    })}
+                                <div className="flex flex-col gap-3 mt-3">
+                                    {SMART_TAGS_CATEGORIZED.map((group) => (
+                                        <div
+                                            key={group.category}
+                                            className="space-y-1.5"
+                                        >
+                                            <span className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">
+                                                {group.category}
+                                            </span>
+                                            <div className="flex flex-wrap gap-2">
+                                                {group.tags.map((tag) => {
+                                                    const isSelected =
+                                                        newJob.kriteria?.includes(
+                                                            tag
+                                                        );
+                                                    return (
+                                                        <button
+                                                            key={tag}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const current =
+                                                                    newJob.kriteria
+                                                                        ? newJob.kriteria
+                                                                              .split(
+                                                                                  ","
+                                                                              )
+                                                                              .map(
+                                                                                  (
+                                                                                      s
+                                                                                  ) =>
+                                                                                      s.trim()
+                                                                              )
+                                                                              .filter(
+                                                                                  (
+                                                                                      s
+                                                                                  ) =>
+                                                                                      s
+                                                                              )
+                                                                        : [];
+                                                                if (
+                                                                    isSelected
+                                                                ) {
+                                                                    setNewJob({
+                                                                        ...newJob,
+                                                                        kriteria:
+                                                                            current
+                                                                                .filter(
+                                                                                    (
+                                                                                        t
+                                                                                    ) =>
+                                                                                        t !==
+                                                                                        tag
+                                                                                )
+                                                                                .join(
+                                                                                    ", "
+                                                                                ),
+                                                                    });
+                                                                } else {
+                                                                    setNewJob({
+                                                                        ...newJob,
+                                                                        kriteria:
+                                                                            [
+                                                                                ...current,
+                                                                                tag,
+                                                                            ].join(
+                                                                                ", "
+                                                                            ),
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all ${isSelected ? "bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] border-[var(--color-neon-cyan)]" : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"}`}
+                                                        >
+                                                            {isSelected
+                                                                ? "✓ "
+                                                                : "+ "}
+                                                            {tag}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
