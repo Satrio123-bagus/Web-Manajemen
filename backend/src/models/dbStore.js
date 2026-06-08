@@ -963,10 +963,10 @@ const stmts = {
                 .get(),
     },
     insertRecipe: {
-        run: (id, tipe_remote, jenis_tutup) =>
+        run: (id, tipe_remote, jenis_tutup, jenis_mika) =>
             db
                 .insert(bom_recipes)
-                .values({ id, tipe_remote, jenis_tutup })
+                .values({ id, tipe_remote, jenis_tutup, jenis_mika })
                 .run(),
     },
     deleteRecipe: {

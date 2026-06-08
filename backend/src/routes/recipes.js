@@ -16,33 +16,29 @@ router.get("/", (req, res) => {
 // POST /api/settings/recipes
 router.post("/", (req, res) => {
     try {
-        const { tipe_remote, jenis_tutup } = req.body;
-        if (!tipe_remote || !jenis_tutup) {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    error: "tipe_remote dan jenis_tutup harus diisi",
-                });
+        const { tipe_remote, jenis_tutup, jenis_mika } = req.body;
+        if (!tipe_remote || !jenis_tutup || !jenis_mika) {
+            return res.status(400).json({
+                success: false,
+                error: "tipe_remote, jenis_tutup, dan jenis_mika harus diisi",
+            });
         }
 
         // Cek apakah resep sudah ada (menghindari duplicate unique constraint crash)
         const existing = stmts.getRecipeByRemote.get(tipe_remote);
         if (existing) {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    error: "Resep untuk tipe ini sudah ada",
-                });
+            return res.status(400).json({
+                success: false,
+                error: "Resep untuk tipe ini sudah ada",
+            });
         }
 
         const id = crypto.randomUUID();
-        stmts.insertRecipe.run(id, tipe_remote, jenis_tutup);
+        stmts.insertRecipe.run(id, tipe_remote, jenis_tutup, jenis_mika);
         res.json({
             success: true,
             message: "Resep berhasil ditambahkan",
-            recipe: { id, tipe_remote, jenis_tutup },
+            recipe: { id, tipe_remote, jenis_tutup, jenis_mika },
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

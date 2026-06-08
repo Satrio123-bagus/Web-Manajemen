@@ -6,7 +6,8 @@ import { useSound } from "../hooks/useSound";
 
 export default function AdminMikaStation() {
     const [wipItems, setWipItems] = useState([]);
-    const [mikaStock, setMikaStock] = useState({ name: "Mika", stock: 0 });
+    const [mikaStocks, setMikaStocks] = useState([]);
+    const [recipes, setRecipes] = useState([]);
     const [selectedWip, setSelectedWip] = useState("");
     const [assemblyQty, setAssemblyQty] = useState(1);
 
@@ -23,7 +24,8 @@ export default function AdminMikaStation() {
                 const data = await res.json();
                 if (data.success) {
                     setWipItems(data.wip || []);
-                    setMikaStock(data.mika || { name: "Mika", stock: 0 });
+                    setMikaStocks(data.mikaStocks || []);
+                    setRecipes(data.recipes || []);
                     if (data.wip?.length > 0 && !selectedWip) {
                         setSelectedWip(data.wip[0].id);
                     }
@@ -40,12 +42,31 @@ export default function AdminMikaStation() {
         return () => clearInterval(intervalId);
     }, []);
 
+    const selectedWipItem = wipItems.find((w) => w.id === selectedWip);
+    const wipBaseName = selectedWipItem
+        ? selectedWipItem.name.replace(" (Tanpa Mika)", "").trim()
+        : "";
+    const recipe = recipes.find((r) => r.tipe_remote === wipBaseName);
+    // Jika tidak ada resep, kembalikan ke Mika Default
+    const targetMikaName = recipe?.jenis_mika || "Mika Default";
+    const requiredMikaStock = mikaStocks.find(
+        (m) => m.name === targetMikaName
+    ) || { id: null, name: targetMikaName, stock: 0 };
+
     const handleAssemble = async () => {
         if (!selectedWip || assemblyQty <= 0) return;
+        if (!requiredMikaStock.id) {
+            playSound("error");
+            setToast({
+                type: "error",
+                msg: `Komponen ${targetMikaName} belum terdaftar di sistem. Harap tambahkan dulu di Inventory.`,
+            });
+            return;
+        }
         try {
             const res = await api.post("/assembly/assemble", {
                 wip_id: selectedWip,
-                mika_id: mikaStock.id,
+                mika_id: requiredMikaStock.id,
                 quantity: assemblyQty,
             });
             const data = await res.json();
@@ -70,9 +91,17 @@ export default function AdminMikaStation() {
 
     const handleDefect = async () => {
         if (defectQty <= 0) return;
+        if (!requiredMikaStock.id) {
+            playSound("error");
+            setToast({
+                type: "error",
+                msg: `Komponen ${targetMikaName} belum terdaftar di sistem.`,
+            });
+            return;
+        }
         try {
             const res = await api.post("/assembly/defect-mika", {
-                mika_id: mikaStock.id,
+                mika_id: requiredMikaStock.id,
                 quantity: defectQty,
             });
             const data = await res.json();
@@ -109,12 +138,12 @@ export default function AdminMikaStation() {
                 </h3>
                 <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10">
                     <span className="text-[10px] font-mono text-gray-400">
-                        STOK MIKA:
+                        STOK {requiredMikaStock.name.toUpperCase()}:
                     </span>
                     <span
-                        className={`text-sm font-bold ${mikaStock.stock > 0 ? "text-emerald-400" : "text-red-400"}`}
+                        className={`text-sm font-bold ${requiredMikaStock.stock > 0 ? "text-emerald-400" : "text-red-400"}`}
                     >
-                        {mikaStock.stock} PCS
+                        {requiredMikaStock.stock} PCS
                     </span>
                 </div>
             </div>
@@ -165,7 +194,7 @@ export default function AdminMikaStation() {
                                 disabled={
                                     !selectedWip ||
                                     assemblyQty <= 0 ||
-                                    mikaStock.stock < assemblyQty
+                                    requiredMikaStock.stock < assemblyQty
                                 }
                                 className="w-full h-[46px] px-6 rounded-xl bg-[var(--color-neon-cyan)]/20 text-[var(--color-neon-cyan)] border border-[var(--color-neon-cyan)]/40 font-bold text-sm hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all disabled:opacity-30 flex justify-center items-center gap-2"
                             >
@@ -201,7 +230,10 @@ export default function AdminMikaStation() {
                     </div>
                     <button
                         onClick={handleDefect}
-                        disabled={defectQty <= 0 || mikaStock.stock < defectQty}
+                        disabled={
+                            defectQty <= 0 ||
+                            requiredMikaStock.stock < defectQty
+                        }
                         className="h-[38px] px-4 rounded-xl bg-red-500/20 text-red-400 border border-red-500/40 text-xs font-bold hover:bg-red-500 hover:text-white transition-all disabled:opacity-30"
                     >
                         LAPOR RUSAK

@@ -92,6 +92,7 @@ const bom_recipes = sqliteTable("bom_recipes", {
     id: text("id").primaryKey(),
     tipe_remote: text("tipe_remote").notNull().unique(),
     jenis_tutup: text("jenis_tutup").notNull(),
+    jenis_mika: text("jenis_mika"),
 });
 
 module.exports = {

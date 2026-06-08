@@ -21,37 +21,27 @@ router.get("/wip", async (req, res) => {
             .where(like(items.name, "%(Tanpa Mika)%"))
             .all();
 
-        // Cari ketersediaan Mika di inventory (nama persis "Mika" atau yang mengandung kata Mika)
-        // Menurut instruksi pengguna: tulis saja hanya dengan kata "Mika"
-        let mikaStock = await db
+        // Ambil semua item Mika
+        const allMikas = await db
             .select()
             .from(items)
-            .where(eq(items.name, "Mika"))
-            .get();
+            .where(like(items.name, "Mika%"))
+            .all();
 
-        if (!mikaStock) {
-            const allMikas = await db
-                .select()
-                .from(items)
-                .where(like(items.name, "%Mika%"))
-                .all();
-            mikaStock = allMikas.find((m) => !m.name.includes("Poles"));
-        }
+        const mikaStocks = allMikas.filter((m) => !m.name.includes("Poles"));
+        const reworkMikaStocks = allMikas.filter((m) =>
+            m.name.includes("Poles Ulang")
+        );
 
-        const reworkMikaStock = await db
-            .select()
-            .from(items)
-            .where(eq(items.name, "Mika (Poles Ulang)"))
-            .get();
+        // Ambil BOM Recipes
+        const recipes = await db.select().from(bom_recipes).all();
 
         res.json({
             success: true,
-            wip: wipItems.filter((item) => item.stock > 0), // Hanya tampilkan yang stoknya ada
-            mika: mikaStock || { name: "Mika", stock: 0 },
-            reworkMika: reworkMikaStock || {
-                name: "Mika (Poles Ulang)",
-                stock: 0,
-            },
+            wip: wipItems.filter((item) => item.stock > 0),
+            mikaStocks: mikaStocks,
+            reworkMikaStocks: reworkMikaStocks,
+            recipes: recipes,
         });
     } catch (err) {
         console.error(err);
@@ -334,42 +324,52 @@ router.post("/defect-mika", async (req, res) => {
 
 // 4. Selesai Poles Mika (Pekerja Casing)
 router.post("/rework-mika", async (req, res) => {
-    const { quantity } = req.body;
-    if (!quantity || quantity <= 0)
+    const { rework_mika_id, quantity } = req.body;
+    if (!rework_mika_id || !quantity || quantity <= 0)
         return res
             .status(400)
-            .json({ success: false, error: "Jumlah tidak valid" });
+            .json({
+                success: false,
+                error: "Data tidak lengkap atau tidak valid",
+            });
 
     try {
         const reworkTx = betterSqlite.transaction(() => {
-            const reworkName = "Mika (Poles Ulang)";
             const reworkItem = db
                 .select()
                 .from(items)
-                .where(eq(items.name, reworkName))
+                .where(eq(items.id, rework_mika_id))
                 .get();
 
-            if (!reworkItem) throw new Error("Tidak ada stok Mika Poles Ulang");
+            if (!reworkItem)
+                throw new Error("Item Poles Ulang tidak ditemukan");
             if (reworkItem.stock < quantity)
                 throw new Error("Stok Mika Poles Ulang tidak mencukupi");
 
+            // Cari nama mika asli
+            const baseName = reworkItem.name.replace(" (Poles Ulang)", "");
             let mikaItem = db
                 .select()
                 .from(items)
-                .where(eq(items.name, "Mika"))
+                .where(eq(items.name, baseName))
                 .get();
+
             if (!mikaItem) {
-                const allMikas = db
-                    .select()
-                    .from(items)
-                    .where(like(items.name, "%Mika%"))
-                    .all();
-                mikaItem = allMikas.find((m) => !m.name.includes("Poles"));
+                // Buat jika tidak ada (meski aneh karena asalnya dari situ)
+                const newId = crypto.randomUUID();
+                db.insert(items)
+                    .values({
+                        id: newId,
+                        name: baseName,
+                        category: "KOMPONEN",
+                        stock: 0,
+                        price: 0,
+                        bab: "Mika",
+                        sub_bab: "Mika AC",
+                    })
+                    .run();
+                mikaItem = { id: newId, stock: 0 };
             }
-            if (!mikaItem)
-                throw new Error(
-                    "Stok utama Mika tidak ditemukan untuk ditambahkan"
-                );
 
             // Kurangi poles ulang
             db.update(items)
@@ -385,7 +385,7 @@ router.post("/rework-mika", async (req, res) => {
             // Log
             insertTransaction({
                 transaction_id: crypto.randomUUID(),
-                item_name: reworkName,
+                item_name: reworkItem.name,
                 category: "KOMPONEN",
                 unit_price: 0,
                 quantity: quantity,
