@@ -48,10 +48,8 @@ export default function WorkerDashboard({ user }) {
     // Assembly State
     const [wipItems, setWipItems] = useState([]);
     const [mikaStock, setMikaStock] = useState({ name: "Mika", stock: 0 });
-    const [reworkMikaStock, setReworkMikaStock] = useState({
-        name: "Mika (Poles Ulang)",
-        stock: 0,
-    });
+    const [reworkMikaStocks, setReworkMikaStocks] = useState([]);
+    const [selectedReworkMikaId, setSelectedReworkMikaId] = useState("");
     const [reworkQty, setReworkQty] = useState(1);
     const [reworkToast, setReworkToast] = useState(null);
 
@@ -102,12 +100,7 @@ export default function WorkerDashboard({ user }) {
                 if (resAssembly.ok) {
                     const data = await resAssembly.json();
                     if (data.success) {
-                        setReworkMikaStock(
-                            data.reworkMika || {
-                                name: "Mika (Poles Ulang)",
-                                stock: 0,
-                            }
-                        );
+                        setReworkMikaStocks(data.reworkMikaStocks || []);
                     }
                 }
             } catch (error) {
@@ -145,9 +138,10 @@ export default function WorkerDashboard({ user }) {
     };
 
     const reworkMikaItem = async () => {
-        if (reworkQty <= 0) return;
+        if (reworkQty <= 0 || !selectedReworkMikaId) return;
         try {
             const res = await api.post("/assembly/rework-mika", {
+                rework_mika_id: selectedReworkMikaId,
                 quantity: reworkQty,
             });
             const data = await res.json();
@@ -164,12 +158,7 @@ export default function WorkerDashboard({ user }) {
                 const resAssembly = await api.get("/assembly/wip");
                 if (resAssembly.ok) {
                     const asmData = await resAssembly.json();
-                    setReworkMikaStock(
-                        asmData.reworkMika || {
-                            name: "Mika (Poles Ulang)",
-                            stock: 0,
-                        }
-                    );
+                    setReworkMikaStocks(asmData.reworkMikaStocks || []);
                 }
             } else {
                 playSound("error");
@@ -545,23 +534,56 @@ export default function WorkerDashboard({ user }) {
                                 </div>
                                 <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10">
                                     <span className="text-[10px] font-mono text-gray-400">
-                                        STOK HARUS DIPOLES:
+                                        TOTAL STOK DIPOLES:
                                     </span>
                                     <span
-                                        className={`text-sm font-bold ${reworkMikaStock.stock > 0 ? "text-amber-400" : "text-emerald-400"}`}
+                                        className={`text-sm font-bold ${reworkMikaStocks.reduce((sum, item) => sum + item.stock, 0) > 0 ? "text-amber-400" : "text-emerald-400"}`}
                                     >
-                                        {reworkMikaStock.stock} PCS
+                                        {reworkMikaStocks.reduce(
+                                            (sum, item) => sum + item.stock,
+                                            0
+                                        )}{" "}
+                                        PCS
                                     </span>
                                 </div>
                             </div>
 
                             <div className="flex flex-col md:flex-row gap-4">
                                 <div className="flex-1 text-sm text-gray-400">
-                                    Ambil mika kusam/rusak dari keranjang "Poles
+                                    Pilih jenis Mika kusam dari keranjang "Poles
                                     Ulang", bersihkan hingga kinclong, lalu
                                     laporkan jumlah yang berhasil diselesaikan
                                     di sini. Mika akan kembali menjadi stok
-                                    bagus.
+                                    bagus sesuai jenisnya.
+                                </div>
+                                <div className="w-full md:w-48">
+                                    <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
+                                        Pilih Mika
+                                    </label>
+                                    <select
+                                        value={selectedReworkMikaId}
+                                        onChange={(e) =>
+                                            setSelectedReworkMikaId(
+                                                e.target.value
+                                            )
+                                        }
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50 text-left font-mono"
+                                    >
+                                        <option value="" disabled>
+                                            -- Pilih Mika --
+                                        </option>
+                                        {reworkMikaStocks
+                                            .filter((m) => m.stock > 0)
+                                            .map((m) => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.name.replace(
+                                                        " (Poles Ulang)",
+                                                        ""
+                                                    )}{" "}
+                                                    (Stok: {m.stock})
+                                                </option>
+                                            ))}
+                                    </select>
                                 </div>
                                 <div className="w-full md:w-32">
                                     <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
@@ -582,7 +604,12 @@ export default function WorkerDashboard({ user }) {
                                         onClick={reworkMikaItem}
                                         disabled={
                                             reworkQty <= 0 ||
-                                            reworkMikaStock.stock < reworkQty
+                                            !selectedReworkMikaId ||
+                                            (reworkMikaStocks.find(
+                                                (m) =>
+                                                    m.id ===
+                                                    selectedReworkMikaId
+                                            )?.stock || 0) < reworkQty
                                         }
                                         className="w-full md:w-auto h-[46px] px-6 rounded-xl bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/40 font-bold text-sm hover:bg-[#bc13fe] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >

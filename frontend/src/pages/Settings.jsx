@@ -102,6 +102,7 @@ export default function Settings() {
     const [newRecipe, setNewRecipe] = useState({
         tipe_remote: "",
         jenis_tutup: "Tutup Baut",
+        jenis_mika: "Mika Default",
     });
 
     // Fetch config & prefix rules saat pertama kali
@@ -216,7 +217,11 @@ export default function Settings() {
             const data = await res.json();
             if (res.ok && data.success) {
                 setRecipes([...recipes, data.recipe]);
-                setNewRecipe({ tipe_remote: "", jenis_tutup: "Tutup Baut" });
+                setNewRecipe({
+                    tipe_remote: "",
+                    jenis_tutup: "Tutup Baut",
+                    jenis_mika: "Mika Default",
+                });
                 setRecipeToast({ msg: "Resep ditambahkan!", type: "success" });
             } else {
                 setRecipeToast({
@@ -873,6 +878,7 @@ export default function Settings() {
                                 <tr>
                                     <th className="p-3">Tipe Remote</th>
                                     <th className="p-3">Jenis Tutup</th>
+                                    <th className="p-3">Jenis Mika</th>
                                     <th className="p-3 text-right">Aksi</th>
                                 </tr>
                             </thead>
@@ -900,6 +906,11 @@ export default function Settings() {
                                                     {recipe.jenis_tutup}
                                                 </span>
                                             </td>
+                                            <td className="p-3">
+                                                <span className="px-2 py-1 rounded bg-[#bc13fe]/10 text-[#bc13fe] border border-[#bc13fe]/20">
+                                                    {recipe.jenis_mika || "-"}
+                                                </span>
+                                            </td>
                                             <td className="p-3 text-right">
                                                 <button
                                                     onClick={() =>
@@ -921,7 +932,7 @@ export default function Settings() {
                         <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2">
                             <Plus className="w-3 h-3" /> Tambah Resep Baru
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                             <div className="space-y-1">
                                 <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">
                                     Tipe Remote
@@ -960,6 +971,23 @@ export default function Settings() {
                                     <option>Tutup Panjang</option>
                                     <option>Tutup Baut Rendam</option>
                                 </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-mono text-gray-600 uppercase ml-1">
+                                    Jenis Mika
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Mika A75C2656"
+                                    value={newRecipe.jenis_mika}
+                                    onChange={(e) =>
+                                        setNewRecipe({
+                                            ...newRecipe,
+                                            jenis_mika: e.target.value,
+                                        })
+                                    }
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#bc13fe]/50 outline-none"
+                                />
                             </div>
                             <div className="flex items-end">
                                 <button
