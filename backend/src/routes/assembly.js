@@ -30,18 +30,28 @@ router.get("/wip", async (req, res) => {
             .get();
 
         if (!mikaStock) {
-            // Fallback jika huruf besar/kecil berbeda
-            mikaStock = await db
+            const allMikas = await db
                 .select()
                 .from(items)
                 .where(like(items.name, "%Mika%"))
-                .get();
+                .all();
+            mikaStock = allMikas.find((m) => !m.name.includes("Poles"));
         }
+
+        const reworkMikaStock = await db
+            .select()
+            .from(items)
+            .where(eq(items.name, "Mika (Poles Ulang)"))
+            .get();
 
         res.json({
             success: true,
             wip: wipItems.filter((item) => item.stock > 0), // Hanya tampilkan yang stoknya ada
             mika: mikaStock || { name: "Mika", stock: 0 },
+            reworkMika: reworkMikaStock || {
+                name: "Mika (Poles Ulang)",
+                stock: 0,
+            },
         });
     } catch (err) {
         console.error(err);
@@ -227,6 +237,173 @@ router.post("/assemble", async (req, res) => {
             success: false,
             error: err.message || "Gagal melakukan perakitan",
         });
+    }
+});
+// 3. Lapor Mika Rusak / Kusam (Admin)
+router.post("/defect-mika", async (req, res) => {
+    const { mika_id, quantity } = req.body;
+    if (!quantity || quantity <= 0)
+        return res
+            .status(400)
+            .json({ success: false, error: "Jumlah tidak valid" });
+
+    try {
+        const defectTx = betterSqlite.transaction(() => {
+            let mikaItem;
+            if (mika_id) {
+                mikaItem = db
+                    .select()
+                    .from(items)
+                    .where(eq(items.id, mika_id))
+                    .get();
+            } else {
+                mikaItem =
+                    db
+                        .select()
+                        .from(items)
+                        .where(eq(items.name, "Mika"))
+                        .get() ||
+                    db
+                        .select()
+                        .from(items)
+                        .where(like(items.name, "%Mika%"))
+                        .get();
+            }
+            if (!mikaItem) throw new Error("Komponen Mika tidak ditemukan");
+            if (mikaItem.stock < quantity)
+                throw new Error("Stok Mika tidak mencukupi untuk dilaporkan");
+
+            // Potong stok mika bagus
+            const newStock = mikaItem.stock - quantity;
+            db.update(items)
+                .set({ stock: newStock })
+                .where(eq(items.id, mikaItem.id))
+                .run();
+
+            // Tambah stok mika poles ulang
+            const reworkName = "Mika (Poles Ulang)";
+            let reworkItem = db
+                .select()
+                .from(items)
+                .where(eq(items.name, reworkName))
+                .get();
+            if (reworkItem) {
+                db.update(items)
+                    .set({ stock: reworkItem.stock + quantity })
+                    .where(eq(items.id, reworkItem.id))
+                    .run();
+            } else {
+                db.insert(items)
+                    .values({
+                        id: crypto.randomUUID(),
+                        name: reworkName,
+                        category: "KOMPONEN",
+                        price: 0,
+                        stock: quantity,
+                        status: "IN_STOCK",
+                        bab: mikaItem.bab || "Uncategorized",
+                        sub_bab: mikaItem.sub_bab || "Uncategorized",
+                        location: mikaItem.location || "Belum Ditentukan",
+                        condition: "REWORK",
+                    })
+                    .run();
+            }
+
+            // Log
+            insertTransaction({
+                transaction_id: crypto.randomUUID(),
+                item_name: mikaItem.name,
+                category: "KOMPONEN",
+                unit_price: 0,
+                quantity: quantity,
+                total: 0,
+                timestamp: new Date().toISOString(),
+                type: "DEFECT_LOGGED",
+                source: "STASIUN_MIKA_ADMIN",
+            });
+
+            return { message: "Mika berhasil dipindah ke status Poles Ulang" };
+        });
+
+        const result = defectTx();
+        res.json({ success: true, ...result });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+// 4. Selesai Poles Mika (Pekerja Casing)
+router.post("/rework-mika", async (req, res) => {
+    const { quantity } = req.body;
+    if (!quantity || quantity <= 0)
+        return res
+            .status(400)
+            .json({ success: false, error: "Jumlah tidak valid" });
+
+    try {
+        const reworkTx = betterSqlite.transaction(() => {
+            const reworkName = "Mika (Poles Ulang)";
+            const reworkItem = db
+                .select()
+                .from(items)
+                .where(eq(items.name, reworkName))
+                .get();
+
+            if (!reworkItem) throw new Error("Tidak ada stok Mika Poles Ulang");
+            if (reworkItem.stock < quantity)
+                throw new Error("Stok Mika Poles Ulang tidak mencukupi");
+
+            let mikaItem = db
+                .select()
+                .from(items)
+                .where(eq(items.name, "Mika"))
+                .get();
+            if (!mikaItem) {
+                const allMikas = db
+                    .select()
+                    .from(items)
+                    .where(like(items.name, "%Mika%"))
+                    .all();
+                mikaItem = allMikas.find((m) => !m.name.includes("Poles"));
+            }
+            if (!mikaItem)
+                throw new Error(
+                    "Stok utama Mika tidak ditemukan untuk ditambahkan"
+                );
+
+            // Kurangi poles ulang
+            db.update(items)
+                .set({ stock: reworkItem.stock - quantity })
+                .where(eq(items.id, reworkItem.id))
+                .run();
+            // Tambah mika bagus
+            db.update(items)
+                .set({ stock: mikaItem.stock + quantity })
+                .where(eq(items.id, mikaItem.id))
+                .run();
+
+            // Log
+            insertTransaction({
+                transaction_id: crypto.randomUUID(),
+                item_name: reworkName,
+                category: "KOMPONEN",
+                unit_price: 0,
+                quantity: quantity,
+                total: 0,
+                timestamp: new Date().toISOString(),
+                type: "REWORK_COMPLETED",
+                source: "STASIUN_POLES_MIKA",
+            });
+
+            return {
+                message: "Mika berhasil dipoles dan kembali menjadi stok bagus",
+            };
+        });
+
+        const result = reworkTx();
+        res.json({ success: true, ...result });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
     }
 });
 

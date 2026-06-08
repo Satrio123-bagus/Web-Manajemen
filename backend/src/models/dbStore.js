@@ -362,7 +362,16 @@ const stmts = {
                     .join(" ");
             };
 
-            const itemName = `${capitalize(job.komponen)} ${job.tipe_remote.toUpperCase()}${kriteriaStr}`;
+            let suffix = "";
+            if (job.komponen && job.komponen.toUpperCase() === "CASING") {
+                if ((job.merk || "").toUpperCase().includes("PANASONIC")) {
+                    suffix = " (Tanpa Mika) (Tanpa Tutup)";
+                } else {
+                    suffix = " (Tanpa Mika)";
+                }
+            }
+
+            const itemName = `${capitalize(job.komponen)} ${job.tipe_remote.toUpperCase()}${kriteriaStr}${suffix}`;
 
             const existing = db
                 .select()

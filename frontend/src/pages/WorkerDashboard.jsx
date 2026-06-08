@@ -48,9 +48,12 @@ export default function WorkerDashboard({ user }) {
     // Assembly State
     const [wipItems, setWipItems] = useState([]);
     const [mikaStock, setMikaStock] = useState({ name: "Mika", stock: 0 });
-    const [selectedWip, setSelectedWip] = useState("");
-    const [assemblyQty, setAssemblyQty] = useState(1);
-    const [assemblyToast, setAssemblyToast] = useState(null);
+    const [reworkMikaStock, setReworkMikaStock] = useState({
+        name: "Mika (Poles Ulang)",
+        stock: 0,
+    });
+    const [reworkQty, setReworkQty] = useState(1);
+    const [reworkToast, setReworkToast] = useState(null);
 
     // Mesin State
     const [mesinReworkTag, setMesinReworkTag] = useState("");
@@ -99,12 +102,12 @@ export default function WorkerDashboard({ user }) {
                 if (resAssembly.ok) {
                     const data = await resAssembly.json();
                     if (data.success) {
-                        setWipItems(data.wip || []);
-                        setMikaStock(data.mika || { name: "Mika", stock: 0 });
-                        // auto select first if empty
-                        if (data.wip?.length > 0 && !selectedWip) {
-                            setSelectedWip(data.wip[0].id);
-                        }
+                        setReworkMikaStock(
+                            data.reworkMika || {
+                                name: "Mika (Poles Ulang)",
+                                stock: 0,
+                            }
+                        );
                     }
                 }
             } catch (error) {
@@ -141,27 +144,34 @@ export default function WorkerDashboard({ user }) {
         }
     };
 
-    const assembleItem = async () => {
-        if (!selectedWip || assemblyQty <= 0) return;
+    const reworkMikaItem = async () => {
+        if (reworkQty <= 0) return;
         try {
-            const res = await api.post("/assembly/assemble", {
-                wip_id: selectedWip,
-                mika_id: mikaStock.id, // can be undefined, backend has fallback
-                quantity: assemblyQty,
+            const res = await api.post("/assembly/rework-mika", {
+                quantity: reworkQty,
             });
             const data = await res.json();
-            if (res.ok && data.success) {
-                setAssemblyToast({
+
+            if (data.success) {
+                playSound("success");
+                setReworkToast({
                     type: "success",
-                    msg: `Berhasil merakit ${data.quantity} ${data.hasil}`,
+                    msg: `Berhasil memoles ${reworkQty} Mika!`,
                 });
-                playSound("click");
-                setAssemblyQty(1);
+                setReworkQty(1);
+
+                // Refresh data
+                const resAssembly = await api.get("/assembly/wip");
+                if (resAssembly.ok) {
+                    const asmData = await resAssembly.json();
+                    setReworkMikaStock(
+                        asmData.reworkMika || {
+                            name: "Mika (Poles Ulang)",
+                            stock: 0,
+                        }
+                    );
+                }
             } else {
-                setAssemblyToast({
-                    type: "error",
-                    msg: data.error || "Gagal merakit",
-                });
                 playSound("error");
             }
         } catch (err) {
@@ -521,7 +531,7 @@ export default function WorkerDashboard({ user }) {
                             </div>
                         </GlassCard>
 
-                        {/* WIDGET 4: STASIUN RAKIT MIKA */}
+                        {/* WIDGET 4: STASIUN POLES MIKA */}
                         <GlassCard
                             delay={0.5}
                             className="xl:col-span-3 border-t-4 border-t-[#bc13fe]"
@@ -530,49 +540,28 @@ export default function WorkerDashboard({ user }) {
                                 <div className="flex items-center gap-2">
                                     <Wrench className="w-5 h-5 text-[#bc13fe]" />
                                     <h2 className="text-sm font-black tracking-widest text-white uppercase">
-                                        🛠️ Stasiun Rakit Mika
+                                        ✨ Stasiun Poles Mika
                                     </h2>
                                 </div>
                                 <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10">
                                     <span className="text-[10px] font-mono text-gray-400">
-                                        STOK MIKA:
+                                        STOK HARUS DIPOLES:
                                     </span>
                                     <span
-                                        className={`text-sm font-bold ${mikaStock.stock > 0 ? "text-emerald-400" : "text-red-400"}`}
+                                        className={`text-sm font-bold ${reworkMikaStock.stock > 0 ? "text-amber-400" : "text-emerald-400"}`}
                                     >
-                                        {mikaStock.stock} PCS
+                                        {reworkMikaStock.stock} PCS
                                     </span>
                                 </div>
                             </div>
 
                             <div className="flex flex-col md:flex-row gap-4">
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
-                                        Pilih Barang Setengah Jadi (WIP)
-                                    </label>
-                                    <select
-                                        value={selectedWip}
-                                        onChange={(e) =>
-                                            setSelectedWip(e.target.value)
-                                        }
-                                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50"
-                                    >
-                                        {wipItems.length === 0 ? (
-                                            <option value="">
-                                                -- Tidak ada barang WIP --
-                                            </option>
-                                        ) : (
-                                            wipItems.map((wip) => (
-                                                <option
-                                                    key={wip.id}
-                                                    value={wip.id}
-                                                >
-                                                    {wip.name} (Stok:{" "}
-                                                    {wip.stock})
-                                                </option>
-                                            ))
-                                        )}
-                                    </select>
+                                <div className="flex-1 text-sm text-gray-400">
+                                    Ambil mika kusam/rusak dari keranjang "Poles
+                                    Ulang", bersihkan hingga kinclong, lalu
+                                    laporkan jumlah yang berhasil diselesaikan
+                                    di sini. Mika akan kembali menjadi stok
+                                    bagus.
                                 </div>
                                 <div className="w-full md:w-32">
                                     <label className="text-[10px] font-mono text-gray-500 uppercase mb-1 block">
@@ -581,44 +570,41 @@ export default function WorkerDashboard({ user }) {
                                     <input
                                         type="number"
                                         min="1"
-                                        value={assemblyQty}
+                                        value={reworkQty}
                                         onChange={(e) =>
-                                            setAssemblyQty(
-                                                Number(e.target.value)
-                                            )
+                                            setReworkQty(Number(e.target.value))
                                         }
                                         className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#bc13fe]/50 text-center font-mono"
                                     />
                                 </div>
                                 <div className="flex items-end">
                                     <button
-                                        onClick={assembleItem}
+                                        onClick={reworkMikaItem}
                                         disabled={
-                                            !selectedWip ||
-                                            assemblyQty <= 0 ||
-                                            mikaStock.stock < assemblyQty
+                                            reworkQty <= 0 ||
+                                            reworkMikaStock.stock < reworkQty
                                         }
                                         className="w-full md:w-auto h-[46px] px-6 rounded-xl bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/40 font-bold text-sm hover:bg-[#bc13fe] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
-                                        RAKIT SEKARANG{" "}
+                                        SELESAI POLES{" "}
                                         <ArrowRight className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
 
                             <AnimatePresence>
-                                {assemblyToast && (
+                                {reworkToast && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0 }}
                                         className={`mt-4 p-3 rounded-xl text-xs font-mono text-center border ${
-                                            assemblyToast.type === "success"
+                                            reworkToast.type === "success"
                                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                                                 : "bg-red-500/10 border-red-500/30 text-red-400"
                                         }`}
                                     >
-                                        {assemblyToast.msg}
+                                        {reworkToast.msg}
                                     </motion.div>
                                 )}
                             </AnimatePresence>

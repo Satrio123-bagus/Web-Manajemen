@@ -17,6 +17,7 @@ import {
     Wrench,
 } from "lucide-react";
 import CortexActionCenter from "../components/CortexActionCenter";
+import AdminMikaStation from "../components/AdminMikaStation";
 
 /* ═══════════════════════════════════════════════════════════
    RARITY CONFIG
@@ -792,6 +793,9 @@ export default function Dashboard({
 
                 {/* ═══ CORTEX ACTION CENTER ═══ */}
                 <CortexActionCenter onAssemble={onAssemble} />
+
+                {/* ═══ ADMIN MIKA STATION ═══ */}
+                <AdminMikaStation />
             </div>
         </div>
     );
