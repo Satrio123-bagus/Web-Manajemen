@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wrench, ArrowRight, AlertTriangle } from "lucide-react";
 import api from "../api";
-import useSound from "use-sound";
+import { useSound } from "../hooks/useSound";
 
 export default function AdminMikaStation() {
     const [wipItems, setWipItems] = useState([]);
@@ -14,9 +14,7 @@ export default function AdminMikaStation() {
     const [defectQty, setDefectQty] = useState(1);
 
     const [toast, setToast] = useState(null);
-    const [playClick] = useSound("/sounds/click.mp3", { volume: 0.5 });
-    const [playSuccess] = useSound("/sounds/success.mp3", { volume: 0.5 });
-    const [playError] = useSound("/sounds/error.mp3", { volume: 0.5 });
+    const { playSound } = useSound();
 
     const fetchData = async () => {
         try {
@@ -52,7 +50,7 @@ export default function AdminMikaStation() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                playSuccess();
+                playSound("success");
                 setToast({
                     type: "success",
                     msg: `Berhasil merakit ${data.quantity} ${data.hasil}`,
@@ -60,11 +58,11 @@ export default function AdminMikaStation() {
                 setAssemblyQty(1);
                 fetchData();
             } else {
-                playError();
+                playSound("error");
                 setToast({ type: "error", msg: data.error || "Gagal merakit" });
             }
         } catch (err) {
-            playError();
+            playSound("error");
             setToast({ type: "error", msg: "Terjadi kesalahan sistem" });
         }
         setTimeout(() => setToast(null), 3000);
@@ -79,7 +77,7 @@ export default function AdminMikaStation() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                playSuccess();
+                playSound("success");
                 setToast({
                     type: "success",
                     msg: `Berhasil melapor ${defectQty} mika kusam`,
@@ -87,11 +85,11 @@ export default function AdminMikaStation() {
                 setDefectQty(1);
                 fetchData();
             } else {
-                playError();
+                playSound("error");
                 setToast({ type: "error", msg: data.error || "Gagal melapor" });
             }
         } catch (err) {
-            playError();
+            playSound("error");
             setToast({ type: "error", msg: "Terjadi kesalahan sistem" });
         }
         setTimeout(() => setToast(null), 3000);
