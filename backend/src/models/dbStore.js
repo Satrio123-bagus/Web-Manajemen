@@ -161,6 +161,13 @@ try {
         `ALTER TABLE production_jobs ADD COLUMN merk TEXT DEFAULT 'Lain-lain'`
     );
 } catch (_) {}
+
+try {
+    betterSqlite.exec(
+        `ALTER TABLE production_jobs ADD COLUMN jalur_proses TEXT DEFAULT 'CAT'`
+    );
+} catch (_) {}
+
 try {
     betterSqlite.exec(
         `ALTER TABLE bom_recipes ADD COLUMN jenis_mika TEXT`
@@ -315,7 +322,8 @@ const stmts = {
             assigned_to,
             timestamp,
             supplier,
-            merk
+            merk,
+            jalur_proses
         ) =>
             db
                 .insert(production_jobs)
@@ -331,6 +339,7 @@ const stmts = {
                     timestamp,
                     supplier: supplier || "Campuran (Lama)",
                     merk: merk || "Lain-lain",
+                    jalur_proses: jalur_proses || 'CAT',
                 })
                 .run(),
     },

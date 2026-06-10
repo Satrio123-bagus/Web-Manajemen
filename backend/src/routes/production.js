@@ -77,7 +77,7 @@ router.post("/tutup-buku", (req, res) => {
 
 router.post("/jobs", (req, res) => {
     try {
-        const { tipe_remote, komponen, kriteria, alokasi, supplier, merk } =
+        const { tipe_remote, komponen, kriteria, alokasi, supplier, merk, jalur_proses } =
             req.body;
         if (!tipe_remote || !komponen || !alokasi) {
             return res
@@ -102,7 +102,8 @@ router.post("/jobs", (req, res) => {
             null,
             timestamp,
             supplier,
-            merk
+            merk,
+            jalur_proses || "CAT"
         );
         res.json({ success: true, message: "Pekerjaan berhasil ditambahkan" });
     } catch (err) {
@@ -191,33 +192,68 @@ router.post("/jobs/:id/qc", (req, res) => {
         }
 
         // --- JEMBATAN KE INVENTORY (WMS) ---
+        // --- JEMBATAN KE INVENTORY (WMS) ---
         const totalLulus = (qcJual || 0) + (qcRakit || 0);
         if (totalLulus > 0) {
             let finalTipeRemote = job.tipe_remote;
             if (modifikasiVarian && modifikasiVarian.trim()) {
                 finalTipeRemote = `${finalTipeRemote} ${modifikasiVarian.trim()}`;
             }
+            
+            // Tambahkan "Tanpa Tutup" jika Panasonic dan belum ada
             if (job.merk && job.merk.toUpperCase() === "PANASONIC") {
                 if (!finalTipeRemote.includes("(Tanpa Tutup)")) {
                     finalTipeRemote = `${finalTipeRemote} (Tanpa Tutup)`;
                 }
             }
-            const modifiedJob = { ...job, tipe_remote: finalTipeRemote };
 
-            const inventoryResult = stmts.upsertInventoryFromQC.run(
-                modifiedJob,
-                totalLulus
-            );
-            refreshInventory(); // <--- This ensures the frontend gets the new data
-            if (inventoryResult && inventoryResult.isNew) {
-                // Trigger Hermes untuk klasifikasi otomatis
-                autoClassifyIfNeeded(inventoryResult.id).catch((e) =>
-                    console.error(
-                        "[HERMES] Gagal memicu autoClassify:",
-                        e.message
-                    )
-                );
+            let wmsName = "";
+            let wmsCondition = "READY";
+            
+            if (job.jalur_proses === 'CUCI') {
+                wmsName = `Casing Cuci ${job.merk || "Lain-lain"} ${finalTipeRemote}`;
+                wmsCondition = "ORI_CUCI";
+            } else {
+                if (job.merk && job.merk.toUpperCase() === "PANASONIC") {
+                    wmsName = `Casing Panasonic ${finalTipeRemote}`;
+                } else if (job.merk && job.merk.toUpperCase() === "LG") {
+                    wmsName = `Casing LG ${finalTipeRemote}`;
+                } else {
+                    wmsName = `Casing ${job.merk || "Lain-lain"} ${finalTipeRemote}`;
+                }
             }
+
+            const itemLocation = "Belum Ditentukan";
+            const finalRarity =
+                job.merk?.toUpperCase() === "PANASONIC"
+                    ? "COMMON"
+                    : job.merk?.toUpperCase() === "LG"
+                    ? "UNCOMMON"
+                    : "COMMON";
+
+            const upsertResult = stmts.upsertItem.run(
+                wmsName,
+                "CASING",
+                0, // price
+                totalLulus,
+                finalRarity,
+                "IN_STOCK",
+                "Uncategorized",
+                "Uncategorized",
+                itemLocation,
+                wmsCondition
+            );
+            
+            refreshInventory(); // <--- This ensures the frontend gets the new data
+            
+            // Cek apakah item baru untuk di trigger Hermes (opsional, karena upsertItem returns changes/lastInsertRowid)
+            // Karena upsertItem standard mungkin tidak return isNew, kita trigger saja autoClassifyIfNeeded.
+            // Di sini kita asumsikan upsertItem me-return id jika baru, atau kita bisa mem-pass wmsName.
+            try {
+                autoClassifyIfNeeded(wmsName).catch((e) =>
+                    console.error("[HERMES] Gagal memicu autoClassify:", e.message)
+                );
+            } catch (e) {}
         }
 
         res.json({

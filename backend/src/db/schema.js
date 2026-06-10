@@ -60,6 +60,7 @@ const production_jobs = sqliteTable("production_jobs", {
     assigned_to: text("assigned_to"), // ID user (opsional)
     timestamp: text("timestamp"),
     supplier: text("supplier").notNull().default("Campuran (Lama)"),
+    jalur_proses: text("jalur_proses").notNull().default("CAT"), // CUCI atau CAT
 });
 
 const supply_reports = sqliteTable("supply_reports", {

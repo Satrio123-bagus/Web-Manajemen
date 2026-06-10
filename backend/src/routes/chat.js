@@ -45,20 +45,22 @@ router.post('/', async (req, res) => {
             relevantItems = scoredItems.map(obj => obj.item);
 
             // Scoring for Jobs (Papan Produksi/WIP)
-            const scoredJobs = allJobs.map(job => {
-                const searchStr = `${job.tipe_remote} ${job.merk} ${job.komponen} ${job.status} ${job.supplier}`.toLowerCase();
-                let score = 0;
-                words.forEach(w => {
-                    if (searchStr.includes(w)) {
-                        score += 1;
-                        if (/\d/.test(w)) score += 5;
-                    }
-                });
-                return { job, score };
-            }).filter(obj => obj.score > 0);
-
-            scoredJobs.sort((a, b) => b.score - a.score);
-            relevantJobs = scoredJobs.map(obj => obj.job);
+            relevantJobs = allJobs
+            .filter((j) => {
+                const searchString =
+                    `${j.tipe_remote} ${j.status} ${j.komponen} ${j.catatan} ${j.merk} ${j.supplier} ${j.jalur_proses || 'CAT'}`.toLowerCase();
+                return words.some((kw) => searchString.includes(kw));
+            })
+            .map((j) => ({
+                id: j.id.substring(0, 5) + "...",
+                merk: j.merk,
+                tipe: j.tipe_remote,
+                komponen: j.komponen,
+                jalur: j.jalur_proses || "CAT",
+                status: j.status,
+                qty: j.alokasi,
+                supplier: j.supplier,
+            }));
         }
         
         // If no specific match, just send top/recent items + low stock
@@ -80,7 +82,7 @@ ${JSON.stringify(relevantItems.slice(0, 30), null, 2)}
 --- DATA PAPAN PRODUKSI (BARANG MENTAH / PROSES CASING / SEDANG DI QC) ---
 ${JSON.stringify(relevantJobs.slice(0, 30), null, 2)}
 
-Answer the operator's question using ONLY the data above. Be concise and precise. If they ask about barang Casing or mentah, refer to DATA PAPAN PRODUKSI.`;
+Answer the operator's question using ONLY the data above. Be concise and precise. If they ask about barang Casing, mentah, atau jalur cuci/cat, refer to DATA PAPAN PRODUKSI. Perhatikan atribut 'jalur' (CUCI atau CAT) pada DATA PAPAN PRODUKSI jika ditanya spesifik soal Gudang Cuci/Gudang Cat.`;
 
         const chatCompletion = await groq.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
