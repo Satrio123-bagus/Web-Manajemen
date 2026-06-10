@@ -13,6 +13,21 @@ router.get("/", (req, res) => {
     }
 });
 
+// GET /api/settings/recipes/fix-db
+router.get("/fix-db", (req, res) => {
+    try {
+        const db = require("better-sqlite3")("./data/inventory.db");
+        db.exec("ALTER TABLE bom_recipes ADD COLUMN jenis_mika TEXT;");
+        res.json({ success: true, message: "Berhasil menambahkan kolom jenis_mika" });
+    } catch (err) {
+        if (err.message.includes("duplicate column")) {
+            res.json({ success: true, message: "Kolom jenis_mika sudah ada (aman)" });
+        } else {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+});
+
 // POST /api/settings/recipes
 router.post("/", (req, res) => {
     try {

@@ -122,7 +122,8 @@ betterSqlite.exec(`
   CREATE TABLE IF NOT EXISTS bom_recipes (
     id TEXT PRIMARY KEY,
     tipe_remote TEXT NOT NULL UNIQUE,
-    jenis_tutup TEXT NOT NULL
+    jenis_tutup TEXT NOT NULL,
+    jenis_mika TEXT
   );
 `);
 try {
@@ -160,6 +161,16 @@ try {
         `ALTER TABLE production_jobs ADD COLUMN merk TEXT DEFAULT 'Lain-lain'`
     );
 } catch (_) {}
+try {
+    betterSqlite.exec(
+        `ALTER TABLE bom_recipes ADD COLUMN jenis_mika TEXT`
+    );
+    console.log("Migration successful: added jenis_mika to bom_recipes");
+} catch (e) {
+    if (!e.message.includes("duplicate column")) {
+        console.error("Migration failed for jenis_mika:", e.message);
+    }
+}
 
 // Initialize Drizzle ORM
 const db = drizzle(betterSqlite, { schema });
