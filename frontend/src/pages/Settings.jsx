@@ -105,6 +105,16 @@ export default function Settings() {
         jenis_mika: "Mika Default",
     });
 
+    const RECIPE_CATEGORIES = [
+        "Tutup Baut",
+        "Tutup Tidak Baut",
+        "Tutup Sedang",
+        "Tutup Besar",
+        "Tutup Panjang",
+        "Tutup Baut Rendam",
+    ];
+    const [activeRecipeTab, setActiveRecipeTab] = useState(RECIPE_CATEGORIES[0]);
+
     // Fetch config & prefix rules saat pertama kali
     useEffect(() => {
         (async () => {
@@ -872,6 +882,26 @@ export default function Settings() {
                         Atur pasangan Tutup Baterai untuk tipe remote Panasonic.
                         Sistem akan memotong otomatis saat pesanan dikonfirmasi.
                     </p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {RECIPE_CATEGORIES.map((category) => {
+                            const count = recipes.filter(
+                                (r) => r.jenis_tutup === category
+                            ).length;
+                            return (
+                                <button
+                                    key={category}
+                                    onClick={() => setActiveRecipeTab(category)}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-mono transition-all border ${
+                                        activeRecipeTab === category
+                                            ? "bg-[#00f3ff]/20 border-[#00f3ff]/50 text-[#00f3ff]"
+                                            : "bg-white/5 border-white/10 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                                    }`}
+                                >
+                                    {category} <span className="opacity-50 ml-1">({count})</span>
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
                         <table className="w-full text-left text-xs text-gray-300">
                             <thead className="bg-white/5 text-[10px] uppercase font-mono tracking-wider text-gray-500">
@@ -883,17 +913,19 @@ export default function Settings() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 font-mono text-[11px]">
-                                {recipes.length === 0 ? (
+                                {recipes.filter((r) => r.jenis_tutup === activeRecipeTab).length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan="3"
+                                            colSpan="4"
                                             className="p-5 text-center text-gray-500"
                                         >
-                                            Belum ada resep yang diatur.
+                                            Belum ada resep untuk {activeRecipeTab}.
                                         </td>
                                     </tr>
                                 ) : (
-                                    recipes.map((recipe) => (
+                                    recipes
+                                        .filter((r) => r.jenis_tutup === activeRecipeTab)
+                                        .map((recipe) => (
                                         <tr
                                             key={recipe.id}
                                             className="hover:bg-white/5 transition-colors group"
