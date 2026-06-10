@@ -104,6 +104,7 @@ export default function ProductionBoard({ user }) {
         merk: "Lain-lain",
         tipe_remote: "",
         komponen: user?.role === "MESIN" ? "MESIN" : "CASING",
+        jalur_proses: "CAT",
         kriteria: {},
         alokasi: 1,
         supplier: "Campuran (Lama)",
@@ -632,6 +633,39 @@ export default function ProductionBoard({ user }) {
                                         </select>
                                     )}
                                 </div>
+
+                                {newJob.komponen === "CASING" && (
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-400 mb-2">
+                                            JALUR PROSES
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewJob({...newJob, jalur_proses: "CUCI"})}
+                                                className={`flex-1 p-3 rounded-lg border text-xs font-bold transition-all ${
+                                                    newJob.jalur_proses === "CUCI"
+                                                        ? "bg-[#00f3ff]/20 border-[#00f3ff]/50 text-[#00f3ff]"
+                                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                                }`}
+                                            >
+                                                🚿 GUDANG CUCI
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewJob({...newJob, jalur_proses: "CAT"})}
+                                                className={`flex-1 p-3 rounded-lg border text-xs font-bold transition-all ${
+                                                    newJob.jalur_proses === "CAT"
+                                                        ? "bg-[#bc13fe]/20 border-[#bc13fe]/50 text-[#bc13fe]"
+                                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                                }`}
+                                            >
+                                                🎨 GUDANG CAT
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2">
                                         JUMLAH (PCS)
@@ -831,6 +865,15 @@ export default function ProductionBoard({ user }) {
                                                 >
                                                     {job.komponen}
                                                 </span>
+                                                {job.komponen === "CASING" && (
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
+                                                        job.jalur_proses === "CUCI" 
+                                                        ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/30" 
+                                                        : "bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/30"
+                                                    }`}>
+                                                        {job.jalur_proses === "CUCI" ? "🚿 JALUR CUCI" : "🎨 JALUR CAT"}
+                                                    </span>
+                                                )}
                                                 {job.supplier && (
                                                     <span
                                                         className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${job.supplier === "Campuran (Lama)" ? "bg-gray-500/20 text-gray-400" : "bg-green-500/20 text-green-400"}`}
