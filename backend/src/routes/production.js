@@ -77,8 +77,15 @@ router.post("/tutup-buku", (req, res) => {
 
 router.post("/jobs", (req, res) => {
     try {
-        const { tipe_remote, komponen, kriteria, alokasi, supplier, merk, jalur_proses } =
-            req.body;
+        const {
+            tipe_remote,
+            komponen,
+            kriteria,
+            alokasi,
+            supplier,
+            merk,
+            jalur_proses,
+        } = req.body;
         if (!tipe_remote || !komponen || !alokasi) {
             return res
                 .status(400)
@@ -199,28 +206,60 @@ router.post("/jobs/:id/qc", (req, res) => {
             if (modifikasiVarian && modifikasiVarian.trim()) {
                 finalTipeRemote = `${finalTipeRemote} ${modifikasiVarian.trim()}`;
             }
-            
-            // Tambahkan "Tanpa Tutup" jika Panasonic dan belum ada
-            if (job.merk && job.merk.toUpperCase() === "PANASONIC") {
-                if (!finalTipeRemote.includes("(Tanpa Tutup)")) {
-                    finalTipeRemote = `${finalTipeRemote} (Tanpa Tutup)`;
-                }
-            }
 
             let wmsName = "";
             let wmsCondition = "READY";
-            
-            if (job.jalur_proses === 'CUCI') {
-                wmsName = `Casing Cuci ${job.merk || "Lain-lain"} ${finalTipeRemote}`;
-                wmsCondition = "ORI_CUCI";
-            } else {
+            let wmsCategory = "CASING";
+
+            if (job.komponen === "CASING") {
+                // Tambahkan "Tanpa Tutup" jika Panasonic dan belum ada
                 if (job.merk && job.merk.toUpperCase() === "PANASONIC") {
-                    wmsName = `Casing Panasonic ${finalTipeRemote}`;
-                } else if (job.merk && job.merk.toUpperCase() === "LG") {
-                    wmsName = `Casing LG ${finalTipeRemote}`;
-                } else {
-                    wmsName = `Casing ${job.merk || "Lain-lain"} ${finalTipeRemote}`;
+                    if (!finalTipeRemote.includes("(Tanpa Tutup)")) {
+                        finalTipeRemote = `${finalTipeRemote} (Tanpa Tutup)`;
+                    }
                 }
+
+                if (job.jalur_proses === "CUCI") {
+                    wmsName = `Casing Cuci ${job.merk || "Lain-lain"} ${finalTipeRemote}`;
+                    wmsCondition = "ORI_CUCI";
+                } else {
+                    if (job.merk && job.merk.toUpperCase() === "PANASONIC") {
+                        wmsName = `Casing Panasonic ${finalTipeRemote}`;
+                    } else if (job.merk && job.merk.toUpperCase() === "LG") {
+                        wmsName = `Casing LG ${finalTipeRemote}`;
+                    } else {
+                        wmsName = `Casing ${job.merk || "Lain-lain"} ${finalTipeRemote}`;
+                    }
+                }
+            } else {
+                // Non-Casing items (MESIN, MIKA, TUTUP BATERAI)
+                wmsCategory = "MISC";
+                const capitalize = (str) => {
+                    if (!str) return "";
+                    return str
+                        .split(" ")
+                        .map(
+                            (w) =>
+                                w.charAt(0).toUpperCase() +
+                                w.slice(1).toLowerCase()
+                        )
+                        .join(" ");
+                };
+
+                let kriteriaStr = "";
+                if (job.kriteria) {
+                    try {
+                        const parsed = JSON.parse(job.kriteria);
+                        const tags = Object.values(parsed)
+                            .flat()
+                            .filter(Boolean);
+                        if (tags.length > 0)
+                            kriteriaStr = ` (${tags.join(", ")})`;
+                    } catch (e) {
+                        kriteriaStr = ` (${job.kriteria})`;
+                    }
+                }
+                wmsName = `${capitalize(job.komponen)} ${finalTipeRemote.toUpperCase()}${kriteriaStr}`;
             }
 
             const itemLocation = "Belum Ditentukan";
@@ -228,12 +267,12 @@ router.post("/jobs/:id/qc", (req, res) => {
                 job.merk?.toUpperCase() === "PANASONIC"
                     ? "COMMON"
                     : job.merk?.toUpperCase() === "LG"
-                    ? "UNCOMMON"
-                    : "COMMON";
+                      ? "UNCOMMON"
+                      : "COMMON";
 
             const upsertResult = stmts.upsertItem.run(
                 wmsName,
-                "CASING",
+                wmsCategory,
                 0, // price
                 totalLulus,
                 finalRarity,
@@ -243,15 +282,18 @@ router.post("/jobs/:id/qc", (req, res) => {
                 itemLocation,
                 wmsCondition
             );
-            
+
             refreshInventory(); // <--- This ensures the frontend gets the new data
-            
+
             // Cek apakah item baru untuk di trigger Hermes (opsional, karena upsertItem returns changes/lastInsertRowid)
             // Karena upsertItem standard mungkin tidak return isNew, kita trigger saja autoClassifyIfNeeded.
             // Di sini kita asumsikan upsertItem me-return id jika baru, atau kita bisa mem-pass wmsName.
             try {
                 autoClassifyIfNeeded(wmsName).catch((e) =>
-                    console.error("[HERMES] Gagal memicu autoClassify:", e.message)
+                    console.error(
+                        "[HERMES] Gagal memicu autoClassify:",
+                        e.message
+                    )
                 );
             } catch (e) {}
         }
