@@ -630,6 +630,12 @@ export default function ProductionBoard({ user }) {
                                             >
                                                 TUTUP (Baterai)
                                             </option>
+                                            <option
+                                                className="bg-gray-900"
+                                                value="MIKA"
+                                            >
+                                                MIKA (Kaca/Akrilik)
+                                            </option>
                                         </select>
                                     )}
                                 </div>
@@ -642,9 +648,15 @@ export default function ProductionBoard({ user }) {
                                         <div className="flex gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => setNewJob({...newJob, jalur_proses: "CUCI"})}
+                                                onClick={() =>
+                                                    setNewJob({
+                                                        ...newJob,
+                                                        jalur_proses: "CUCI",
+                                                    })
+                                                }
                                                 className={`flex-1 p-3 rounded-lg border text-xs font-bold transition-all ${
-                                                    newJob.jalur_proses === "CUCI"
+                                                    newJob.jalur_proses ===
+                                                    "CUCI"
                                                         ? "bg-[#00f3ff]/20 border-[#00f3ff]/50 text-[#00f3ff]"
                                                         : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                                                 }`}
@@ -653,9 +665,15 @@ export default function ProductionBoard({ user }) {
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setNewJob({...newJob, jalur_proses: "CAT"})}
+                                                onClick={() =>
+                                                    setNewJob({
+                                                        ...newJob,
+                                                        jalur_proses: "CAT",
+                                                    })
+                                                }
                                                 className={`flex-1 p-3 rounded-lg border text-xs font-bold transition-all ${
-                                                    newJob.jalur_proses === "CAT"
+                                                    newJob.jalur_proses ===
+                                                    "CAT"
                                                         ? "bg-[#bc13fe]/20 border-[#bc13fe]/50 text-[#bc13fe]"
                                                         : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                                                 }`}
@@ -866,12 +884,18 @@ export default function ProductionBoard({ user }) {
                                                     {job.komponen}
                                                 </span>
                                                 {job.komponen === "CASING" && (
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
-                                                        job.jalur_proses === "CUCI" 
-                                                        ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/30" 
-                                                        : "bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/30"
-                                                    }`}>
-                                                        {job.jalur_proses === "CUCI" ? "🚿 JALUR CUCI" : "🎨 JALUR CAT"}
+                                                    <span
+                                                        className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
+                                                            job.jalur_proses ===
+                                                            "CUCI"
+                                                                ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/30"
+                                                                : "bg-[#bc13fe]/20 text-[#bc13fe] border border-[#bc13fe]/30"
+                                                        }`}
+                                                    >
+                                                        {job.jalur_proses ===
+                                                        "CUCI"
+                                                            ? "🚿 JALUR CUCI"
+                                                            : "🎨 JALUR CAT"}
                                                     </span>
                                                 )}
                                                 {job.supplier && (
