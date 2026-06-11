@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { Zap, CheckCircle2, Activity } from "lucide-react";
 import api from "../api";

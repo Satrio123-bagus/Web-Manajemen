@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
 import {
     BrowserRouter,
     Routes,
@@ -7,8 +7,7 @@ import {
     useLocation,
 } from "react-router-dom";
 import { Loader, WifiOff, CheckCircle, AlertTriangle } from "lucide-react";
-// eslint-disable-next-line no-unused-vars
-import { motion } from "framer-motion";
+
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import Dashboard, { InventoryModal, AssembleModal } from "./pages/Dashboard";

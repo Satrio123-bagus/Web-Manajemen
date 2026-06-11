@@ -113,7 +113,9 @@ export default function Settings() {
         "Tutup Panjang",
         "Tutup Baut Rendam",
     ];
-    const [activeRecipeTab, setActiveRecipeTab] = useState(RECIPE_CATEGORIES[0]);
+    const [activeRecipeTab, setActiveRecipeTab] = useState(
+        RECIPE_CATEGORIES[0]
+    );
 
     // Fetch config & prefix rules saat pertama kali
     useEffect(() => {
@@ -139,7 +141,7 @@ export default function Settings() {
                     const data = await resRecipes.json();
                     setRecipes(data.recipes || []);
                 }
-            } catch (e) {
+            } catch {
                 console.error(e);
             } finally {
                 setPrefixLoading(false);
@@ -162,7 +164,7 @@ export default function Settings() {
                     type: "error",
                 });
             }
-        } catch (e) {
+        } catch {
             setAdminMessageToast({ msg: "Kesalahan jaringan", type: "error" });
         } finally {
             setAdminMessageSaving(false);
@@ -187,7 +189,7 @@ export default function Settings() {
                     type: "error",
                 });
             }
-        } catch (e) {
+        } catch {
             setPrefixToast({ msg: "Network error", type: "error" });
         }
         setPrefixSaving(false);
@@ -239,7 +241,7 @@ export default function Settings() {
                     type: "error",
                 });
             }
-        } catch (e) {
+        } catch {
             setRecipeToast({ msg: "Network error", type: "error" });
         }
         setTimeout(() => setRecipeToast(null), 3000);
@@ -254,7 +256,7 @@ export default function Settings() {
                 setRecipeToast({ msg: "Gagal menghapus", type: "error" });
                 setTimeout(() => setRecipeToast(null), 3000);
             }
-        } catch (e) {
+        } catch {
             setRecipeToast({ msg: "Network error", type: "error" });
             setTimeout(() => setRecipeToast(null), 3000);
         }
@@ -897,7 +899,10 @@ export default function Settings() {
                                             : "bg-white/5 border-white/10 text-gray-500 hover:bg-white/10 hover:text-gray-300"
                                     }`}
                                 >
-                                    {category} <span className="opacity-50 ml-1">({count})</span>
+                                    {category}{" "}
+                                    <span className="opacity-50 ml-1">
+                                        ({count})
+                                    </span>
                                 </button>
                             );
                         })}
@@ -913,48 +918,58 @@ export default function Settings() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 font-mono text-[11px]">
-                                {recipes.filter((r) => r.jenis_tutup === activeRecipeTab).length === 0 ? (
+                                {recipes.filter(
+                                    (r) => r.jenis_tutup === activeRecipeTab
+                                ).length === 0 ? (
                                     <tr>
                                         <td
                                             colSpan="4"
                                             className="p-5 text-center text-gray-500"
                                         >
-                                            Belum ada resep untuk {activeRecipeTab}.
+                                            Belum ada resep untuk{" "}
+                                            {activeRecipeTab}.
                                         </td>
                                     </tr>
                                 ) : (
                                     recipes
-                                        .filter((r) => r.jenis_tutup === activeRecipeTab)
+                                        .filter(
+                                            (r) =>
+                                                r.jenis_tutup ===
+                                                activeRecipeTab
+                                        )
                                         .map((recipe) => (
-                                        <tr
-                                            key={recipe.id}
-                                            className="hover:bg-white/5 transition-colors group"
-                                        >
-                                            <td className="p-3">
-                                                {recipe.tipe_remote}
-                                            </td>
-                                            <td className="p-3">
-                                                <span className="px-2 py-1 rounded bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20">
-                                                    {recipe.jenis_tutup}
-                                                </span>
-                                            </td>
-                                            <td className="p-3">
-                                                <span className="px-2 py-1 rounded bg-[#bc13fe]/10 text-[#bc13fe] border border-[#bc13fe]/20">
-                                                    {recipe.jenis_mika || "-"}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-right">
-                                                <button
-                                                    onClick={() =>
-                                                        removeRecipe(recipe.id)
-                                                    }
-                                                    className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
+                                            <tr
+                                                key={recipe.id}
+                                                className="hover:bg-white/5 transition-colors group"
+                                            >
+                                                <td className="p-3">
+                                                    {recipe.tipe_remote}
+                                                </td>
+                                                <td className="p-3">
+                                                    <span className="px-2 py-1 rounded bg-[#00f3ff]/10 text-[#00f3ff] border border-[#00f3ff]/20">
+                                                        {recipe.jenis_tutup}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3">
+                                                    <span className="px-2 py-1 rounded bg-[#bc13fe]/10 text-[#bc13fe] border border-[#bc13fe]/20">
+                                                        {recipe.jenis_mika ||
+                                                            "-"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-right">
+                                                    <button
+                                                        onClick={() =>
+                                                            removeRecipe(
+                                                                recipe.id
+                                                            )
+                                                        }
+                                                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
                                 )}
                             </tbody>
                         </table>
@@ -1138,6 +1153,7 @@ export default function Settings() {
 /* ═══ Sub-components ═══ */
 
 /* ── Section Wrapper ── */
+// eslint-disable-next-line no-unused-vars
 function Section({ label, icon: Icon, delay = 0, children }) {
     return (
         <motion.div
@@ -1163,6 +1179,7 @@ function Section({ label, icon: Icon, delay = 0, children }) {
 
 /* ── Setting Row ── */
 function SettingRow({
+    // eslint-disable-next-line no-unused-vars
     icon: Icon,
     iconBg,
     iconColor,

@@ -130,6 +130,7 @@ export default function Sidebar({ isOpen, onClose, user }) {
                         return ["DASHBOARD", "FACTORY BOARD"].includes(
                             item.label
                         );
+                        // eslint-disable-next-line no-unused-vars
                     }).map(({ icon: Icon, label, to }) => (
                         <NavLink
                             key={to}
