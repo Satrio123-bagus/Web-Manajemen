@@ -1,34 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from "react";
 // eslint-disable-next-line no-unused-vars
-import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, AlertTriangle, AlertCircle, Info, X, Check } from 'lucide-react';
-import { useSound } from '../hooks/useSound';
-import api from '../api';
+import { motion, AnimatePresence } from "framer-motion";
+import { Bell, AlertTriangle, AlertCircle, Info, X, Check } from "lucide-react";
+import { useSound } from "../hooks/useSound";
+import api from "../api";
 
 const TYPE_CONFIG = {
     critical: {
         icon: AlertCircle,
-        color: 'text-red-400',
-        bg: 'bg-red-500/10',
-        border: 'border-red-500/30',
-        dot: 'bg-red-500',
-        glow: 'shadow-[0_0_8px_rgba(239,68,68,0.3)]',
+        color: "text-red-400",
+        bg: "bg-red-500/10",
+        border: "border-red-500/30",
+        dot: "bg-red-500",
+        glow: "shadow-[0_0_8px_rgba(239,68,68,0.3)]",
     },
     warning: {
         icon: AlertTriangle,
-        color: 'text-amber-400',
-        bg: 'bg-amber-400/10',
-        border: 'border-amber-400/30',
-        dot: 'bg-amber-400',
-        glow: 'shadow-[0_0_8px_rgba(251,191,36,0.3)]',
+        color: "text-amber-400",
+        bg: "bg-amber-400/10",
+        border: "border-amber-400/30",
+        dot: "bg-amber-400",
+        glow: "shadow-[0_0_8px_rgba(251,191,36,0.3)]",
     },
     info: {
         icon: Info,
-        color: 'text-[var(--color-neon-cyan)]',
-        bg: 'bg-[var(--color-neon-cyan)]/10',
-        border: 'border-[var(--color-neon-cyan)]/30',
-        dot: 'bg-[var(--color-neon-cyan)]',
-        glow: 'shadow-[0_0_8px_rgba(0,243,255,0.3)]',
+        color: "text-[var(--color-neon-cyan)]",
+        bg: "bg-[var(--color-neon-cyan)]/10",
+        border: "border-[var(--color-neon-cyan)]/30",
+        dot: "bg-[var(--color-neon-cyan)]",
+        glow: "shadow-[0_0_8px_rgba(0,243,255,0.3)]",
     },
 };
 
@@ -40,31 +40,30 @@ export default function NotificationPanel() {
     const { playSound } = useSound();
 
     // Fetch notifications
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         try {
-            const res = await api.get('/notifications');
+            const res = await api.get("/notifications");
             if (res.ok) {
                 const data = await res.json();
-
-                // Play sound if there are new unread notifications that we didn't have before
-                const currentUnread = notifications.filter(n => !n.read).length;
-                const newUnread = data.filter(n => !n.read).length;
-
-                if (newUnread > currentUnread && currentUnread !== 0) {
-                    // Only play sound for subsequent new notifications, not on first load
-                    playSound('bell');
-                }
-
-                setNotifications(data);
+                setNotifications((prev) => {
+                    const currentUnread = prev.filter((n) => !n.read).length;
+                    const newUnread = data.filter((n) => !n.read).length;
+                    if (newUnread > currentUnread && currentUnread !== 0) {
+                        playSound("bell");
+                    }
+                    return data;
+                });
             }
-        } catch { /* silent */ }
-    };
+        } catch {
+            /* silent */
+        }
+    }, [playSound]);
 
     useEffect(() => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchNotifications]);
 
     // Close on click outside
     useEffect(() => {
@@ -73,26 +72,31 @@ export default function NotificationPanel() {
                 setIsOpen(false);
             }
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = notifications.filter((n) => !n.read).length;
 
     const markAsRead = async (id) => {
         try {
-            await api.post('/notifications/read', { id });
-            setNotifications(prev =>
-                prev.map(n => n.id === id ? { ...n, read: true } : n)
+            await api.post("/notifications/read", { id });
+            setNotifications((prev) =>
+                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
             );
-        } catch { /* silent */ }
+        } catch {
+            /* silent */
+        }
     };
 
     return (
         <div className="relative" ref={panelRef}>
             {/* Bell button */}
             <button
-                onClick={() => { playSound('click'); setIsOpen(!isOpen); }}
+                onClick={() => {
+                    playSound("click");
+                    setIsOpen(!isOpen);
+                }}
                 className="relative p-2 rounded-lg text-gray-500 hover:text-[var(--color-neon-cyan)] hover:bg-white/5 transition-all"
             >
                 <Bell className="w-5 h-5" />
@@ -146,32 +150,44 @@ export default function NotificationPanel() {
                                 </p>
                             ) : (
                                 notifications.map((notif) => {
-                                    const config = TYPE_CONFIG[notif.type] || TYPE_CONFIG.info;
+                                    const config =
+                                        TYPE_CONFIG[notif.type] ||
+                                        TYPE_CONFIG.info;
                                     const Icon = config.icon;
                                     return (
                                         <motion.div
                                             key={notif.id}
                                             layout
                                             initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: notif.read ? 0.5 : 1, x: 0 }}
+                                            animate={{
+                                                opacity: notif.read ? 0.5 : 1,
+                                                x: 0,
+                                            }}
                                             className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer group
-                                                ${notif.read
-                                                    ? 'bg-white/[0.01] border-white/[0.03]'
-                                                    : `${config.bg} ${config.border} ${config.glow}`
+                                                ${
+                                                    notif.read
+                                                        ? "bg-white/[0.01] border-white/[0.03]"
+                                                        : `${config.bg} ${config.border} ${config.glow}`
                                                 }`}
                                             onClick={() => {
                                                 if (!notif.read) {
-                                                    playSound('click');
+                                                    playSound("click");
                                                     markAsRead(notif.id);
                                                 }
                                             }}
                                         >
-                                            <div className={`p-1.5 rounded-lg ${config.bg} shrink-0 mt-0.5`}>
-                                                <Icon className={`w-3.5 h-3.5 ${config.color}`} />
+                                            <div
+                                                className={`p-1.5 rounded-lg ${config.bg} shrink-0 mt-0.5`}
+                                            >
+                                                <Icon
+                                                    className={`w-3.5 h-3.5 ${config.color}`}
+                                                />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className={`text-[10px] font-mono tracking-wider font-bold ${config.color}`}>
+                                                    <span
+                                                        className={`text-[10px] font-mono tracking-wider font-bold ${config.color}`}
+                                                    >
                                                         {notif.title}
                                                     </span>
                                                     {!notif.read && (

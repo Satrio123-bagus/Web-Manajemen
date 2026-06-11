@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Wrench, ArrowRight, AlertTriangle } from "lucide-react";
 import api from "../api";
@@ -40,6 +41,7 @@ export default function AdminMikaStation() {
         fetchData();
         const intervalId = setInterval(fetchData, 10000);
         return () => clearInterval(intervalId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const selectedWipItem = wipItems.find((w) => w.id === selectedWip);
@@ -82,7 +84,7 @@ export default function AdminMikaStation() {
                 playSound("error");
                 setToast({ type: "error", msg: data.error || "Gagal merakit" });
             }
-        } catch (err) {
+        } catch {
             playSound("error");
             setToast({ type: "error", msg: "Terjadi kesalahan sistem" });
         }
@@ -117,7 +119,7 @@ export default function AdminMikaStation() {
                 playSound("error");
                 setToast({ type: "error", msg: data.error || "Gagal melapor" });
             }
-        } catch (err) {
+        } catch {
             playSound("error");
             setToast({ type: "error", msg: "Terjadi kesalahan sistem" });
         }

@@ -66,6 +66,7 @@ function stockStatus(stock) {
 /* ═══════════════════════════════════════════════════════════
    STAT CARD
    ═══════════════════════════════════════════════════════════ */
+// eslint-disable-next-line no-unused-vars
 function StatCard({ icon: Icon, label, value, suffix, accent, delay = 0 }) {
     return (
         <motion.div

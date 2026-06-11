@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import {
     PackageOpen,
@@ -95,7 +96,7 @@ export default function ProductionBoard({ user }) {
     const [jobs, setJobs] = useState([]);
     const [reports, setReports] = useState([]);
     const [reportText, setReportText] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
+    const [, setIsLoading] = useState(true);
     const { playSound } = useSound();
 
     // Admin form state
@@ -202,7 +203,7 @@ export default function ProductionBoard({ user }) {
                 const data = await resSupplies.json();
                 setReports(data.reports);
             }
-        } catch (error) {
+        } catch {
             console.error("Fetch error:", error);
         } finally {
             setIsLoading(false);
@@ -239,7 +240,7 @@ export default function ProductionBoard({ user }) {
                     supplier: "Campuran (Lama)",
                 });
             }
-        } catch (error) {
+        } catch {
             playSound("error");
         }
     };
@@ -255,7 +256,7 @@ export default function ProductionBoard({ user }) {
             );
             await api.put(`/production/jobs/${jobId}`, { status: newStatus });
             fetchData();
-        } catch (error) {
+        } catch {
             playSound("error");
             fetchData(); // revert on fail
         }
@@ -279,7 +280,7 @@ export default function ProductionBoard({ user }) {
             });
             setQcJob(null);
             fetchData();
-        } catch (err) {
+        } catch {
             playSound("error");
         }
     };
@@ -295,7 +296,7 @@ export default function ProductionBoard({ user }) {
             });
             setSortirJob(null);
             fetchData();
-        } catch (err) {
+        } catch {
             playSound("error");
         }
     };
@@ -313,7 +314,7 @@ export default function ProductionBoard({ user }) {
             });
             setTarikJob(null);
             fetchData();
-        } catch (err) {
+        } catch {
             playSound("error");
         }
     };
@@ -329,7 +330,7 @@ export default function ProductionBoard({ user }) {
             });
             setAfkirJob(null);
             fetchData();
-        } catch (err) {
+        } catch {
             playSound("error");
         }
     };
@@ -349,7 +350,7 @@ export default function ProductionBoard({ user }) {
                 alert(data.message);
                 fetchData();
             }
-        } catch (err) {
+        } catch {
             playSound("error");
             console.error(err);
         }
@@ -367,7 +368,7 @@ export default function ProductionBoard({ user }) {
                 setReportText("");
                 fetchData();
             }
-        } catch (err) {
+        } catch {
             console.error(err);
         }
     };
@@ -938,7 +939,7 @@ export default function ProductionBoard({ user }) {
                                                                 return tags.join(
                                                                     ", "
                                                                 );
-                                                            } catch (e) {
+                                                            } catch {
                                                                 return job.kriteria;
                                                             }
                                                         })()}

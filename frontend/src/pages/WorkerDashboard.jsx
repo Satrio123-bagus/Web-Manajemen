@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
@@ -45,16 +46,7 @@ export default function WorkerDashboard({ user }) {
     const [orders, setOrders] = useState([]);
     const { playSound } = useSound();
 
-    // Assembly State
-    const [wipItems, setWipItems] = useState([]);
-    const [mikaStock, setMikaStock] = useState({ name: "Mika", stock: 0 });
-    const [reworkMikaStocks, setReworkMikaStocks] = useState([]);
-    const [selectedReworkMikaId, setSelectedReworkMikaId] = useState("");
-    const [reworkQty, setReworkQty] = useState(1);
-    const [reworkToast, setReworkToast] = useState(null);
-
     // Mesin State
-    const [mesinReworkTag, setMesinReworkTag] = useState("");
     const MESIN_REWORK_TAGS = [
         "Ganti Per",
         "Solder LED",
@@ -67,19 +59,13 @@ export default function WorkerDashboard({ user }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [
-                    resJobs,
-                    resSupplies,
-                    resConfig,
-                    resOrders,
-                    resAssembly,
-                ] = await Promise.all([
-                    api.get("/production/jobs"),
-                    api.get("/production/supplies"),
-                    api.get("/settings/config"),
-                    api.get("/orders/pending"),
-                    api.get("/assembly/wip"),
-                ]);
+                const [resJobs, resSupplies, resConfig, resOrders] =
+                    await Promise.all([
+                        api.get("/production/jobs"),
+                        api.get("/production/supplies"),
+                        api.get("/settings/config"),
+                        api.get("/orders/pending"),
+                    ]);
 
                 if (resJobs.ok) {
                     const data = await resJobs.json();
@@ -96,12 +82,6 @@ export default function WorkerDashboard({ user }) {
                 if (resOrders.ok) {
                     const data = await resOrders.json();
                     if (Array.isArray(data)) setOrders(data);
-                }
-                if (resAssembly.ok) {
-                    const data = await resAssembly.json();
-                    if (data.success) {
-                        setReworkMikaStocks(data.reworkMikaStocks || []);
-                    }
                 }
             } catch (error) {
                 console.error("Fetch error:", error);
@@ -132,45 +112,9 @@ export default function WorkerDashboard({ user }) {
                     setReports(data.reports);
                 }
             }
-        } catch (err) {
+        } catch {
             console.error(err);
         }
-    };
-
-    const reworkMikaItem = async () => {
-        if (reworkQty <= 0 || !selectedReworkMikaId) return;
-        try {
-            const res = await api.post("/assembly/rework-mika", {
-                rework_mika_id: selectedReworkMikaId,
-                quantity: reworkQty,
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                playSound("success");
-                setReworkToast({
-                    type: "success",
-                    msg: `Berhasil memoles ${reworkQty} Mika!`,
-                });
-                setReworkQty(1);
-
-                // Refresh data
-                const resAssembly = await api.get("/assembly/wip");
-                if (resAssembly.ok) {
-                    const asmData = await resAssembly.json();
-                    setReworkMikaStocks(asmData.reworkMikaStocks || []);
-                }
-            } else {
-                playSound("error");
-            }
-        } catch (err) {
-            setAssemblyToast({
-                type: "error",
-                msg: "Terjadi kesalahan jaringan",
-            });
-            playSound("error");
-        }
-        setTimeout(() => setAssemblyToast(null), 3000);
     };
 
     const handleMesinRework = async (tag) => {
@@ -191,7 +135,7 @@ export default function WorkerDashboard({ user }) {
                     setReports(data.reports);
                 }
             }
-        } catch (err) {
+        } catch {
             setMesinToast({ type: "error", msg: "Gagal mencatat servis" });
         }
         setTimeout(() => setMesinToast(null), 3000);
