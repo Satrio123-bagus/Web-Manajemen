@@ -25,3 +25,7 @@ backend/data/backups/
 
 # AI Configurations
 GEMINI.md
+
+# Scratch / file sementara (script uji coba, catatan lokal)
+/scratch/
+
